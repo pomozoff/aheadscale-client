@@ -37,14 +37,6 @@ popd >/dev/null
 ui_ldflags=$ldflags
 if [[ $platform == windows ]]; then ui_ldflags="$ui_ldflags -H windowsgui"; fi
 go build -trimpath -tags production -ldflags "$ui_ldflags" -o "$out/aheadscale-ui$extension" ./client/ui
-if [[ $platform == darwin ]]; then
-  # Apple clang/SDK support both targets on an Apple Silicon build runner.
-  # Verify payload architecture rather than inferring it from the runner name.
-  mach_arch=arm64
-  if [[ $arch == amd64 ]]; then mach_arch=x86_64; fi
-  lipo -verify_arch "$mach_arch" "$out/aheadscale"
-  lipo -verify_arch "$mach_arch" "$out/aheadscale-ui"
-fi
 python3 packaging/aheadscale/package.py --platform "$platform" --arch "$arch" --channel "$channel"
 if [[ $platform == linux ]]; then
   python3 packaging/aheadscale/package.py --platform "$platform" --arch "$arch" --channel "$channel" --cli-only

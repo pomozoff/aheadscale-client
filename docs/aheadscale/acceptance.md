@@ -2,11 +2,13 @@
 
 Do not mark an OS installation or network scenario passed from compilation alone.
 
-| Check | Linux | Windows | macOS |
+| Check | Linux amd64 | Windows amd64 | macOS arm64 |
 | --- | --- | --- | --- |
 | Configuration/IPC unit tests | See CI | Cross-build only | Build only |
 | CLI and desktop compilation | CI | CI | CI |
 | Native installer contents and syntax | CI | NSIS compile | pkgbuild/payload listing |
+| Windows adapter identity on native runner | N/A | Passed in CI | N/A |
+| Service package installation/removal on CI runner | Passed | Pending | Pending |
 | Clean-machine install, normal-user UI, system permission flow | Pending | Pending | Pending |
 | Browser sign-in and automatic connection | Pending | Pending | Pending |
 | Reboot/reconnect retains registration and account | Pending | Pending | Pending |
@@ -15,6 +17,8 @@ Do not mark an OS installation or network scenario passed from compilation alone
 | In-place upgrade preserves keys and device identity | Pending | Pending | Pending |
 | Uninstall preserves other NetBird/Tailscale installations | Pending | Pending | Pending |
 | Publisher signature/notarization | Repository signature pending | Pending certificate | Pending Developer ID/notarization |
+
+CI evidence: [preview run 39022500060](https://github.com/pomozoff/aheadscale-client/actions/runs/39022500060), source `b9f43a05d0cd8d4f71b5650fc53037ad6f539e7f`. The three selected platform jobs passed and their artifacts remain available; the overall run was canceled for macOS Intel, which is now deferred along with the other architectures.
 
 ## Public service gates
 

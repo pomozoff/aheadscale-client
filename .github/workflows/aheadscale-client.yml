@@ -115,7 +115,7 @@ jobs:
               wails3 generate webview2bootstrapper
               mv MicrosoftEdgeWebview2Setup.exe 'build/windows-${{ matrix.arch }}-'"$channel/"
             fi
-            bash -x packaging/aheadscale/build.sh '${{ matrix.platform }}' '${{ matrix.arch }}' "$channel"
+            bash packaging/aheadscale/build.sh '${{ matrix.platform }}' '${{ matrix.arch }}' "$channel"
           done
           python3 - <<'PY'
           from pathlib import Path

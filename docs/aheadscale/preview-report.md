@@ -3,7 +3,7 @@
 Исходная точка: NetBird v0.80.0, commit
 `fca64287cf51a85552a41b022013abbfdb335452`.
 Публичный форк: https://github.com/pomozoff/aheadscale-client.
-Рабочая ветка клиента: `codex/aheadscale-client`.
+Основная ветка форка: `aheadscale`; рабочая ветка реализации: `codex/aheadscale-client`.
 
 ## Реализация
 
@@ -25,8 +25,8 @@ Tailscale не мигрируются. `NB_CONFIG`/`WT_CONFIG` не выбира
 перезаписи ключей, переноса регистрации или переключения аккаунта. MDM не может
 перенаправить такой клиент в другое окружение.
 
-Один desktop-пакет содержит службу и UI. Предусмотрены Linux amd64 desktop/CLI,
-Linux arm64 CLI, Windows amd64/arm64 NSIS и macOS Intel/Apple Silicon pkg.
+Один desktop-пакет содержит службу и UI. Предусмотрены Linux amd64 desktop/CLI, Windows amd64 NSIS и macOS Apple Silicon (arm64) pkg.
+По уточнению пользователя macOS Intel и остальные архитектуры пока отложены.
 macOS включает отдельное удаление только Aheadscale; данные регистрации
 сохраняются. Windows сохраняет данные, пока пользователь явно не выберет их
 удаление. Целевые системы и необходимые библиотеки описаны в README клиента.
@@ -51,8 +51,35 @@ Windows amd64 и тест отдельного GUID адаптера скомп�
 включён в CI. Подпись Git-коммитов выполняется GitHub через createCommitOnBranch,
 настройки подписи Git и личные ключи владельца не изменяются.
 
-Полный запуск Actions и проверка Windows/macOS ещё должны завершиться.
-Наличие workflow не считается успешной сборкой.
+Готовые тестовые установщики: [GitHub Actions 39022500060](https://github.com/pomozoff/aheadscale-client/actions/runs/39022500060),
+исходный commit `b9f43a05d0cd8d4f71b5650fc53037ad6f539e7f`.
+
+| Платформа | Результат CI |
+| --- | --- |
+| Linux amd64 desktop и CLI | Passed; установка, запуск службы и удаление на runner |
+| Windows amd64 | Passed; NSIS installer |
+| macOS Apple Silicon | Passed; ad-hoc signed pkg |
+
+Общий запуск отменён из-за задачи macOS Intel; перечисленные выше три задачи
+успешно завершились, их артефакты доступны. Повторные сборки после изменения
+матрицы остановлены: изменение списка платформ не требует пересобирать уже
+готовые пакеты. Текущий CI ограничен Windows amd64, Linux amd64 и macOS arm64.
+
+- [Windows amd64](https://github.com/pomozoff/aheadscale-client/actions/runs/39022500060/artifacts/12097407780)
+- [Linux amd64](https://github.com/pomozoff/aheadscale-client/actions/runs/39022500060/artifacts/12097097442)
+- [macOS arm64](https://github.com/pomozoff/aheadscale-client/actions/runs/39022500060/artifacts/12096949045)
+
+Тесты конфигурации/IPC/изоляции, запрета upstream-обновлений, нативного GUID
+адаптера Windows и UI-служб Linux прошли. Артефакты содержат оба окружения
+(`internal` и `public`) и SHA256SUMS; срок хранения — семь дней. Для текущего
+приватного стенда нужен `internal`. Пакеты `public` используют публичный адрес,
+но пока также предназначены только для собственных испытаний.
+
+Сбой подготовки pnpm на Intel устранён установкой точной версии 11.4.0 через
+npm, без переключения версии сторонним bootstrapper. Проверка изоляции также
+выявила остаточный `NB_STATE_DIR`: теперь каталог состояния задаёт только
+`AS_STATE_DIR`. Подсказки CLI предлагают команды Aheadscale и не требуют ввода
+адреса сервера.
 
 ## Условия внешнего запуска
 
