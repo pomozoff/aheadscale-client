@@ -63,9 +63,10 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: '24.19.0'
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
-        with:
-          version: '11.4.0'
+      - name: Install pinned pnpm
+        run: |
+          npm install --global pnpm@11.4.0
+          test "$(pnpm --version)" = '11.4.0'
       - name: Linux build tools
         if: runner.os == 'Linux' && !(matrix.platform == 'linux' && matrix.arch == 'arm64')
         run: |
