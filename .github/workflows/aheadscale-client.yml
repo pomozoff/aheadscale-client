@@ -5,6 +5,13 @@ on:
   pull_request:
     branches: [aheadscale]
   workflow_dispatch:
+    inputs:
+      targets:
+        description: Platforms to build (arm64 skips existing x64/macOS installers)
+        type: choice
+        required: true
+        default: current
+        options: [current, arm64]
 permissions:
   contents: read
 concurrency:
@@ -44,10 +51,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - {platform: linux, arch: amd64, runner: ubuntu-24.04}
-          - {platform: windows, arch: amd64, runner: ubuntu-24.04}
-          - {platform: darwin, arch: arm64, runner: macos-26}
+        include: >-
+          ${{ fromJSON(inputs.targets == 'arm64' &&
+          '[{"platform":"linux","arch":"arm64","runner":"ubuntu-24.04-arm"},
+          {"platform":"windows","arch":"arm64","runner":"ubuntu-24.04"}]' ||
+          '[{"platform":"linux","arch":"amd64","runner":"ubuntu-24.04"},
+          {"platform":"windows","arch":"amd64","runner":"ubuntu-24.04"},
+          {"platform":"darwin","arch":"arm64","runner":"macos-26"}]') }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     env:
@@ -65,10 +75,16 @@ jobs:
           npm install --global pnpm@11.4.0
           test "$(pnpm --version)" = '11.4.0'
       - name: Linux build tools
-        if: runner.os == 'Linux' && !(matrix.platform == 'linux' && matrix.arch == 'arm64')
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev libsoup-3.0-dev gcc-mingw-w64-x86-64 nsis p7zip-full
+          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev libsoup-3.0-dev
+          if [[ '${{ matrix.platform }}' == windows ]]; then
+            sudo apt-get install -y nsis p7zip-full
+            if [[ '${{ matrix.arch }}' == amd64 ]]; then
+              sudo apt-get install -y gcc-mingw-w64-x86-64
+            fi
+          fi
       - name: Windows native dependencies
         if: matrix.platform == 'windows'
         shell: bash
@@ -102,7 +118,6 @@ jobs:
             echo 'CC=x86_64-w64-mingw32-gcc' >> "$GITHUB_ENV"
           fi
       - name: Install pinned binding generator
-        if: ${{ !(matrix.platform == 'linux' && matrix.arch == 'arm64') }}
         run: CC=cc CXX=c++ go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.3
       - name: Build private and public-endpoint previews
         shell: bash
@@ -124,12 +139,12 @@ jobs:
           Path('dist/SHA256SUMS').write_text(''.join(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name+'\n' for p in sorted(outputs)))
           PY
       - name: Native UI service tests
-        if: matrix.platform == 'linux' && matrix.arch == 'amd64'
+        if: matrix.platform == 'linux'
         run: CGO_ENABLED=1 go test -timeout 5m ./client/ui/authsession/... ./client/ui/i18n/... ./client/ui/preferences/... ./client/ui/services/...
       - name: Linux preview installation and removal
-        if: matrix.platform == 'linux' && matrix.arch == 'amd64'
+        if: matrix.platform == 'linux'
         run: |
-          sudo apt-get install -y ./dist/aheadscale_*_linux_amd64_internal.deb
+          sudo apt-get install -y ./dist/aheadscale_*_linux_${{ matrix.arch }}_internal.deb
           sudo systemctl is-active --quiet aheadscale
           aheadscale status
           sudo apt-get remove -y aheadscale

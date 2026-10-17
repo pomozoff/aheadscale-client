@@ -18,7 +18,7 @@ Do not mark an OS installation or network scenario passed from compilation alone
 | Uninstall preserves other NetBird/Tailscale installations | Pending | Pending | Pending |
 | Publisher signature/notarization | Repository signature pending | Pending certificate | Pending Developer ID/notarization |
 
-CI evidence: [preview run 39022500060](https://github.com/pomozoff/aheadscale-client/actions/runs/39022500060), source `b9f43a05d0cd8d4f71b5650fc53037ad6f539e7f`. The three selected platform jobs passed and their artifacts remain available; the overall run was canceled for macOS Intel, which is now deferred along with the other architectures.
+CI evidence: [preview run 39022500060](https://github.com/pomozoff/aheadscale-client/actions/runs/39022500060), source `b9f43a05d0cd8d4f71b5650fc53037ad6f539e7f`. The three selected platform jobs passed and their artifacts remain available; the overall run was canceled for macOS Intel, which remains deferred. Windows/Linux arm64 are added in a separate selected run.
 
 ## Public service gates
 
@@ -36,8 +36,10 @@ Until all gates are recorded with evidence, artifacts are operator previews only
 ## Preview installer behavior
 
 Linux requires a systemd-based Ubuntu-compatible Debian environment. Desktop
-packages require GTK 4.14+ and WebKitGTK 6; arm64 is CLI-only initially. Windows
-packages preserve upstream WebView2 detection/bootstrapper behavior, which can
+packages for amd64 and arm64 require GTK 4.14+ and WebKitGTK 6 (Ubuntu 24.04
+or a compatible newer system). Separate CLI packages remain available. Windows
+amd64 requires Windows 10 or newer; Windows 7 is unsupported. For arm64 VM
+testing on Apple Silicon use Windows 11 arm64. Windows packages preserve upstream WebView2 detection/bootstrapper behavior, which can
 require access to Microsoft on a machine without that runtime. Mac packages are
 ad-hoc signed for testing and are not Developer ID signed or notarized.
 

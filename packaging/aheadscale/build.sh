@@ -22,10 +22,6 @@ extension=''
 if [[ $platform == windows ]]; then extension=.exe; fi
 ldflags="-s -w -X github.com/netbirdio/netbird/version.version=0.80.0-aheadscale.1 -X github.com/netbirdio/netbird/client/internal/profilemanager.DefaultManagementURL=$origin -X github.com/netbirdio/netbird/client/internal/profilemanager.DefaultAdminURL=$origin -X github.com/netbirdio/netbird/client/internal/profilemanager.LockedServerOrigin=$origin"
 CGO_ENABLED=0 go build -trimpath -ldflags "$ldflags" -o "$out/aheadscale$extension" ./client
-if [[ $platform == linux && $arch == arm64 ]]; then
-  python3 packaging/aheadscale/package.py --platform "$platform" --arch "$arch" --channel "$channel" --cli-only
-  exit
-fi
 export CGO_ENABLED=1
 export VITE_AHEADSCALE_MANAGEMENT_URL=$origin
 pushd client/ui >/dev/null
