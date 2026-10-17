@@ -10,7 +10,6 @@ import (
 	"os/signal"
 	"path"
 	"runtime"
-	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -87,7 +86,7 @@ var (
 	localMetricsAddr       string
 
 	rootCmd = &cobra.Command{
-		Use:          "netbird",
+		Use:          "aheadscale",
 		Short:        "",
 		Long:         "",
 		SilenceUsage: true,
@@ -125,21 +124,21 @@ func Execute() error {
 // maps, custom DNS resolver address, Rosenpass options, auto-connect
 // disabling, lazy connection).
 func init() {
-	defaultConfigPathDir = "/etc/netbird/"
-	defaultLogFileDir = "/var/log/netbird/"
+	defaultConfigPathDir = "/etc/aheadscale/"
+	defaultLogFileDir = "/var/log/aheadscale/"
 
-	oldDefaultConfigPathDir = "/etc/wiretrustee/"
-	oldDefaultLogFileDir = "/var/log/wiretrustee/"
+	oldDefaultConfigPathDir = "/etc/aheadscale-legacy/"
+	oldDefaultLogFileDir = "/var/log/aheadscale-legacy/"
 
 	switch runtime.GOOS {
 	case "windows":
-		defaultConfigPathDir = os.Getenv("PROGRAMDATA") + "\\Netbird\\"
-		defaultLogFileDir = os.Getenv("PROGRAMDATA") + "\\Netbird\\"
+		defaultConfigPathDir = os.Getenv("PROGRAMDATA") + "\\Aheadscale\\"
+		defaultLogFileDir = os.Getenv("PROGRAMDATA") + "\\Aheadscale\\"
 
-		oldDefaultConfigPathDir = os.Getenv("PROGRAMDATA") + "\\Wiretrustee\\"
-		oldDefaultLogFileDir = os.Getenv("PROGRAMDATA") + "\\Wiretrustee\\"
+		oldDefaultConfigPathDir = os.Getenv("PROGRAMDATA") + "\\AheadscaleLegacy\\"
+		oldDefaultLogFileDir = os.Getenv("PROGRAMDATA") + "\\AheadscaleLegacy\\"
 	case "freebsd":
-		defaultConfigPathDir = "/var/db/netbird/"
+		defaultConfigPathDir = "/var/db/aheadscale/"
 	}
 
 	defaultConfigPath = defaultConfigPathDir + "config.json"
@@ -148,7 +147,7 @@ func init() {
 	oldDefaultConfigPath = oldDefaultConfigPathDir + "config.json"
 	oldDefaultLogFile = oldDefaultLogFileDir + "client.log"
 
-	defaultDaemonAddr := "unix:///var/run/netbird.sock"
+	defaultDaemonAddr := "unix:///var/run/aheadscale.sock"
 	if runtime.GOOS == "windows" {
 		defaultDaemonAddr = daddr.WindowsPipeAddr
 	}
@@ -156,8 +155,8 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&daemonAddr, "daemon-addr", defaultDaemonAddr, "Daemon service address to serve CLI requests [unix|tcp|npipe]://[path|host:port|name]")
 	rootCmd.PersistentFlags().StringVarP(&managementURL, "management-url", "m", "", fmt.Sprintf("Management Service URL [http|https]://[host]:[port] (default \"%s\")", profilemanager.DefaultManagementURL))
 	rootCmd.PersistentFlags().StringVar(&adminURL, "admin-url", "", fmt.Sprintf("Admin Panel URL [http|https]://[host]:[port] (default \"%s\")", profilemanager.DefaultAdminURL))
-	rootCmd.PersistentFlags().StringVarP(&logLevel, "log-level", "l", "info", "sets NetBird log level")
-	rootCmd.PersistentFlags().StringSliceVar(&logFiles, "log-file", []string{defaultLogFile}, "sets NetBird log paths written to simultaneously. If `console` is specified the log will be output to stdout. If `syslog` is specified the log will be sent to syslog daemon. You can pass the flag multiple times or separate entries by `,` character")
+	rootCmd.PersistentFlags().StringVarP(&logLevel, "log-level", "l", "info", "sets Aheadscale log level")
+	rootCmd.PersistentFlags().StringSliceVar(&logFiles, "log-file", []string{defaultLogFile}, "sets Aheadscale log paths written to simultaneously. If `console` is specified the log will be output to stdout. If `syslog` is specified the log will be sent to syslog daemon. You can pass the flag multiple times or separate entries by `,` character")
 	rootCmd.PersistentFlags().StringVarP(&setupKey, "setup-key", "k", "", "Setup key obtained from the Management Service Dashboard (used to register peer)")
 	rootCmd.PersistentFlags().StringVar(&setupKeyPath, "setup-key-file", "", "The path to a setup key obtained from the Management Service Dashboard (used to register peer) This is ignored if the setup-key flag is provided.")
 	rootCmd.MarkFlagsMutuallyExclusive("setup-key", "setup-key-file")
@@ -212,7 +211,7 @@ func init() {
 			`or --external-ip-map ""`,
 	)
 	upCmd.PersistentFlags().StringVar(&customDNSAddress, dnsResolverAddress, "",
-		`Sets a custom address for NetBird's local DNS resolver. `+
+		`Sets a custom address for Aheadscale's local DNS resolver. `+
 			`If set, the agent won't attempt to discover the best ip and port to listen on. `+
 			`An empty string "" clears the previous configuration. `+
 			`E.g. --dns-resolver-address 127.0.0.1:5053 or --dns-resolver-address ""`,
@@ -242,25 +241,15 @@ func SetupCloseHandler(ctx context.Context, cancel context.CancelFunc) {
 	}()
 }
 
-// SetFlagsFromEnvVars reads and updates flag values from environment variables with prefix WT_
+// SetFlagsFromEnvVars reads Aheadscale flags from AS_ environment variables.
+// Do not inherit NB_/WT_ paths or credentials from another installed product.
 func SetFlagsFromEnvVars(cmd *cobra.Command) {
 	flags := cmd.PersistentFlags()
 	flags.VisitAll(func(f *pflag.Flag) {
-		oldEnvVar := FlagNameToEnvVar(f.Name, "WT_")
-
-		if value, present := os.LookupEnv(oldEnvVar); present {
-			err := flags.Set(f.Name, value)
-			if err != nil {
-				log.Infof("unable to configure flag %s using variable %s, err: %v", f.Name, oldEnvVar, err)
-			}
-		}
-
-		newEnvVar := FlagNameToEnvVar(f.Name, "NB_")
-
-		if value, present := os.LookupEnv(newEnvVar); present {
-			err := flags.Set(f.Name, value)
-			if err != nil {
-				log.Infof("unable to configure flag %s using variable %s, err: %v", f.Name, newEnvVar, err)
+		name := FlagNameToEnvVar(f.Name, "AS_")
+		if value, present := os.LookupEnv(name); present {
+			if err := flags.Set(f.Name, value); err != nil {
+				log.Infof("unable to configure flag %s using variable %s, err: %v", f.Name, name, err)
 			}
 		}
 	})
@@ -331,25 +320,8 @@ func getSetupKeyFromFile(setupKeyPath string) (string, error) {
 	return strings.TrimSpace(string(data)), nil
 }
 
-func handleRebrand(cmd *cobra.Command) error {
-	var err error
-	if slices.Contains(logFiles, defaultLogFile) {
-		if migrateToNetbird(oldDefaultLogFile, defaultLogFile) {
-			cmd.Printf("will copy Log dir %s and its content to %s\n", oldDefaultLogFileDir, defaultLogFileDir)
-			err = cpDir(oldDefaultLogFileDir, defaultLogFileDir)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	if migrateToNetbird(oldDefaultConfigPath, defaultConfigPath) {
-		cmd.Printf("will copy Config dir %s and its content to %s\n", oldDefaultConfigPathDir, defaultConfigPathDir)
-		err = cpDir(oldDefaultConfigPathDir, defaultConfigPathDir)
-		if err != nil {
-			return err
-		}
-	}
-
+func handleRebrand(_ *cobra.Command) error {
+	// Aheadscale never adopts another product's legacy keys or profiles.
 	return nil
 }
 

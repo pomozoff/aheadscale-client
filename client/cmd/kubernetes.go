@@ -36,7 +36,7 @@ var kubernetesListCmd = &cobra.Command{
 	Use:   "list",
 	RunE:  kubernetesList,
 	Short: "List Kubernetes clusters.",
-	Long:  "List Kubernetes clusters by discovering NetBird peers running netbird-kubeapi-proxy.",
+	Long:  "List Kubernetes clusters by discovering Aheadscale peers running netbird-kubeapi-proxy.",
 }
 
 var kubernetesWriteKubeconfigCmd = &cobra.Command{
@@ -44,7 +44,7 @@ var kubernetesWriteKubeconfigCmd = &cobra.Command{
 	RunE:  kubernetesWriteKubeconfig,
 	Args:  cobra.ExactArgs(1),
 	Short: "Write kubeconfig for a Kubernetes cluster.",
-	Long:  "Updates kubeconfig in place to allow token-less access to the Kubernetes cluster through NetBird.",
+	Long:  "Updates kubeconfig in place to allow token-less access to the Kubernetes cluster through Aheadscale.",
 }
 
 func init() {
@@ -253,7 +253,7 @@ func writeKubeconfig(kubeconfigPath string, kc kubernetesCluster) error {
 		},
 	})
 	cfg["users"] = appendWithName(cfg["users"], map[string]any{
-		"name": "netbird",
+		"name": "aheadscale",
 		"user": map[string]any{
 			"token": "none",
 		},
@@ -262,7 +262,7 @@ func writeKubeconfig(kubeconfigPath string, kc kubernetesCluster) error {
 		"name": kc.name,
 		"context": map[string]any{
 			"cluster":   kc.name,
-			"user":      "netbird",
+			"user":      "aheadscale",
 			"namespace": "default",
 		},
 	})

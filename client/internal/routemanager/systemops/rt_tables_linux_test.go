@@ -36,8 +36,8 @@ func TestEntryExists(t *testing.T) {
 		err         error
 	}{
 		{
-			name:        "ExistsWithNetbirdPrefix",
-			id:          7120,
+			name:        "ExistsWithAheadscalePrefix",
+			id:          7136,
 			shouldExist: true,
 			err:         nil,
 		},

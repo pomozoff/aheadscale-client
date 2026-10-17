@@ -527,7 +527,7 @@ func TestOriginalNameserversNoTransition(t *testing.T) {
 			require.NotEmpty(t, initialServers)
 
 			for _, srv := range initialServers {
-				require.NotEqual(t, netbirdIP, srv, "initial servers should not contain NetBird IP")
+				require.NotEqual(t, netbirdIP, srv, "initial servers should not contain Aheadscale IP")
 			}
 
 			config := HostDNSConfig{
@@ -602,7 +602,7 @@ func TestOriginalNameserversRouteAllTransition(t *testing.T) {
 			assert.Equal(t, initialServers, servers)
 
 			for _, srv := range servers {
-				assert.NotEqual(t, netbirdIP, srv, "servers should not contain NetBird IP")
+				assert.NotEqual(t, netbirdIP, srv, "servers should not contain Aheadscale IP")
 			}
 		})
 	}

@@ -77,9 +77,9 @@ func TestServiceLifecycle(t *testing.T) {
 	}()
 
 	tempDir := t.TempDir()
-	configPath = fmt.Sprintf("%s/netbird-test-config.json", tempDir)
+	configPath = fmt.Sprintf("%s/aheadscale-test-config.json", tempDir)
 	logLevel = "info"
-	daemonAddr = fmt.Sprintf("unix://%s/netbird-test.sock", tempDir)
+	daemonAddr = fmt.Sprintf("unix://%s/aheadscale-test.sock", tempDir)
 
 	// Ensure cleanup even if a subtest fails and Stop/Uninstall subtests don't run.
 	t.Cleanup(func() {

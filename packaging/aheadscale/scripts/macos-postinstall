@@ -1,0 +1,20 @@
+#!/bin/bash
+set -euo pipefail
+app=/Applications/Aheadscale.app
+agent="$app/Contents/MacOS/aheadscale"
+mkdir -p /usr/local/bin
+if [[ -e /usr/local/bin/aheadscale || -L /usr/local/bin/aheadscale ]]; then
+    if [[ ! -L /usr/local/bin/aheadscale || "$(readlink /usr/local/bin/aheadscale)" != "$agent" ]]; then
+        echo 'Refusing to replace an unrelated /usr/local/bin/aheadscale' >&2
+        exit 1
+    fi
+fi
+ln -sfn "$agent" /usr/local/bin/aheadscale
+"$agent" service install --disable-profiles
+"$agent" service start
+console_user=$(stat -f%Su /dev/console)
+case "$console_user" in
+    ''|root|loginwindow|_mbsetupuser) exit 0 ;;
+esac
+uid=$(id -u "$console_user")
+launchctl asuser "$uid" sudo -u "$console_user" -H open "$app"

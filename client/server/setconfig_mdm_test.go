@@ -324,9 +324,9 @@ func TestSetConfig_MDMAllow_ManagementURLPortNormalized(t *testing.T) {
 		mdmURL    string
 		submitURL string
 	}{
-		{"policy_no_port_submit_with_443", "https://netbird.corp.example", "https://netbird.corp.example:443"},
-		{"policy_with_443_submit_no_port", "https://netbird.corp.example:443", "https://netbird.corp.example"},
-		{"http_policy_no_port_submit_with_80", "http://netbird.corp.example", "http://netbird.corp.example:80"},
+		{"policy_no_port_submit_with_443", "https://aheadscale.corp.example", "https://aheadscale.corp.example:443"},
+		{"policy_with_443_submit_no_port", "https://aheadscale.corp.example:443", "https://aheadscale.corp.example"},
+		{"http_policy_no_port_submit_with_80", "http://aheadscale.corp.example", "http://aheadscale.corp.example:80"},
 	}
 
 	for _, tc := range tests {

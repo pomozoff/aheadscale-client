@@ -22,7 +22,7 @@ import (
 
 const (
 	// tableNameNetbird is the default name of the table that is used for filtering by the Netbird client
-	tableNameNetbird = "netbird"
+	tableNameNetbird = "aheadscale"
 	// envTableName is the environment variable to override the table name
 	envTableName = "NB_NFTABLES_TABLE"
 
@@ -394,7 +394,7 @@ func (m *Manager) Close(stateManager *statemanager.Manager) error {
 	}
 
 	if err := m.cleanupNetbirdTables(); err != nil {
-		merr = multierror.Append(merr, fmt.Errorf("cleanup netbird tables: %v", err))
+		merr = multierror.Append(merr, fmt.Errorf("cleanup aheadscale tables: %v", err))
 	}
 
 	if err := m.rConn.Flush(); err != nil {
@@ -572,8 +572,8 @@ func (m *Manager) RemoveOutputDNAT(localAddr netip.Addr, protocol firewall.Proto
 }
 
 const (
-	chainNameRawOutput     = "netbird-raw-out"
-	chainNameRawPrerouting = "netbird-raw-pre"
+	chainNameRawOutput     = "aheadscale-raw-out"
+	chainNameRawPrerouting = "aheadscale-raw-pre"
 )
 
 // SetupEBPFProxyNoTrack creates notrack rules for eBPF proxy loopback traffic.

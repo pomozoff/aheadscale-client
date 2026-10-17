@@ -1,6 +1,6 @@
 {
     "tray.tooltip": {
-        "message": "NetBird"
+        "message": "Aheadscale"
     },
     "tray.status.disconnected": {
         "message": "Desconectado"
@@ -51,7 +51,7 @@
         "message": "{count} dias"
     },
     "tray.menu.open": {
-        "message": "Abrir o NetBird"
+        "message": "Abrir o Aheadscale"
     },
     "tray.menu.connect": {
         "message": "Conectar"
@@ -105,19 +105,19 @@
         "message": "—"
     },
     "tray.menu.quit": {
-        "message": "Sair do NetBird"
+        "message": "Sair do Aheadscale"
     },
     "notify.daemonOutdated.title": {
-        "message": "O serviço NetBird está desatualizado"
+        "message": "O serviço Aheadscale está desatualizado"
     },
     "notify.daemonOutdated.body": {
-        "message": "Atualize o serviço NetBird para usar este aplicativo."
+        "message": "Atualize o serviço Aheadscale para usar este aplicativo."
     },
     "notify.update.title": {
-        "message": "Atualização do NetBird disponível"
+        "message": "Atualização do Aheadscale disponível"
     },
     "notify.update.body": {
-        "message": "O NetBird {version} está disponível."
+        "message": "O Aheadscale {version} está disponível."
     },
     "notify.update.enforcedSuffix": {
         "message": " O seu administrador exige esta atualização."
@@ -138,19 +138,19 @@
         "message": "Falha ao atualizar o nó de saída {name}"
     },
     "notify.sessionExpired.title": {
-        "message": "Sessão do NetBird expirada"
+        "message": "Sessão do Aheadscale expirada"
     },
     "notify.sessionExpired.body": {
-        "message": "A sua sessão do NetBird expirou. Faça login novamente."
+        "message": "A sua sessão do Aheadscale expirou. Faça login novamente."
     },
     "notify.sessionWarning.title": {
         "message": "A sessão expira em breve"
     },
     "notify.sessionWarning.body": {
-        "message": "A sua sessão do NetBird expira em {remaining}. Clique em Renovar agora para renová-la."
+        "message": "A sua sessão do Aheadscale expira em {remaining}. Clique em Renovar agora para renová-la."
     },
     "notify.sessionWarning.bodyGeneric": {
-        "message": "A sua sessão do NetBird está prestes a expirar. Clique em Renovar agora para renová-la."
+        "message": "A sua sessão do Aheadscale está prestes a expirar. Clique em Renovar agora para renová-la."
     },
     "notify.sessionWarning.extend": {
         "message": "Renovar agora"
@@ -159,10 +159,10 @@
         "message": "Dispensar"
     },
     "notify.sessionWarning.failed": {
-        "message": "Falha ao renovar a sessão do NetBird"
+        "message": "Falha ao renovar a sessão do Aheadscale"
     },
     "notify.sessionWarning.successTitle": {
-        "message": "Sessão do NetBird renovada"
+        "message": "Sessão do Aheadscale renovada"
     },
     "notify.sessionWarning.successBody": {
         "message": "A sua sessão foi renovada."
@@ -174,10 +174,10 @@
         "message": "O servidor enviou um prazo de sessão inválido. Faça login novamente."
     },
     "notify.mdm.policyApplied.title": {
-        "message": "Definições do NetBird atualizadas"
+        "message": "Definições do Aheadscale atualizadas"
     },
     "notify.mdm.policyApplied.body": {
-        "message": "A sua configuração do NetBird foi atualizada pela política de TI."
+        "message": "A sua configuração do Aheadscale foi atualizada pela política de TI."
     },
     "common.cancel": {
         "message": "Cancelar"
@@ -225,7 +225,7 @@
         "message": "Carregando…"
     },
     "common.netbird": {
-        "message": "NetBird"
+        "message": "Aheadscale"
     },
     "common.noResults.title": {
         "message": "Nenhum resultado encontrado"
@@ -237,7 +237,7 @@
         "message": "Desconectado"
     },
     "notConnected.description": {
-        "message": "Conecte-se ao NetBird primeiro para ver informações detalhadas sobre seus peers, recursos de rede e nós de saída."
+        "message": "Conecte-se ao Aheadscale primeiro para ver informações detalhadas sobre seus peers, recursos de rede e nós de saída."
     },
     "connect.status.disconnected": {
         "message": "Desconectado"
@@ -351,7 +351,7 @@
         "message": "Insira um nome de perfil, ex.: trabalho, casa"
     },
     "profile.dialog.managementHelp": {
-        "message": "Use o NetBird Cloud ou seu próprio servidor."
+        "message": "Use o Aheadscale Cloud ou seu próprio servidor."
     },
     "profile.dialog.urlUnreachable": {
         "message": "Não foi possível acessar este servidor. Verifique a URL ou adicione o perfil mesmo assim se tiver certeza de que está correta."
@@ -375,7 +375,7 @@
         "message": "Trocar perfil"
     },
     "connect.toggle.label": {
-        "message": "Alternar conexão NetBird"
+        "message": "Alternar conexão Aheadscale"
     },
     "connect.localIp.label": {
         "message": "Endereços IP locais"
@@ -471,7 +471,7 @@
         "message": "Perfis"
     },
     "settings.profiles.intro": {
-        "message": "Mantenha identidades separadas do NetBird lado a lado, por exemplo contas de trabalho e pessoais, ou diferentes servidores de gerenciamento. Adicione, cancele o registro ou exclua perfis abaixo."
+        "message": "Mantenha identidades separadas do Aheadscale lado a lado, por exemplo contas de trabalho e pessoais, ou diferentes servidores de gerenciamento. Adicione, cancele o registro ou exclua perfis abaixo."
     },
     "settings.profiles.addProfile": {
         "message": "Adicionar perfil"
@@ -483,7 +483,7 @@
         "message": "Nenhum perfil"
     },
     "settings.profiles.emptyDescription": {
-        "message": "Crie um perfil para conectar a um servidor de gerenciamento do NetBird."
+        "message": "Crie um perfil para conectar a um servidor de gerenciamento do Aheadscale."
     },
     "settings.error.loadTitle": {
         "message": "Falha ao carregar as configurações"
@@ -543,10 +543,10 @@
         "message": "Mostrar notificações na área de trabalho para novas atualizações e eventos de conexão."
     },
     "settings.general.autostart.label": {
-        "message": "Iniciar a interface do NetBird ao fazer login"
+        "message": "Iniciar a interface do Aheadscale ao fazer login"
     },
     "settings.general.autostart.help": {
-        "message": "Iniciar a interface do NetBird automaticamente quando você fizer login. Isto afeta apenas a interface gráfica, não o serviço em segundo plano."
+        "message": "Iniciar a interface do Aheadscale automaticamente quando você fizer login. Isto afeta apenas a interface gráfica, não o serviço em segundo plano."
     },
     "settings.general.autostart.errorTitle": {
         "message": "Falha ao alterar o início automático"
@@ -556,14 +556,14 @@
         "description": "Toggle label: keep the VPN connection up after quitting the UI."
     },
     "settings.general.keepConnectedOnQuit.help": {
-        "message": "A conexão continua ativa em segundo plano depois de fechar o NetBird. Ela só para quando você mesmo a desconecta.",
+        "message": "A conexão continua ativa em segundo plano depois de fechar o Aheadscale. Ela só para quando você mesmo a desconecta.",
         "description": "Helper text for the stay-connected-after-quitting toggle."
     },
     "settings.general.language.label": {
         "message": "Idioma de exibição"
     },
     "settings.general.language.help": {
-        "message": "Escolha o idioma da interface do NetBird."
+        "message": "Escolha o idioma da interface do Aheadscale."
     },
     "settings.general.language.search": {
         "message": "Buscar idioma…"
@@ -590,7 +590,7 @@
         "message": "Servidor de gerenciamento"
     },
     "settings.general.management.help": {
-        "message": "Conecte ao NetBird Cloud ou ao seu próprio servidor de gerenciamento auto-hospedado. As alterações reconectarão o cliente."
+        "message": "Conecte ao Aheadscale Cloud ou ao seu próprio servidor de gerenciamento auto-hospedado. As alterações reconectarão o cliente."
     },
     "settings.general.management.cloud": {
         "message": "Cloud"
@@ -608,7 +608,7 @@
         "message": "Não foi possível acessar este servidor. Verifique a URL ou salve mesmo assim se tiver certeza de que está correta."
     },
     "settings.general.management.switchCloudTitle": {
-        "message": "Alternar para o NetBird Cloud?"
+        "message": "Alternar para o Aheadscale Cloud?"
     },
     "settings.general.management.switchCloudMessage": {
         "message": "Isto desconecta o seu servidor auto-hospedado.\nVocê pode precisar fazer login novamente."
@@ -632,7 +632,7 @@
         "message": "Ativar DNS"
     },
     "settings.network.dns.help": {
-        "message": "Aplicar as configurações de DNS gerenciadas pelo NetBird ao resolvedor do host."
+        "message": "Aplicar as configurações de DNS gerenciadas pelo Aheadscale ao resolvedor do host."
     },
     "settings.network.clientRoutes.label": {
         "message": "Ativar rotas de cliente"
@@ -650,7 +650,7 @@
         "message": "Ativar IPv6"
     },
     "settings.network.ipv6.help": {
-        "message": "Usar endereçamento IPv6 para a rede de sobreposição do NetBird."
+        "message": "Usar endereçamento IPv6 para a rede de sobreposição do Aheadscale."
     },
     "settings.security.section.firewall": {
         "message": "Firewall"
@@ -695,7 +695,7 @@
         "message": "Ativar servidor SSH"
     },
     "settings.ssh.server.help": {
-        "message": "Executar o servidor SSH do NetBird neste host para que outros peers possam conectar a ele."
+        "message": "Executar o servidor SSH do Aheadscale neste host para que outros peers possam conectar a ele."
     },
     "settings.ssh.root.label": {
         "message": "Permitir login como root"
@@ -770,7 +770,7 @@
         "message": "Chave pré-compartilhada"
     },
     "settings.advanced.psk.help": {
-        "message": "PSK opcional do WireGuard para criptografia simétrica adicional. Não é o mesmo que uma chave de configuração do NetBird. Você só se comunicará com peers que usem a mesma chave pré-compartilhada."
+        "message": "PSK opcional do WireGuard para criptografia simétrica adicional. Não é o mesmo que uma chave de configuração do Aheadscale. Você só se comunicará com peers que usem a mesma chave pré-compartilhada."
     },
     "settings.troubleshooting.section.title": {
         "message": "Pacote de depuração"
@@ -800,10 +800,10 @@
         "message": "Incluir o OS, o kernel, as interfaces de rede e as tabelas de roteamento."
     },
     "settings.troubleshooting.upload.label": {
-        "message": "Enviar pacote aos servidores do NetBird"
+        "message": "Enviar pacote aos servidores do Aheadscale"
     },
     "settings.troubleshooting.upload.help": {
-        "message": "Retorna uma chave de upload para compartilhar com o suporte do NetBird."
+        "message": "Retorna uma chave de upload para compartilhar com o suporte do Aheadscale."
     },
     "settings.troubleshooting.trace.label": {
         "message": "Habilitar logs de trace"
@@ -848,7 +848,7 @@
         "message": "Pacote salvo"
     },
     "settings.troubleshooting.done.uploadedDescription": {
-        "message": "Compartilhe a chave de upload abaixo com o <docs>suporte do NetBird</docs>. Uma cópia local também foi salva no seu dispositivo."
+        "message": "Compartilhe a chave de upload abaixo com o <docs>suporte do Aheadscale</docs>. Uma cópia local também foi salva no seu dispositivo."
     },
     "settings.troubleshooting.done.savedDescription": {
         "message": "O seu pacote de depuração foi salvo localmente."
@@ -869,7 +869,7 @@
         "message": "Falha no upload. O pacote continua salvo localmente."
     },
     "settings.troubleshooting.stage.reconnecting": {
-        "message": "Reconectando o NetBird…"
+        "message": "Reconectando o Aheadscale…"
     },
     "settings.troubleshooting.stage.capturing": {
         "message": "Capturando logs de depuração"
@@ -878,16 +878,16 @@
         "message": "Gerando o pacote de depuração…"
     },
     "settings.troubleshooting.stage.uploading": {
-        "message": "Enviando para o NetBird…"
+        "message": "Enviando para o Aheadscale…"
     },
     "settings.troubleshooting.stage.cancelling": {
         "message": "Cancelando…"
     },
     "settings.about.client": {
-        "message": "NetBird Client v{version}"
+        "message": "Aheadscale Client v{version}"
     },
     "settings.about.clientName": {
-        "message": "NetBird Client"
+        "message": "Aheadscale Client"
     },
     "settings.about.development": {
         "message": "[Development]"
@@ -899,7 +899,7 @@
         "message": "GUI"
     },
     "settings.about.copyright": {
-        "message": "© {year} NetBird. Todos os direitos reservados."
+        "message": "© {year} Aheadscale. Todos os direitos reservados."
     },
     "settings.about.links.imprint": {
         "message": "Identificação legal"
@@ -929,7 +929,7 @@
         "message": "Feedback"
     },
     "update.banner.message": {
-        "message": "O NetBird {version} está pronto para instalar."
+        "message": "O Aheadscale {version} está pronto para instalar."
     },
     "update.banner.later": {
         "message": "Mais tarde"
@@ -953,7 +953,7 @@
         "message": "Baixar"
     },
     "update.card.autoCheckInterval": {
-        "message": "O NetBird verifica atualizações em segundo plano."
+        "message": "O Aheadscale verifica atualizações em segundo plano."
     },
     "update.card.changelog": {
         "message": "Registro de alterações"
@@ -965,13 +965,13 @@
         "message": "Atualização disponível"
     },
     "update.overlay.updatingVersion": {
-        "message": "Atualizando o NetBird para a v{version}"
+        "message": "Atualizando o Aheadscale para a v{version}"
     },
     "update.overlay.updating": {
-        "message": "Atualizando o NetBird"
+        "message": "Atualizando o Aheadscale"
     },
     "update.overlay.description": {
-        "message": "Uma versão mais recente está disponível e sendo instalada. O NetBird reiniciará automaticamente quando a atualização terminar."
+        "message": "Uma versão mais recente está disponível e sendo instalada. O Aheadscale reiniciará automaticamente quando a atualização terminar."
     },
     "update.overlay.error.timeoutTitle": {
         "message": "A atualização está demorando demais"
@@ -1061,22 +1061,22 @@
         "message": "Atualizando"
     },
     "window.title.welcome": {
-        "message": "Bem-vindo ao NetBird"
+        "message": "Bem-vindo ao Aheadscale"
     },
     "window.title.error": {
         "message": "Erro"
     },
     "welcome.title": {
-        "message": "Procure o NetBird na sua bandeja"
+        "message": "Procure o Aheadscale na sua bandeja"
     },
     "welcome.titleMac": {
-        "message": "Procure o NetBird na sua barra de menus"
+        "message": "Procure o Aheadscale na sua barra de menus"
     },
     "welcome.description": {
-        "message": "O NetBird fica na sua bandeja. Clique no ícone para conectar, alternar perfis ou abrir as configurações."
+        "message": "O Aheadscale fica na sua bandeja. Clique no ícone para conectar, alternar perfis ou abrir as configurações."
     },
     "welcome.descriptionMac": {
-        "message": "O NetBird fica na sua barra de menus. Clique no ícone para conectar, alternar perfis ou abrir as configurações."
+        "message": "O Aheadscale fica na sua barra de menus. Clique no ícone para conectar, alternar perfis ou abrir as configurações."
     },
     "welcome.continue": {
         "message": "Continuar"
@@ -1085,13 +1085,13 @@
         "message": "Voltar"
     },
     "welcome.management.title": {
-        "message": "Configurar o NetBird"
+        "message": "Configurar o Aheadscale"
     },
     "welcome.management.description": {
-        "message": "Clique em Continuar para começar ou escolha Auto-hospedado se você tiver o seu próprio servidor NetBird."
+        "message": "Clique em Continuar para começar ou escolha Auto-hospedado se você tiver o seu próprio servidor Aheadscale."
     },
     "welcome.management.cloud.title": {
-        "message": "NetBird Cloud"
+        "message": "Aheadscale Cloud"
     },
     "welcome.management.cloud.description": {
         "message": "Use o nosso serviço hospedado. Sem configuração necessária."
@@ -1187,10 +1187,10 @@
         "message": "Domínio"
     },
     "peers.details.netbirdIp": {
-        "message": "IP do NetBird"
+        "message": "IP do Aheadscale"
     },
     "peers.details.netbirdIpv6": {
-        "message": "IPv6 do NetBird"
+        "message": "IPv6 do Aheadscale"
     },
     "peers.details.publicKey": {
         "message": "Chave pública"
@@ -1325,7 +1325,7 @@
         "message": "Desconectar"
     },
     "daemon.unavailable.title": {
-        "message": "O serviço do NetBird não está em execução"
+        "message": "O serviço do Aheadscale não está em execução"
     },
     "daemon.unavailable.description": {
         "message": "O aplicativo reconectará automaticamente assim que o serviço estiver em execução."
@@ -1334,7 +1334,7 @@
         "message": "Documentação"
     },
     "daemon.outdated.title": {
-        "message": "O NetBird Client está desatualizado"
+        "message": "O Aheadscale Client está desatualizado"
     },
     "daemon.outdated.description": {
         "message": "A nova GUI não é compatível com o seu cliente mais antigo. Atualize o seu cliente para usar o novo aplicativo."
@@ -1361,13 +1361,13 @@
         "message": "O login foi rejeitado pelo servidor."
     },
     "error.daemon_unreachable": {
-        "message": "O daemon do NetBird não está respondendo. Verifique se o serviço está em execução."
+        "message": "O daemon do Aheadscale não está respondendo. Verifique se o serviço está em execução."
     },
     "error.unknown": {
         "message": "A operação falhou."
     },
     "error.elevation_unavailable": {
-        "message": "O NetBird não conseguiu solicitar a este sistema os privilégios necessários. Execute isto em vez disso:"
+        "message": "O Aheadscale não conseguiu solicitar a este sistema os privilégios necessários. Execute isto em vez disso:"
     },
     "error.elevation_failed": {
         "message": "Não foi possível aplicar a alteração com privilégios elevados. Execute isto em vez disso:"

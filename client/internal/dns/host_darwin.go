@@ -23,8 +23,8 @@ import (
 )
 
 const (
-	netbirdDNSStateKeyFormat            = "State:/Network/Service/NetBird-%s/DNS"
-	netbirdDNSStateKeyIndexedFormat     = "State:/Network/Service/NetBird-%s-%d/DNS"
+	netbirdDNSStateKeyFormat            = "State:/Network/Service/Aheadscale-%s/DNS"
+	netbirdDNSStateKeyIndexedFormat     = "State:/Network/Service/Aheadscale-%s-%d/DNS"
 	globalIPv4State                     = "State:/Network/Global/IPv4"
 	primaryServiceStateKeyFormat        = "State:/Network/Service/%s/DNS"
 	keySupplementalMatchDomains         = "SupplementalMatchDomains"

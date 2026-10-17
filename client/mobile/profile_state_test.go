@@ -15,18 +15,18 @@ func TestProfileAccountPathFor(t *testing.T) {
 	}{
 		{
 			name:       "default profile",
-			configPath: "/data/netbird/files/netbird.cfg",
-			want:       filepath.FromSlash("/data/netbird/files/netbird.account.json"),
+			configPath: "/data/aheadscale/files/aheadscale.cfg",
+			want:       filepath.FromSlash("/data/aheadscale/files/aheadscale.account.json"),
 		},
 		{
 			name:       "id profile",
-			configPath: "/data/netbird/files/profiles/4c5f5c8198c3989cffb5b5394f5a7ae0.json",
-			want:       filepath.FromSlash("/data/netbird/files/profiles/4c5f5c8198c3989cffb5b5394f5a7ae0.account.json"),
+			configPath: "/data/aheadscale/files/profiles/4c5f5c8198c3989cffb5b5394f5a7ae0.json",
+			want:       filepath.FromSlash("/data/aheadscale/files/profiles/4c5f5c8198c3989cffb5b5394f5a7ae0.account.json"),
 		},
 		{
 			name:       "legacy name-keyed profile is handled the same way",
-			configPath: "/data/netbird/files/profiles/work.json",
-			want:       filepath.FromSlash("/data/netbird/files/profiles/work.account.json"),
+			configPath: "/data/aheadscale/files/profiles/work.json",
+			want:       filepath.FromSlash("/data/aheadscale/files/profiles/work.account.json"),
 		},
 		{
 			name:       "empty path is rejected",
@@ -55,7 +55,7 @@ func TestProfileAccountPathFor(t *testing.T) {
 }
 
 func TestProfileAccountPathForDefaultDoesNotCollide(t *testing.T) {
-	root := "/data/netbird/files"
+	root := "/data/aheadscale/files"
 
 	defaultAccount, err := profileAccountPathFor(filepath.Join(root, defaultConfigFilename))
 	if err != nil {
@@ -77,7 +77,7 @@ func TestProfileAccountPathForDefaultDoesNotCollide(t *testing.T) {
 // its own keys, so sharing a path would have the two overwrite each other. The
 // expected names here mirror ProfileManager.GetStateFilePath.
 func TestProfileAccountPathAvoidsEngineStateFile(t *testing.T) {
-	root := "/data/netbird/files"
+	root := "/data/aheadscale/files"
 
 	cases := []struct {
 		configPath  string

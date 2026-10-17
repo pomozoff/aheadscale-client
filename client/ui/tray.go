@@ -24,17 +24,17 @@ import (
 // Notification IDs are OS dedup keys that coalesce duplicate toasts;
 // statusError is a tray-only sentinel for the error-icon state.
 const (
-	notifyIDUpdatePrefix = "netbird-update-"
-	notifyIDEvent        = "netbird-event-"
-	notifyIDTrayError    = "netbird-tray-error"
-	notifyIDMDMPolicy    = "netbird-mdm-policy"
+	notifyIDUpdatePrefix = "aheadscale-update-"
+	notifyIDEvent        = "aheadscale-event-"
+	notifyIDTrayError    = "aheadscale-tray-error"
+	notifyIDMDMPolicy    = "aheadscale-mdm-policy"
 
 	statusError = "Error"
 
 	quitDownTimeout = 5 * time.Second
 
-	urlGitHubRepo = "https://github.com/netbirdio/netbird"
-	urlDocs       = "https://docs.netbird.io"
+	urlGitHubRepo = "https://github.com/pomozoff/aheadscale-client"
+	urlDocs       = "https://github.com/pomozoff/aheadscale-client#build"
 )
 
 // TrayServices bundles the services the tray menu needs, grouped so NewTray

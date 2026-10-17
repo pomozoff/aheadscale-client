@@ -17,7 +17,7 @@ func TestParseFwmarkBase(t *testing.T) {
 		{name: "octal", val: "0o400", want: 0o400},
 		{name: "surrounding space", val: "  0x5A000 ", want: 0x5A000},
 		{name: "highest usable base", val: "0xFFFFFF00", want: 0xFFFFFF00},
-		{name: "low byte in use", val: "0x1BD01", wantErr: true},
+		{name: "low byte in use", val: "0x1BE01", wantErr: true},
 		{name: "zero", val: "0", wantErr: true},
 		{name: "not a number", val: "wireguard", wantErr: true},
 		{name: "wider than 32 bit", val: "0x1FFFFFFFF", wantErr: true},
@@ -89,14 +89,14 @@ func TestDefaultMarksAreUnchanged(t *testing.T) {
 		got  uint32
 		want uint32
 	}{
-		"ControlPlaneMark":                 {ControlPlaneMark, 0x1BD00},
-		"DataPlaneMarkLower":               {DataPlaneMarkLower, 0x1BD10},
-		"DataPlaneMarkUpper":               {DataPlaneMarkUpper, 0x1BDFF},
-		"DataPlaneMarkIn":                  {DataPlaneMarkIn, 0x1BD10},
-		"DataPlaneMarkOut":                 {DataPlaneMarkOut, 0x1BD11},
-		"PreroutingFwmarkRedirected":       {PreroutingFwmarkRedirected, 0x1BD20},
-		"PreroutingFwmarkMasquerade":       {PreroutingFwmarkMasquerade, 0x1BD21},
-		"PreroutingFwmarkMasqueradeReturn": {PreroutingFwmarkMasqueradeReturn, 0x1BD22},
+		"ControlPlaneMark":                 {ControlPlaneMark, 0x1BE00},
+		"DataPlaneMarkLower":               {DataPlaneMarkLower, 0x1BE10},
+		"DataPlaneMarkUpper":               {DataPlaneMarkUpper, 0x1BEFF},
+		"DataPlaneMarkIn":                  {DataPlaneMarkIn, 0x1BE10},
+		"DataPlaneMarkOut":                 {DataPlaneMarkOut, 0x1BE11},
+		"PreroutingFwmarkRedirected":       {PreroutingFwmarkRedirected, 0x1BE20},
+		"PreroutingFwmarkMasquerade":       {PreroutingFwmarkMasquerade, 0x1BE21},
+		"PreroutingFwmarkMasqueradeReturn": {PreroutingFwmarkMasqueradeReturn, 0x1BE22},
 	}
 
 	if fwmarkBase != defaultFwmarkBase {

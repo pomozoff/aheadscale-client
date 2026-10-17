@@ -1,6 +1,6 @@
 {
     "tray.tooltip": {
-        "message": "NetBird"
+        "message": "Aheadscale"
     },
     "tray.status.disconnected": {
         "message": "Відключено"
@@ -51,7 +51,7 @@
         "message": "{count} дн."
     },
     "tray.menu.open": {
-        "message": "Відкрити NetBird"
+        "message": "Відкрити Aheadscale"
     },
     "tray.menu.connect": {
         "message": "Підключитися"
@@ -105,19 +105,19 @@
         "message": "—"
     },
     "tray.menu.quit": {
-        "message": "Вийти з NetBird"
+        "message": "Вийти з Aheadscale"
     },
     "notify.daemonOutdated.title": {
-        "message": "Служба NetBird застаріла"
+        "message": "Служба Aheadscale застаріла"
     },
     "notify.daemonOutdated.body": {
-        "message": "Оновіть службу NetBird, щоб користуватися застосунком."
+        "message": "Оновіть службу Aheadscale, щоб користуватися застосунком."
     },
     "notify.update.title": {
-        "message": "Доступне оновлення NetBird"
+        "message": "Доступне оновлення Aheadscale"
     },
     "notify.update.body": {
-        "message": "Доступна версія NetBird {version}."
+        "message": "Доступна версія Aheadscale {version}."
     },
     "notify.update.enforcedSuffix": {
         "message": " Ваш адміністратор вимагає встановити це оновлення."
@@ -138,19 +138,19 @@
         "message": "Не вдалося оновити вихідний вузол {name}"
     },
     "notify.sessionExpired.title": {
-        "message": "Сеанс NetBird закінчився"
+        "message": "Сеанс Aheadscale закінчився"
     },
     "notify.sessionExpired.body": {
-        "message": "Ваш сеанс NetBird закінчився. Будь ласка, увійдіть знову."
+        "message": "Ваш сеанс Aheadscale закінчився. Будь ласка, увійдіть знову."
     },
     "notify.sessionWarning.title": {
         "message": "Сеанс невдовзі закінчиться"
     },
     "notify.sessionWarning.body": {
-        "message": "Ваш сеанс NetBird закінчиться через {remaining}. Натисніть «Продовжити зараз», щоб оновити його."
+        "message": "Ваш сеанс Aheadscale закінчиться через {remaining}. Натисніть «Продовжити зараз», щоб оновити його."
     },
     "notify.sessionWarning.bodyGeneric": {
-        "message": "Ваш сеанс NetBird невдовзі закінчиться. Натисніть «Продовжити зараз», щоб оновити його."
+        "message": "Ваш сеанс Aheadscale невдовзі закінчиться. Натисніть «Продовжити зараз», щоб оновити його."
     },
     "notify.sessionWarning.extend": {
         "message": "Продовжити зараз"
@@ -159,10 +159,10 @@
         "message": "Закрити"
     },
     "notify.sessionWarning.failed": {
-        "message": "Не вдалося продовжити сеанс NetBird"
+        "message": "Не вдалося продовжити сеанс Aheadscale"
     },
     "notify.sessionWarning.successTitle": {
-        "message": "Сеанс NetBird продовжено"
+        "message": "Сеанс Aheadscale продовжено"
     },
     "notify.sessionWarning.successBody": {
         "message": "Ваш сеанс успішно продовжено."
@@ -174,10 +174,10 @@
         "message": "Сервер надіслав недійсний термін дії сеансу. Будь ласка, увійдіть знову."
     },
     "notify.mdm.policyApplied.title": {
-        "message": "Налаштування NetBird оновлено"
+        "message": "Налаштування Aheadscale оновлено"
     },
     "notify.mdm.policyApplied.body": {
-        "message": "Конфігурацію NetBird оновлено відповідно до політики вашої організації."
+        "message": "Конфігурацію Aheadscale оновлено відповідно до політики вашої організації."
     },
     "common.cancel": {
         "message": "Скасувати"
@@ -225,7 +225,7 @@
         "message": "Завантаження…"
     },
     "common.netbird": {
-        "message": "NetBird"
+        "message": "Aheadscale"
     },
     "common.noResults.title": {
         "message": "Результатів не знайдено"
@@ -237,7 +237,7 @@
         "message": "Відключено"
     },
     "notConnected.description": {
-        "message": "Спочатку підключіться до NetBird, щоб переглянути детальну інформацію про піри, мережеві ресурси та вихідні вузли."
+        "message": "Спочатку підключіться до Aheadscale, щоб переглянути детальну інформацію про піри, мережеві ресурси та вихідні вузли."
     },
     "connect.status.disconnected": {
         "message": "Відключено"
@@ -351,7 +351,7 @@
         "message": "Будь ласка, введіть назву профілю, наприклад, «Робота» або «Дім»."
     },
     "profile.dialog.managementHelp": {
-        "message": "Використовуйте NetBird Cloud або власний сервер."
+        "message": "Використовуйте Aheadscale Cloud або власний сервер."
     },
     "profile.dialog.urlUnreachable": {
         "message": "Не вдалося підключитися до цього сервера. Перевірте URL-адресу або додайте профіль, якщо ви впевнені, що вона правильна."
@@ -375,7 +375,7 @@
         "message": "Змінити профіль"
     },
     "connect.toggle.label": {
-        "message": "Перемкнути підключення NetBird"
+        "message": "Перемкнути підключення Aheadscale"
     },
     "connect.localIp.label": {
         "message": "Локальні IP-адреси"
@@ -471,7 +471,7 @@
         "message": "Профілі"
     },
     "settings.profiles.intro": {
-        "message": "Використовуйте кілька профілів NetBird одночасно, наприклад, робочий та особистий облікові записи або різні сервери керування. Додавайте профілі, виходьте з них або видаляйте їх нижче."
+        "message": "Використовуйте кілька профілів Aheadscale одночасно, наприклад, робочий та особистий облікові записи або різні сервери керування. Додавайте профілі, виходьте з них або видаляйте їх нижче."
     },
     "settings.profiles.addProfile": {
         "message": "Додати профіль"
@@ -483,7 +483,7 @@
         "message": "Немає профілів"
     },
     "settings.profiles.emptyDescription": {
-        "message": "Створіть профіль, щоб підключитися до сервера керування NetBird."
+        "message": "Створіть профіль, щоб підключитися до сервера керування Aheadscale."
     },
     "settings.error.loadTitle": {
         "message": "Помилка завантаження налаштувань"
@@ -543,10 +543,10 @@
         "message": "Показувати сповіщення на робочому столі про нові оновлення та події підключення."
     },
     "settings.general.autostart.label": {
-        "message": "Запускати інтерфейс NetBird під час входу"
+        "message": "Запускати інтерфейс Aheadscale під час входу"
     },
     "settings.general.autostart.help": {
-        "message": "Автоматично запускати інтерфейс NetBird під час входу в систему. Це стосується лише графічного інтерфейсу, а не фонової служби."
+        "message": "Автоматично запускати інтерфейс Aheadscale під час входу в систему. Це стосується лише графічного інтерфейсу, а не фонової служби."
     },
     "settings.general.autostart.errorTitle": {
         "message": "Помилка зміни автозапуску"
@@ -555,13 +555,13 @@
         "message": "Залишатися підключеним після виходу"
     },
     "settings.general.keepConnectedOnQuit.help": {
-        "message": "Підключення залишатиметься активним у фоновому режимі після закриття NetBird. Воно буде розірвано лише тоді, коли ви відключите його самостійно."
+        "message": "Підключення залишатиметься активним у фоновому режимі після закриття Aheadscale. Воно буде розірвано лише тоді, коли ви відключите його самостійно."
     },
     "settings.general.language.label": {
         "message": "Мова інтерфейсу"
     },
     "settings.general.language.help": {
-        "message": "Виберіть мову для інтерфейсу NetBird."
+        "message": "Виберіть мову для інтерфейсу Aheadscale."
     },
     "settings.general.language.search": {
         "message": "Пошук мови…"
@@ -588,7 +588,7 @@
         "message": "Сервер керування"
     },
     "settings.general.management.help": {
-        "message": "Підключайтеся до NetBird Cloud або власного сервера керування. Зміни призведуть до перепідключення клієнта."
+        "message": "Підключайтеся до Aheadscale Cloud або власного сервера керування. Зміни призведуть до перепідключення клієнта."
     },
     "settings.general.management.cloud": {
         "message": "Cloud"
@@ -606,7 +606,7 @@
         "message": "Не вдалося підключитися до цього сервера. Перевірте URL-адресу або все одно збережіть зміни, якщо ви впевнені, що вона правильна."
     },
     "settings.general.management.switchCloudTitle": {
-        "message": "Перемкнутися на NetBird Cloud?"
+        "message": "Перемкнутися на Aheadscale Cloud?"
     },
     "settings.general.management.switchCloudMessage": {
         "message": "Це відключить вас від власного сервера.\nВам може знадобитися увійти знову."
@@ -630,7 +630,7 @@
         "message": "Увімкнути DNS"
     },
     "settings.network.dns.help": {
-        "message": "Застосовувати налаштування DNS, якими керує NetBird, до локального DNS-розв’язувача хоста."
+        "message": "Застосовувати налаштування DNS, якими керує Aheadscale, до локального DNS-розв’язувача хоста."
     },
     "settings.network.clientRoutes.label": {
         "message": "Увімкнути клієнтські маршрути"
@@ -648,7 +648,7 @@
         "message": "Увімкнути IPv6"
     },
     "settings.network.ipv6.help": {
-        "message": "Використовувати адресацію IPv6 для оверлейної мережі NetBird."
+        "message": "Використовувати адресацію IPv6 для оверлейної мережі Aheadscale."
     },
     "settings.security.section.firewall": {
         "message": "Брандмауер"
@@ -693,7 +693,7 @@
         "message": "Увімкнути SSH-сервер"
     },
     "settings.ssh.server.help": {
-        "message": "Запустити SSH-сервер NetBird на цьому хості, щоб інші піри могли підключатися до нього."
+        "message": "Запустити SSH-сервер Aheadscale на цьому хості, щоб інші піри могли підключатися до нього."
     },
     "settings.ssh.root.label": {
         "message": "Дозволити вхід як root"
@@ -768,7 +768,7 @@
         "message": "Попередньо узгоджений ключ"
     },
     "settings.advanced.psk.help": {
-        "message": "Додатковий PSK WireGuard для симетричного шифрування. Це не те саме, що NetBird Setup Key. Ви зможете обмінюватися даними лише з тими пірами, які використовують такий самий попередньо узгоджений ключ."
+        "message": "Додатковий PSK WireGuard для симетричного шифрування. Це не те саме, що Aheadscale Setup Key. Ви зможете обмінюватися даними лише з тими пірами, які використовують такий самий попередньо узгоджений ключ."
     },
     "settings.troubleshooting.section.title": {
         "message": "Архів діагностики"
@@ -798,10 +798,10 @@
         "message": "Додати дані про ОС, ядро, мережеві інтерфейси та таблиці маршрутизації."
     },
     "settings.troubleshooting.upload.label": {
-        "message": "Завантажити архів на сервери NetBird"
+        "message": "Завантажити архів на сервери Aheadscale"
     },
     "settings.troubleshooting.upload.help": {
-        "message": "Створює ключ завантаження, який можна передати службі підтримки NetBird."
+        "message": "Створює ключ завантаження, який можна передати службі підтримки Aheadscale."
     },
     "settings.troubleshooting.trace.label": {
         "message": "Увімкнути журнали рівня TRACE"
@@ -813,7 +813,7 @@
         "message": "Запис сеансу"
     },
     "settings.troubleshooting.capture.help": {
-        "message": "Перепідключає NetBird і чекає, щоб ви могли відтворити проблему."
+        "message": "Перепідключає Aheadscale і чекає, щоб ви могли відтворити проблему."
     },
     "settings.troubleshooting.packets.label": {
         "message": "Захоплювати мережеві пакети"
@@ -834,7 +834,7 @@
         "message": "Створити архів"
     },
     "settings.troubleshooting.progress.description": {
-        "message": "Збір журналів, даних про систему та інформації про стан підключення. Зазвичай це займає хвилину. Ви можете продовжувати використовувати NetBird або закрити вікно налаштувань, поки процес триває."
+        "message": "Збір журналів, даних про систему та інформації про стан підключення. Зазвичай це займає хвилину. Ви можете продовжувати використовувати Aheadscale або закрити вікно налаштувань, поки процес триває."
     },
     "settings.troubleshooting.cancelling": {
         "message": "Скасування…"
@@ -846,7 +846,7 @@
         "message": "Архів збережено"
     },
     "settings.troubleshooting.done.uploadedDescription": {
-        "message": "Поділіться ключем завантаження нижче зі <docs>службою підтримки NetBird</docs>. Локальну копію також збережено на вашому пристрої."
+        "message": "Поділіться ключем завантаження нижче зі <docs>службою підтримки Aheadscale</docs>. Локальну копію також збережено на вашому пристрої."
     },
     "settings.troubleshooting.done.savedDescription": {
         "message": "Ваш архів діагностики збережено локально."
@@ -867,7 +867,7 @@
         "message": "Помилка завантаження. Архів все одно збережено локально."
     },
     "settings.troubleshooting.stage.reconnecting": {
-        "message": "Перепідключення NetBird…"
+        "message": "Перепідключення Aheadscale…"
     },
     "settings.troubleshooting.stage.capturing": {
         "message": "Запис журналів діагностики"
@@ -876,16 +876,16 @@
         "message": "Створення архіву діагностики…"
     },
     "settings.troubleshooting.stage.uploading": {
-        "message": "Завантаження на сервери NetBird…"
+        "message": "Завантаження на сервери Aheadscale…"
     },
     "settings.troubleshooting.stage.cancelling": {
         "message": "Скасування…"
     },
     "settings.about.client": {
-        "message": "NetBird Client v{version}"
+        "message": "Aheadscale Client v{version}"
     },
     "settings.about.clientName": {
-        "message": "NetBird Client"
+        "message": "Aheadscale Client"
     },
     "settings.about.development": {
         "message": "[Розробка]"
@@ -897,7 +897,7 @@
         "message": "Графічний інтерфейс"
     },
     "settings.about.copyright": {
-        "message": "© {year} NetBird. Усі права захищено."
+        "message": "© {year} Aheadscale. Усі права захищено."
     },
     "settings.about.links.imprint": {
         "message": "Реквізити"
@@ -927,7 +927,7 @@
         "message": "Зворотний зв’язок"
     },
     "update.banner.message": {
-        "message": "NetBird {version} готовий до встановлення."
+        "message": "Aheadscale {version} готовий до встановлення."
     },
     "update.banner.later": {
         "message": "Пізніше"
@@ -951,7 +951,7 @@
         "message": "Завантажити"
     },
     "update.card.autoCheckInterval": {
-        "message": "NetBird перевіряє наявність оновлень у фоновому режимі."
+        "message": "Aheadscale перевіряє наявність оновлень у фоновому режимі."
     },
     "update.card.changelog": {
         "message": "Список змін"
@@ -963,13 +963,13 @@
         "message": "Доступне оновлення"
     },
     "update.overlay.updatingVersion": {
-        "message": "Оновлення NetBird до v{version}"
+        "message": "Оновлення Aheadscale до v{version}"
     },
     "update.overlay.updating": {
-        "message": "Оновлення NetBird"
+        "message": "Оновлення Aheadscale"
     },
     "update.overlay.description": {
-        "message": "Доступна новіша версія, яка зараз встановлюється. NetBird автоматично перезапуститься після завершення оновлення."
+        "message": "Доступна новіша версія, яка зараз встановлюється. Aheadscale автоматично перезапуститься після завершення оновлення."
     },
     "update.overlay.error.timeoutTitle": {
         "message": "Оновлення триває занадто довго"
@@ -1059,22 +1059,22 @@
         "message": "Оновлення"
     },
     "window.title.welcome": {
-        "message": "Ласкаво просимо до NetBird"
+        "message": "Ласкаво просимо до Aheadscale"
     },
     "window.title.error": {
         "message": "Помилка"
     },
     "welcome.title": {
-        "message": "Знайдіть NetBird в області сповіщень"
+        "message": "Знайдіть Aheadscale в області сповіщень"
     },
     "welcome.titleMac": {
-        "message": "Знайдіть NetBird у рядку меню"
+        "message": "Знайдіть Aheadscale у рядку меню"
     },
     "welcome.description": {
-        "message": "NetBird працює в області сповіщень. Натисніть на іконку, щоб підключитися, змінити профіль або відкрити налаштування."
+        "message": "Aheadscale працює в області сповіщень. Натисніть на іконку, щоб підключитися, змінити профіль або відкрити налаштування."
     },
     "welcome.descriptionMac": {
-        "message": "NetBird працює в рядку меню. Натисніть на іконку, щоб підключитися, змінити профіль або відкрити налаштування."
+        "message": "Aheadscale працює в рядку меню. Натисніть на іконку, щоб підключитися, змінити профіль або відкрити налаштування."
     },
     "welcome.continue": {
         "message": "Продовжити"
@@ -1083,13 +1083,13 @@
         "message": "Назад"
     },
     "welcome.management.title": {
-        "message": "Налаштування NetBird"
+        "message": "Налаштування Aheadscale"
     },
     "welcome.management.description": {
-        "message": "Натисніть «Продовжити», щоб розпочати, або виберіть Власний сервер, якщо у вас є власний сервер NetBird."
+        "message": "Натисніть «Продовжити», щоб розпочати, або виберіть Власний сервер, якщо у вас є власний сервер Aheadscale."
     },
     "welcome.management.cloud.title": {
-        "message": "NetBird Cloud"
+        "message": "Aheadscale Cloud"
     },
     "welcome.management.cloud.description": {
         "message": "Використовуйте наш хмарний сервіс. Налаштування не потрібне."
@@ -1185,10 +1185,10 @@
         "message": "Домен"
     },
     "peers.details.netbirdIp": {
-        "message": "NetBird IP"
+        "message": "Aheadscale IP"
     },
     "peers.details.netbirdIpv6": {
-        "message": "NetBird IPv6"
+        "message": "Aheadscale IPv6"
     },
     "peers.details.publicKey": {
         "message": "Публічний ключ"
@@ -1323,7 +1323,7 @@
         "message": "Відключитися"
     },
     "daemon.unavailable.title": {
-        "message": "Служба NetBird не запущена"
+        "message": "Служба Aheadscale не запущена"
     },
     "daemon.unavailable.description": {
         "message": "Програма перепідключиться автоматично, щойно служба запрацює."
@@ -1332,10 +1332,10 @@
         "message": "Документація"
     },
     "daemon.outdated.title": {
-        "message": "Клієнт NetBird застарів"
+        "message": "Клієнт Aheadscale застарів"
     },
     "daemon.outdated.description": {
-        "message": "Новий графічний інтерфейс несумісний зі старою версією клієнта NetBird. Оновіть клієнт, щоб використовувати нову програму."
+        "message": "Новий графічний інтерфейс несумісний зі старою версією клієнта Aheadscale. Оновіть клієнт, щоб використовувати нову програму."
     },
     "daemon.outdated.download": {
         "message": "Завантажити останню версію"
@@ -1359,13 +1359,13 @@
         "message": "Вхід відхилено сервером."
     },
     "error.daemon_unreachable": {
-        "message": "Служба NetBird не відповідає. Будь ласка, перевірте, чи запущена служба."
+        "message": "Служба Aheadscale не відповідає. Будь ласка, перевірте, чи запущена служба."
     },
     "error.unknown": {
         "message": "Помилка операції."
     },
     "error.elevation_unavailable": {
-        "message": "NetBird не зміг запросити в системи привілеї, необхідні для внесення змін. Замість цього виконайте:"
+        "message": "Aheadscale не зміг запросити в системи привілеї, необхідні для внесення змін. Замість цього виконайте:"
     },
     "error.elevation_failed": {
         "message": "Не вдалося застосувати зміни з підвищеними привілеями. Замість цього виконайте:"

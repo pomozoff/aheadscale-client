@@ -89,7 +89,7 @@ func (w *mocWGIface) GetNet() *netstack.Net {
 
 var zoneRecords = []nbdns.SimpleRecord{
 	{
-		Name:  "peera.netbird.cloud",
+		Name:  "peera.aheadscale.cloud",
 		Type:  1,
 		Class: nbdns.DefaultClass,
 		TTL:   300,
@@ -140,7 +140,7 @@ func TestDNSServerStartStop(t *testing.T) {
 				t.Error(err)
 			}
 
-			dnsServer.registerHandler([]string{"netbird.cloud"}, dnsServer.localResolver, 1)
+			dnsServer.registerHandler([]string{"aheadscale.cloud"}, dnsServer.localResolver, 1)
 
 			resolver := &net.Resolver{
 				PreferGo: true,
@@ -202,7 +202,7 @@ func TestDNSPermanent_updateHostDNS_emptyUpstream(t *testing.T) {
 	dnsServer.OnUpdatedHostDNSServer([]netip.AddrPort{addrPort})
 
 	resolver := newDnsResolver(dnsServer.service.RuntimeIP(), dnsServer.service.RuntimePort())
-	_, err = resolver.LookupHost(context.Background(), "netbird.io")
+	_, err = resolver.LookupHost(context.Background(), "aheadscale.io")
 	if err != nil {
 		t.Errorf("failed to resolve: %s", err)
 	}
@@ -227,7 +227,7 @@ func TestDNSPermanent_updateUpstream(t *testing.T) {
 
 	// check initial state
 	resolver := newDnsResolver(dnsServer.service.RuntimeIP(), dnsServer.service.RuntimePort())
-	_, err = resolver.LookupHost(context.Background(), "netbird.io")
+	_, err = resolver.LookupHost(context.Background(), "aheadscale.io")
 	if err != nil {
 		t.Errorf("failed to resolve: %s", err)
 	}
@@ -236,7 +236,7 @@ func TestDNSPermanent_updateUpstream(t *testing.T) {
 		ServiceEnable: true,
 		CustomZones: []nbdns.CustomZone{
 			{
-				Domain:  "netbird.cloud",
+				Domain:  "aheadscale.cloud",
 				Records: zoneRecords,
 			},
 		},
@@ -260,7 +260,7 @@ func TestDNSPermanent_updateUpstream(t *testing.T) {
 		t.Errorf("failed to update dns server: %s", err)
 	}
 
-	_, err = resolver.LookupHost(context.Background(), "netbird.io")
+	_, err = resolver.LookupHost(context.Background(), "aheadscale.io")
 	if err != nil {
 		t.Errorf("failed to resolve: %s", err)
 	}
@@ -276,7 +276,7 @@ func TestDNSPermanent_updateUpstream(t *testing.T) {
 		ServiceEnable: true,
 		CustomZones: []nbdns.CustomZone{
 			{
-				Domain:  "netbird.cloud",
+				Domain:  "aheadscale.cloud",
 				Records: zoneRecords,
 			},
 		},
@@ -288,7 +288,7 @@ func TestDNSPermanent_updateUpstream(t *testing.T) {
 		t.Errorf("failed to update dns server: %s", err)
 	}
 
-	_, err = resolver.LookupHost(context.Background(), "netbird.io")
+	_, err = resolver.LookupHost(context.Background(), "aheadscale.io")
 	if err != nil {
 		t.Errorf("failed to resolve: %s", err)
 	}
@@ -321,7 +321,7 @@ func TestDNSPermanent_matchOnly(t *testing.T) {
 
 	// check initial state
 	resolver := newDnsResolver(dnsServer.service.RuntimeIP(), dnsServer.service.RuntimePort())
-	_, err = resolver.LookupHost(context.Background(), "netbird.io")
+	_, err = resolver.LookupHost(context.Background(), "aheadscale.io")
 	if err != nil {
 		t.Errorf("failed to resolve: %s", err)
 	}
@@ -330,7 +330,7 @@ func TestDNSPermanent_matchOnly(t *testing.T) {
 		ServiceEnable: true,
 		CustomZones: []nbdns.CustomZone{
 			{
-				Domain:  "netbird.cloud",
+				Domain:  "aheadscale.cloud",
 				Records: zoneRecords,
 			},
 		},
@@ -359,7 +359,7 @@ func TestDNSPermanent_matchOnly(t *testing.T) {
 		t.Errorf("failed to update dns server: %s", err)
 	}
 
-	_, err = resolver.LookupHost(context.Background(), "netbird.io")
+	_, err = resolver.LookupHost(context.Background(), "aheadscale.io")
 	if err != nil {
 		t.Errorf("failed to resolve: %s", err)
 	}
@@ -1018,7 +1018,7 @@ func TestDefaultServer_UpdateMux_SharedHandlerZoneRemoval(t *testing.T) {
 func TestDefaultServer_UpdateMux_PreservesLocalResolver(t *testing.T) {
 	resolver := local.NewResolver()
 	require.NoError(t, resolver.RegisterRecord(nbdns.SimpleRecord{
-		Name:  "peer.netbird.cloud.",
+		Name:  "peer.aheadscale.cloud.",
 		Type:  int(dns.TypeA),
 		Class: nbdns.DefaultClass,
 		TTL:   300,
@@ -1032,7 +1032,7 @@ func TestDefaultServer_UpdateMux_PreservesLocalResolver(t *testing.T) {
 	}
 
 	server.updateMux([]handlerWrapper{
-		{domain: "netbird.cloud", handler: resolver, priority: PriorityLocal},
+		{domain: "aheadscale.cloud", handler: resolver, priority: PriorityLocal},
 	})
 
 	// Remove the zone. The resolver must survive so its records and lookup
@@ -1045,7 +1045,7 @@ func TestDefaultServer_UpdateMux_PreservesLocalResolver(t *testing.T) {
 			response = m
 			return nil
 		},
-	}, &dns.Msg{Question: []dns.Question{{Name: "peer.netbird.cloud.", Qtype: dns.TypeA, Qclass: dns.ClassINET}}})
+	}, &dns.Msg{Question: []dns.Question{{Name: "peer.aheadscale.cloud.", Qtype: dns.TypeA, Qclass: dns.ClassINET}}})
 
 	require.NotNil(t, response, "local resolver should answer after teardown")
 	assert.Equal(t, dns.RcodeSuccess, response.Rcode,

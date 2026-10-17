@@ -16,7 +16,7 @@ func TestExtractValidDomain(t *testing.T) {
 		{
 			name:     "HTTPS URL with port",
 			url:      "https://api.netbird.io:443",
-			expected: "api.netbird.io",
+			expected: "api.aheadscale.io",
 		},
 		{
 			name:     "HTTP URL without port",
@@ -25,23 +25,23 @@ func TestExtractValidDomain(t *testing.T) {
 		},
 		{
 			name:     "Host with port (no scheme)",
-			url:      "signal.netbird.io:443",
-			expected: "signal.netbird.io",
+			url:      "signal.aheadscale.io:443",
+			expected: "signal.aheadscale.io",
 		},
 		{
 			name:     "STUN URL",
-			url:      "stun:stun.netbird.io:443",
-			expected: "stun.netbird.io",
+			url:      "stun:stun.aheadscale.io:443",
+			expected: "stun.aheadscale.io",
 		},
 		{
 			name:     "STUN URL with different port",
-			url:      "stun:stun.netbird.io:5555",
-			expected: "stun.netbird.io",
+			url:      "stun:stun.aheadscale.io:5555",
+			expected: "stun.aheadscale.io",
 		},
 		{
 			name:     "TURNS URL with query params",
-			url:      "turns:turn.netbird.io:443?transport=tcp",
-			expected: "turn.netbird.io",
+			url:      "turns:turn.aheadscale.io:443?transport=tcp",
+			expected: "turn.aheadscale.io",
 		},
 		{
 			name:     "TURN URL",
@@ -56,7 +56,7 @@ func TestExtractValidDomain(t *testing.T) {
 		{
 			name:     "RELS URL",
 			url:      "rels://relay.netbird.io:443",
-			expected: "relay.netbird.io",
+			expected: "relay.aheadscale.io",
 		},
 		{
 			name:     "Raw hostname",

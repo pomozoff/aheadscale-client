@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+case "${1:-}" in
+    remove|deconfigure)
+        /usr/bin/aheadscale service stop
+        /usr/bin/aheadscale service uninstall
+        ;;
+esac
+# Profiles and keys intentionally survive removal and package upgrades.

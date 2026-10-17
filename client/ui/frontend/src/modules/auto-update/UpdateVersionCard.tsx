@@ -7,7 +7,7 @@ import { Button } from "@/components/buttons/Button";
 import { useClientVersion } from "@/contexts/ClientVersionContext";
 import { cn } from "@/lib/cn";
 
-const GITHUB_RELEASES = "https://github.com/netbirdio/netbird/releases/latest";
+const GITHUB_RELEASES = "https://github.com/pomozoff/aheadscale-client";
 
 function openUrl(url: string) {
     Browser.OpenURL(url).catch(() => {
@@ -33,9 +33,7 @@ export function UpdateVersionCard() {
             <Card className={"max-w-lg"}>
                 <div>
                     <Title>{t(titleKey, { version: updateVersion })}</Title>
-                    <Link
-                        url={`https://github.com/netbirdio/netbird/releases/tag/v${updateVersion}`}
-                    >
+                    <Link url={`https://github.com/pomozoff/aheadscale-client`}>
                         {t("update.card.whatsNew")}
                     </Link>
                 </div>

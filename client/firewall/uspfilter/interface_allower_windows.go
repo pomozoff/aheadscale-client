@@ -17,7 +17,7 @@ type action string
 const (
 	addRule          action = "add"
 	deleteRule       action = "delete"
-	firewallRuleName        = "Netbird"
+	firewallRuleName        = "Aheadscale"
 )
 
 // WindowsInterfaceAllower opens the NetBird interface in the Windows firewall

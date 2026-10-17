@@ -26,7 +26,7 @@ func ownerOnlyDir(t *testing.T) string {
 // writeExecutable creates a plain executable file, the shape trustedSelf checks.
 func writeExecutable(t *testing.T, dir string) string {
 	t.Helper()
-	path := filepath.Join(dir, "netbird-ui")
+	path := filepath.Join(dir, "aheadscale-ui")
 	require.NoError(t, os.WriteFile(path, []byte("#!/bin/sh\n"), 0o755), "write the executable")
 	require.NoError(t, os.Chmod(path, 0o755), "set the executable's mode")
 	return path

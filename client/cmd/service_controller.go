@@ -58,7 +58,7 @@ func daemonServerOptions(network string) []grpc.ServerOption {
 
 func (p *program) Start(svc service.Service) error {
 	// Start should not block. Do the actual work async.
-	log.Info("starting NetBird service") //nolint
+	log.Info("starting Aheadscale service") //nolint
 
 	if err := validateJSONSocketFlags(); err != nil {
 		return err
@@ -204,7 +204,7 @@ func (p *program) Stop(srv service.Service) error {
 	}
 
 	time.Sleep(time.Second * 2)
-	log.Info("stopped NetBird service") //nolint
+	log.Info("stopped Aheadscale service") //nolint
 	return nil
 }
 
@@ -244,7 +244,7 @@ func setupServiceControlCommand(cmd *cobra.Command, ctx context.Context, cancel 
 
 var runCmd = &cobra.Command{
 	Use:   "run",
-	Short: "runs NetBird as service",
+	Short: "runs Aheadscale as service",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx, cancel := context.WithCancel(cmd.Context())
 
@@ -265,7 +265,7 @@ var runCmd = &cobra.Command{
 
 var startCmd = &cobra.Command{
 	Use:   "start",
-	Short: "starts NetBird service",
+	Short: "starts Aheadscale service",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx, cancel := context.WithCancel(cmd.Context())
 		s, err := setupServiceControlCommand(cmd, ctx, cancel, false)
@@ -279,14 +279,14 @@ var startCmd = &cobra.Command{
 		if err := s.Start(); err != nil {
 			return fmt.Errorf("start service: %w", err)
 		}
-		cmd.Println("NetBird service has been started")
+		cmd.Println("Aheadscale service has been started")
 		return nil
 	},
 }
 
 var stopCmd = &cobra.Command{
 	Use:   "stop",
-	Short: "stops NetBird service",
+	Short: "stops Aheadscale service",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx, cancel := context.WithCancel(cmd.Context())
 		s, err := setupServiceControlCommand(cmd, ctx, cancel, false)
@@ -297,14 +297,14 @@ var stopCmd = &cobra.Command{
 		if err := s.Stop(); err != nil {
 			return fmt.Errorf("stop service: %w", err)
 		}
-		cmd.Println("NetBird service has been stopped")
+		cmd.Println("Aheadscale service has been stopped")
 		return nil
 	},
 }
 
 var restartCmd = &cobra.Command{
 	Use:   "restart",
-	Short: "restarts NetBird service",
+	Short: "restarts Aheadscale service",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx, cancel := context.WithCancel(cmd.Context())
 		s, err := setupServiceControlCommand(cmd, ctx, cancel, false)
@@ -318,14 +318,14 @@ var restartCmd = &cobra.Command{
 		if err := s.Restart(); err != nil {
 			return fmt.Errorf("restart service: %w", err)
 		}
-		cmd.Println("NetBird service has been restarted")
+		cmd.Println("Aheadscale service has been restarted")
 		return nil
 	},
 }
 
 var svcStatusCmd = &cobra.Command{
 	Use:   "status",
-	Short: "shows NetBird service status",
+	Short: "shows Aheadscale service status",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx, cancel := context.WithCancel(cmd.Context())
 		s, err := setupServiceControlCommand(cmd, ctx, cancel, true)
@@ -350,7 +350,7 @@ var svcStatusCmd = &cobra.Command{
 			statusText = fmt.Sprintf("Unknown (%d)", status)
 		}
 
-		cmd.Printf("NetBird service status: %s\n", statusText)
+		cmd.Printf("Aheadscale service status: %s\n", statusText)
 		return nil
 	},
 }

@@ -22,7 +22,7 @@ func TestInterfaceAllowerInputOnly(t *testing.T) {
 		t.Skip("root required")
 	}
 
-	require.False(t, ipTableExists(t, getTableName()), "precondition: no stale netbird table")
+	require.False(t, ipTableExists(t, getTableName()), "precondition: no stale aheadscale table")
 
 	conn := &nftables.Conn{}
 	extTable := conn.AddTable(&nftables.Table{Name: "nbtest_extchains", Family: nftables.TableFamilyINet})
@@ -50,7 +50,7 @@ func TestInterfaceAllowerInputOnly(t *testing.T) {
 	require.Len(t, listRules(t, extTable, forwardChain), 0,
 		"external FORWARD chain must not be opened in userspace mode")
 	require.False(t, ipTableExists(t, getTableName()),
-		"allower must not create a netbird work table")
+		"allower must not create a aheadscale work table")
 
 	require.NoError(t, allower.Close(), "close")
 	require.False(t, chainHasUserData(t, extTable, inputChain, userDataAcceptInputRule),

@@ -145,5 +145,5 @@ func ElevatedCommand(command string) string {
 // might have: PowerShell 5.1, still the default on Windows Server, rejects "&&"
 // as a syntax error.
 func UpCommand(flags string) string {
-	return ElevatedCommand("netbird down") + "; " + ElevatedCommand("netbird up "+flags)
+	return ElevatedCommand("aheadscale down") + "; " + ElevatedCommand("aheadscale up "+flags)
 }

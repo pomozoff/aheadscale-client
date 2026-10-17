@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+if [ "${1:-configure}" != configure ]; then exit 0; fi
+if [ -f /etc/systemd/system/aheadscale.service ] || [ -f /lib/systemd/system/aheadscale.service ]; then
+    /usr/bin/aheadscale service stop
+    /usr/bin/aheadscale service uninstall
+fi
+/usr/bin/aheadscale service install --disable-profiles
+/usr/bin/aheadscale service start

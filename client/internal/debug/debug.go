@@ -258,8 +258,8 @@ const (
 	clientLogPrefix = "client"
 	uiLogPrefix     = "gui-client"
 
-	darwinErrorLogPath  = "/var/log/netbird.out.log"
-	darwinStdoutLogPath = "/var/log/netbird.err.log"
+	darwinErrorLogPath  = "/var/log/aheadscale.out.log"
+	darwinStdoutLogPath = "/var/log/aheadscale.err.log"
 )
 
 // MetricsExporter is an interface for exporting metrics

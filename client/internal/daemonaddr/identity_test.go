@@ -11,14 +11,14 @@ func TestCarriesIdentity(t *testing.T) {
 		addr string
 		want bool
 	}{
-		{"unix:///var/run/netbird.sock", true},
-		{"unix:///var/run/netbird/default.sock", true},
-		{"npipe://netbird", true},
+		{"unix:///var/run/aheadscale.sock", true},
+		{"unix:///var/run/aheadscale/default.sock", true},
+		{"npipe://aheadscale", true},
 		{`npipe://\\.\pipe\ProtectedPrefix\Administrators\netbird`, true},
 		{"tcp://127.0.0.1:41731", false},
 		{"tcp://localhost:41731", false},
 		{"", false},
-		{"/var/run/netbird.sock", false},
+		{"/var/run/aheadscale.sock", false},
 	}
 
 	for _, tt := range tests {

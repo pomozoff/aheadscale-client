@@ -36,7 +36,7 @@ func ResolveDaemonAddr(addr string) string {
 		return addr
 	}
 
-	for _, path := range PipePaths("netbird") {
+	for _, path := range PipePaths("aheadscale") {
 		if pipeAvailable(path) {
 			return addr
 		}
@@ -44,7 +44,7 @@ func ResolveDaemonAddr(addr string) string {
 
 	if tcpAvailable(legacyWindowsAddr) {
 		log.Warnf("the daemon is not serving %s, but something is listening on the legacy %s. "+
-			"Restart the NetBird service so it serves the pipe. That address is not used automatically: "+
+			"Restart the Aheadscale service so it serves the pipe. That address is not used automatically: "+
 			"any local user can bind it and it carries no caller identity, so pass --daemon-addr %s "+
 			"explicitly if you accept that",
 			WindowsPipeAddr, legacyWindowsAddr, legacyWindowsAddr)

@@ -35,8 +35,8 @@ func TestDaemonRunsAsSelf_FailsClosed(t *testing.T) {
 
 	// A socket owned by another user, which is what a root-run daemon looks like
 	// to an unprivileged client. Only assertable when we are not root ourselves.
-	rootOwned := "unix:///var/run/netbird.sock"
-	if _, err := os.Stat("/var/run/netbird.sock"); err == nil && os.Getuid() != 0 {
+	rootOwned := "unix:///var/run/aheadscale.sock"
+	if _, err := os.Stat("/var/run/aheadscale.sock"); err == nil && os.Getuid() != 0 {
 		if DaemonRunsAsSelf(rootOwned) {
 			t.Error("a socket owned by another user must not count as ours")
 		}
@@ -45,13 +45,13 @@ func TestDaemonRunsAsSelf_FailsClosed(t *testing.T) {
 	for name, addr := range map[string]string{
 		"missing socket":  "unix://" + filepath.Join(dir, "absent.sock"),
 		"tcp address":     "tcp://127.0.0.1:41731",
-		"named pipe":      "npipe://netbird",
+		"named pipe":      "npipe://aheadscale",
 		"empty":           "",
 		"no scheme":       filepath.Join(dir, "absent.sock"),
 		"directory":       "unix://" + dir,
 		"unknown scheme":  "http://localhost:8080",
 		"scheme only":     "unix://",
-		"relative socket": "unix://netbird.sock",
+		"relative socket": "unix://aheadscale.sock",
 	} {
 		t.Run(name, func(t *testing.T) {
 			if DaemonRunsAsSelf(addr) {

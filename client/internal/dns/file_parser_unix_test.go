@@ -43,9 +43,9 @@ nameserver 192.168.0.1
 
 nameserver 192.168.2.1
 nameserver 100.81.99.197
-search netbird.cloud
+search aheadscale.cloud
 `,
-			expectedSearch: []string{"netbird.cloud"},
+			expectedSearch: []string{"aheadscale.cloud"},
 			expectedNS:     []string{"192.168.2.1", "100.81.99.197"},
 			expectedOther:  []string{},
 		},
@@ -68,10 +68,10 @@ search netbird.cloud
 
 nameserver 192.168.2.1
 nameserver 100.81.99.197
-search netbird.cloud
+search aheadscale.cloud
 options debug
 `,
-			expectedSearch: []string{"netbird.cloud"},
+			expectedSearch: []string{"aheadscale.cloud"},
 			expectedNS:     []string{"192.168.2.1", "100.81.99.197"},
 			expectedOther:  []string{"options debug"},
 		},

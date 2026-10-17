@@ -53,13 +53,13 @@ func serviceZone(t *testing.T, resolver *Resolver, zone string, records ...nbdns
 func TestLocalResolver_WarmsLazyPeerOnResolve(t *testing.T) {
 	// Warm-up fires only for multi-record answers (the HA / round-robin shape of
 	// the synthesized private-service zones), so register two peer targets.
-	const name = "svc.proxy.netbird.cloud."
+	const name = "svc.proxy.aheadscale.cloud."
 	recs := []nbdns.SimpleRecord{
 		{Name: name, Type: 1, Class: nbdns.DefaultClass, TTL: 300, RData: "100.64.0.7"},
 		{Name: name, Type: 1, Class: nbdns.DefaultClass, TTL: 300, RData: "100.64.0.8"},
 	}
 	resolver := NewResolver()
-	serviceZone(t, resolver, "proxy.netbird.cloud", recs...)
+	serviceZone(t, resolver, "proxy.aheadscale.cloud", recs...)
 
 	act := &recordingActivator{}
 	resolver.SetPeerActivator(act)
@@ -78,9 +78,9 @@ func TestLocalResolver_WarmsLazyPeerOnResolve(t *testing.T) {
 func TestLocalResolver_NoWarmupForSingleRecord(t *testing.T) {
 	// A single-record answer does not trigger warm-up; the resolver only warms
 	// multi-record answers.
-	rec := nbdns.SimpleRecord{Name: "svc.proxy.netbird.cloud.", Type: 1, Class: nbdns.DefaultClass, TTL: 300, RData: "100.64.0.7"}
+	rec := nbdns.SimpleRecord{Name: "svc.proxy.aheadscale.cloud.", Type: 1, Class: nbdns.DefaultClass, TTL: 300, RData: "100.64.0.7"}
 	resolver := NewResolver()
-	serviceZone(t, resolver, "proxy.netbird.cloud", rec)
+	serviceZone(t, resolver, "proxy.aheadscale.cloud", rec)
 
 	act := &recordingActivator{}
 	resolver.SetPeerActivator(act)
@@ -96,9 +96,9 @@ func TestLocalResolver_NoWarmupForSingleRecord(t *testing.T) {
 
 func TestLocalResolver_NoActivatorNoWarmup(t *testing.T) {
 	// With no activator wired the resolver behaves exactly as before.
-	rec := nbdns.SimpleRecord{Name: "svc.proxy.netbird.cloud.", Type: 1, Class: nbdns.DefaultClass, TTL: 300, RData: "100.64.0.7"}
+	rec := nbdns.SimpleRecord{Name: "svc.proxy.aheadscale.cloud.", Type: 1, Class: nbdns.DefaultClass, TTL: 300, RData: "100.64.0.7"}
 	resolver := NewResolver()
-	serviceZone(t, resolver, "proxy.netbird.cloud", rec)
+	serviceZone(t, resolver, "proxy.aheadscale.cloud", rec)
 
 	resp := serveA(t, resolver, rec.Name)
 	require.NotNil(t, resp, "resolver must still answer without an activator")
@@ -108,13 +108,13 @@ func TestLocalResolver_NoActivatorNoWarmup(t *testing.T) {
 func TestLocalResolver_NoWarmupForMissingRecord(t *testing.T) {
 	// A query that resolves to nothing must not invoke the activator (no IPs).
 	resolver := NewResolver()
-	serviceZone(t, resolver, "proxy.netbird.cloud",
-		nbdns.SimpleRecord{Name: "svc.proxy.netbird.cloud.", Type: 1, Class: nbdns.DefaultClass, TTL: 300, RData: "100.64.0.7"})
+	serviceZone(t, resolver, "proxy.aheadscale.cloud",
+		nbdns.SimpleRecord{Name: "svc.proxy.aheadscale.cloud.", Type: 1, Class: nbdns.DefaultClass, TTL: 300, RData: "100.64.0.7"})
 
 	act := &recordingActivator{}
 	resolver.SetPeerActivator(act)
 
-	serveA(t, resolver, "absent.proxy.netbird.cloud.")
+	serveA(t, resolver, "absent.proxy.aheadscale.cloud.")
 
 	act.mu.Lock()
 	defer act.mu.Unlock()
@@ -127,14 +127,14 @@ func TestLocalResolver_NoWarmupInAuthoritativeZone(t *testing.T) {
 	// (non-authoritative) zones such as the synthesized private-service zones.
 	// Use a multi-record answer so the authoritative-zone scoping is the only
 	// reason warm-up is skipped, not the single-record guard.
-	const name = "peer.netbird.cloud."
+	const name = "peer.aheadscale.cloud."
 	recs := []nbdns.SimpleRecord{
 		{Name: name, Type: 1, Class: nbdns.DefaultClass, TTL: 300, RData: "100.64.0.9"},
 		{Name: name, Type: 1, Class: nbdns.DefaultClass, TTL: 300, RData: "100.64.0.10"},
 	}
 	resolver := NewResolver()
 	resolver.Update([]nbdns.CustomZone{{
-		Domain:  "netbird.cloud",
+		Domain:  "aheadscale.cloud",
 		Records: recs,
 	}})
 
@@ -198,7 +198,7 @@ func TestExtractRecordAddr(t *testing.T) {
 	})
 
 	t.Run("non-address record", func(t *testing.T) {
-		_, ok := extractRecordAddr(&dns.CNAME{Target: "target.netbird.cloud."})
+		_, ok := extractRecordAddr(&dns.CNAME{Target: "target.aheadscale.cloud."})
 		assert.False(t, ok)
 	})
 }

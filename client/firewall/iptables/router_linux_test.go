@@ -366,14 +366,14 @@ func TestFindSetNameInRule(t *testing.T) {
 		{
 			name: "Basic rule with two sets",
 			rule: []string{
-				"-A", "NETBIRD-RT-FWD-IN", "-p", "tcp", "-m", "set", "--match-set", "nb-2e5a2a05", "src",
+				"-A", "ASCALE-RT-FWD-IN", "-p", "tcp", "-m", "set", "--match-set", "nb-2e5a2a05", "src",
 				"-m", "set", "--match-set", "nb-349ae051", "dst", "-m", "tcp", "--dport", "8080", "-j", "ACCEPT",
 			},
 			expected: []string{"nb-2e5a2a05", "nb-349ae051"},
 		},
 		{
 			name:     "No sets",
-			rule:     []string{"-A", "NETBIRD-RT-FWD-IN", "-p", "tcp", "-j", "ACCEPT"},
+			rule:     []string{"-A", "ASCALE-RT-FWD-IN", "-p", "tcp", "-j", "ACCEPT"},
 			expected: []string{},
 		},
 		{

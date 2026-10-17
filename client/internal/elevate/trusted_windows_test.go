@@ -87,7 +87,7 @@ func TestIsAllowACE(t *testing.T) {
 // trustedSelf checks.
 func writeExecutable(t *testing.T) string {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), "netbird-ui.exe")
+	path := filepath.Join(t.TempDir(), "aheadscale-ui.exe")
 	require.NoError(t, os.WriteFile(path, []byte("MZ"), 0o755), "write the executable")
 	return path
 }

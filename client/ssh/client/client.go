@@ -28,7 +28,7 @@ import (
 
 const (
 	// DefaultDaemonAddr is the default address for the NetBird daemon
-	DefaultDaemonAddr = "unix:///var/run/netbird.sock"
+	DefaultDaemonAddr = "unix:///var/run/aheadscale.sock"
 	// DefaultDaemonAddrWindows is the default address for the NetBird daemon on Windows
 	DefaultDaemonAddrWindows = daemonaddr.WindowsPipeAddr
 )
@@ -437,10 +437,10 @@ func getKnownHostsFiles() []string {
 		if programData == "" {
 			programData = `C:\ProgramData`
 		}
-		netbirdKnownHosts := filepath.Join(programData, "ssh", "ssh_known_hosts.d", "99-netbird")
+		netbirdKnownHosts := filepath.Join(programData, "ssh", "ssh_known_hosts.d", "99-aheadscale")
 		files = append(files, netbirdKnownHosts)
 	} else {
-		files = append(files, "/etc/ssh/ssh_known_hosts.d/99-netbird")
+		files = append(files, "/etc/ssh/ssh_known_hosts.d/99-aheadscale")
 		files = append(files, "/etc/ssh/ssh_known_hosts")
 	}
 

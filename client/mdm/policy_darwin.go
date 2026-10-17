@@ -23,7 +23,7 @@ import (
 // Read-only — only the OS (root) is supposed to write this file. The
 // loader sanity-checks the file mode and refuses to honour a world-
 // writable plist, as a defense against tampered installs.
-const policyPlistPath = "/Library/Managed Preferences/io.netbird.client.plist"
+const policyPlistPath = "/Library/Managed Preferences/ru.aheadscale.client.plist"
 
 // loadPlatform reads the MDM-managed configuration from the macOS
 // managed-preferences plist at policyPlistPath, unless a fetcher was

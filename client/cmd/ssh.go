@@ -94,8 +94,8 @@ func init() {
 
 var sshCmd = &cobra.Command{
 	Use:   "ssh [flags] [user@]host [command]",
-	Short: "Connect to a NetBird peer via SSH",
-	Long: `Connect to a NetBird peer using SSH with support for port forwarding.
+	Short: "Connect to a Aheadscale peer via SSH",
+	Long: `Connect to a Aheadscale peer using SSH with support for port forwarding.
 
 Port Forwarding:
   -L [bind_address:]port:host:hostport   Local port forwarding
@@ -176,26 +176,18 @@ func sshFn(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// getEnvOrDefault checks for environment variables with WT_ and NB_ prefixes
+// getEnvOrDefault reads only Aheadscale's environment settings.
 func getEnvOrDefault(flagName, defaultValue string) string {
-	if envValue := os.Getenv("WT_" + flagName); envValue != "" {
-		return envValue
-	}
-	if envValue := os.Getenv("NB_" + flagName); envValue != "" {
-		return envValue
+	if value := os.Getenv("AS_" + flagName); value != "" {
+		return value
 	}
 	return defaultValue
 }
 
-// getBoolEnvOrDefault checks for boolean environment variables with WT_ and NB_ prefixes
+// getBoolEnvOrDefault reads only Aheadscale's boolean environment settings.
 func getBoolEnvOrDefault(flagName string, defaultValue bool) bool {
-	if envValue := os.Getenv("WT_" + flagName); envValue != "" {
-		if parsed, err := strconv.ParseBool(envValue); err == nil {
-			return parsed
-		}
-	}
-	if envValue := os.Getenv("NB_" + flagName); envValue != "" {
-		if parsed, err := strconv.ParseBool(envValue); err == nil {
+	if value := os.Getenv("AS_" + flagName); value != "" {
+		if parsed, err := strconv.ParseBool(value); err == nil {
 			return parsed
 		}
 	}
@@ -423,10 +415,10 @@ func createSSHFlagSet() (*flag.FlagSet, *sshFlags) {
 	fs.BoolVar(&flags.SkipCachedToken, "no-cache", false, "Skip cached JWT token and force fresh authentication")
 	fs.BoolVar(&flags.NoBrowser, "no-browser", defaultNoBrowser, noBrowserDesc)
 
-	fs.StringVar(&flags.ConfigPath, "c", defaultConfigPath, "Netbird config file location")
-	fs.StringVar(&flags.ConfigPath, "config", defaultConfigPath, "Netbird config file location")
-	fs.StringVar(&flags.LogLevel, "l", defaultLogLevel, "sets Netbird log level")
-	fs.StringVar(&flags.LogLevel, "log-level", defaultLogLevel, "sets Netbird log level")
+	fs.StringVar(&flags.ConfigPath, "c", defaultConfigPath, "Aheadscale config file location")
+	fs.StringVar(&flags.ConfigPath, "config", defaultConfigPath, "Aheadscale config file location")
+	fs.StringVar(&flags.LogLevel, "l", defaultLogLevel, "sets Aheadscale log level")
+	fs.StringVar(&flags.LogLevel, "log-level", defaultLogLevel, "sets Aheadscale log level")
 
 	return fs, flags
 }
@@ -850,8 +842,8 @@ func sshProxyFn(cmd *cobra.Command, args []string) error {
 
 var sshDetectCmd = &cobra.Command{
 	Use:    "detect <host> <port>",
-	Short:  "Detect if a host is running NetBird SSH",
-	Long:   "Internal command used by SSH Match exec to detect NetBird SSH servers. Exit codes: 0=JWT, 1=no-JWT, 2=regular SSH",
+	Short:  "Detect if a host is running Aheadscale SSH",
+	Long:   "Internal command used by SSH Match exec to detect Aheadscale SSH servers. Exit codes: 0=JWT, 1=no-JWT, 2=regular SSH",
 	Hidden: true,
 	Args:   cobra.ExactArgs(2),
 	RunE:   sshDetectFn,

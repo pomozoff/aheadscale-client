@@ -64,19 +64,19 @@ func (e *ErrAmbiguousHandle) Error() string {
 
 func init() {
 
-	DefaultConfigPathDir = "/var/lib/netbird/"
-	oldDefaultConfigPathDir = "/etc/netbird/"
+	DefaultConfigPathDir = "/var/lib/aheadscale/"
+	oldDefaultConfigPathDir = "/etc/aheadscale/"
 
 	if stateDir := os.Getenv("NB_STATE_DIR"); stateDir != "" {
 		DefaultConfigPathDir = stateDir
 	} else {
 		switch runtime.GOOS {
 		case "windows":
-			oldDefaultConfigPathDir = filepath.Join(os.Getenv("PROGRAMDATA"), "Netbird")
+			oldDefaultConfigPathDir = filepath.Join(os.Getenv("PROGRAMDATA"), "Aheadscale")
 			DefaultConfigPathDir = oldDefaultConfigPathDir
 
 		case "freebsd":
-			oldDefaultConfigPathDir = "/var/db/netbird/"
+			oldDefaultConfigPathDir = "/var/db/aheadscale/"
 			DefaultConfigPathDir = oldDefaultConfigPathDir
 		}
 	}

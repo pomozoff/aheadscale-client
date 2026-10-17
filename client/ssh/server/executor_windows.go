@@ -430,12 +430,12 @@ func prepareLocalS4ULogon(logger *log.Entry, username string) (unsafe.Pointer, u
 // performS4ULogon executes the S4U logon operation
 func performS4ULogon(logger *log.Entry, lsaHandle windows.Handle, authPackageId uint32, logonInfo unsafe.Pointer, logonInfoSize uintptr, userCpn string, isDomainUser bool) (windows.Handle, error) {
 	var tokenSource tokenSource
-	copy(tokenSource.SourceName[:], "netbird")
+	copy(tokenSource.SourceName[:], "ahdscale")
 	if ret, _, _ := procAllocateLocallyUniqueId.Call(uintptr(unsafe.Pointer(&tokenSource.SourceIdentifier))); ret == 0 {
 		logger.Debugf("AllocateLocallyUniqueId failed")
 	}
 
-	originName := newLsaString("netbird")
+	originName := newLsaString("aheadscale")
 
 	var profile uintptr
 	var profileSize uint32

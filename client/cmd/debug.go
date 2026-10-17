@@ -19,7 +19,6 @@ import (
 	"github.com/netbirdio/netbird/client/proto"
 	"github.com/netbirdio/netbird/client/server"
 	mgmProto "github.com/netbirdio/netbird/shared/management/proto"
-	"github.com/netbirdio/netbird/upload-server/types"
 	"github.com/netbirdio/netbird/version"
 )
 
@@ -36,7 +35,7 @@ var (
 var debugCmd = &cobra.Command{
 	Use:   "debug",
 	Short: "Debugging commands",
-	Long:  "Commands for debugging and logging within the NetBird daemon.",
+	Long:  "Commands for debugging and logging within the Aheadscale daemon.",
 }
 
 var debugBundleCmd = &cobra.Command{
@@ -49,8 +48,8 @@ var debugBundleCmd = &cobra.Command{
 
 var logCmd = &cobra.Command{
 	Use:   "log",
-	Short: "Manage logging for the NetBird daemon",
-	Long:  `Commands to manage logging settings for the NetBird daemon, including ICE, gRPC, and general log levels.`,
+	Short: "Manage logging for the Aheadscale daemon",
+	Long:  `Commands to manage logging settings for the Aheadscale daemon, including ICE, gRPC, and general log levels.`,
 }
 
 var logLevelCmd = &cobra.Command{
@@ -537,13 +536,15 @@ func init() {
 	debugBundleCmd.Flags().Uint32VarP(&logFileCount, "log-file-count", "C", 1, "Number of rotated log files to include in debug bundle")
 	debugBundleCmd.Flags().BoolVarP(&systemInfoFlag, "system-info", "S", true, "Adds system information to the debug bundle")
 	debugBundleCmd.Flags().BoolVarP(&uploadBundleFlag, "upload-bundle", "U", false, "Uploads the debug bundle to a server")
-	debugBundleCmd.Flags().StringVar(&uploadBundleURLFlag, "upload-bundle-url", types.DefaultBundleURL, "Service URL to get an URL to upload the debug bundle")
+	debugBundleCmd.Flags().StringVar(&uploadBundleURLFlag, "upload-bundle-url", "", "Service URL to get an URL to upload the debug bundle")
+	debugBundleCmd.MarkFlagsRequiredTogether("upload-bundle", "upload-bundle-url")
 	debugBundleCmd.Flags().BoolVar(&uploadBundleInsecureFlag, "upload-bundle-insecure", false, "Allow uploading to an http or untrusted-TLS upload server (self-hosted); requires root")
 
 	forCmd.Flags().Uint32VarP(&logFileCount, "log-file-count", "C", 1, "Number of rotated log files to include in debug bundle")
 	forCmd.Flags().BoolVarP(&systemInfoFlag, "system-info", "S", true, "Adds system information to the debug bundle")
 	forCmd.Flags().BoolVarP(&uploadBundleFlag, "upload-bundle", "U", false, "Uploads the debug bundle to a server")
-	forCmd.Flags().StringVar(&uploadBundleURLFlag, "upload-bundle-url", types.DefaultBundleURL, "Service URL to get an URL to upload the debug bundle")
+	forCmd.Flags().StringVar(&uploadBundleURLFlag, "upload-bundle-url", "", "Service URL to get an URL to upload the debug bundle")
+	forCmd.MarkFlagsRequiredTogether("upload-bundle", "upload-bundle-url")
 	forCmd.Flags().BoolVar(&uploadBundleInsecureFlag, "upload-bundle-insecure", false, "Allow uploading to an http or untrusted-TLS upload server (self-hosted); requires root")
 	forCmd.Flags().Bool("capture", false, "Capture packets during the debug duration and include in bundle")
 }

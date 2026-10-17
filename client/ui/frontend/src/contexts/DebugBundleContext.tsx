@@ -5,7 +5,6 @@ import i18next from "@/lib/i18n";
 import { errorDialog, formatErrorMessage } from "@/lib/errors.ts";
 import { startConnection } from "@/lib/connection.ts";
 
-const NETBIRD_UPLOAD_URL = "https://upload.debug.netbird.io/upload-url";
 const TRACE_LOG_FILE_COUNT = 5;
 const PLAIN_LOG_FILE_COUNT = 1;
 const TRACE_LOG_LEVEL = "trace";
@@ -205,7 +204,7 @@ const runBundleFlow = async (
 const useDebugBundle = () => {
     const [anonymizeLevel, setAnonymizeLevel] = useState<AnonymizeLevel>("none");
     const [systemInfo, setSystemInfo] = useState(true);
-    const [upload, setUpload] = useState(true);
+    const [upload, setUpload] = useState(false);
     const [trace, setTrace] = useState(true);
     const [capture, setCapture] = useState(false);
     const [traceMinutes, setTraceMinutes] = useState(1);
@@ -244,7 +243,8 @@ const useDebugBundle = () => {
             capturePackets,
             hasWindow: capture && totalSec > 0,
             totalSec,
-            uploadUrl: upload ? NETBIRD_UPLOAD_URL : "",
+            // Preview diagnostics stay on the device until Aheadscale has its own support endpoint.
+            uploadUrl: "",
             anonymizeLevel,
             systemInfo,
         };

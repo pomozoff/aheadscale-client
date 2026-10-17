@@ -76,7 +76,7 @@ var guardedFields = []guardedField{
 		// The daemon names this one as `-m <url>` in its own refusals.
 		up: func(value string) string { return "-m " + value },
 	},
-	boolField(FlagAllowServerSSH, "Run the NetBird SSH server.",
+	boolField(FlagAllowServerSSH, "Run the Aheadscale SSH server.",
 		func(p GuardedSettings) *bool { return p.ServerSSHAllowed },
 		func(req *proto.SetConfigRequest, v *bool) { req.ServerSSHAllowed = v }),
 	boolField(FlagEnableSSHRoot, "Allow SSH sessions to privileged accounts.",

@@ -423,7 +423,7 @@ func (m *Manager) setupConntrack(disabled bool) {
 func (m *Manager) openHostFirewall(ifaceName string) {
 	if m.ifaceAllower != nil {
 		if err := m.ifaceAllower.Apply(); err != nil {
-			log.Errorf("failed to allow netbird interface traffic: %v", err)
+			log.Errorf("failed to allow aheadscale interface traffic: %v", err)
 		}
 	}
 	// firewalld owns its own chains we can't insert into, so trust the interface

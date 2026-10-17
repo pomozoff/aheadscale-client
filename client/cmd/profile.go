@@ -22,14 +22,14 @@ var profileListShowID bool
 
 var profileCmd = &cobra.Command{
 	Use:   "profile",
-	Short: "Manage NetBird client profiles",
+	Short: "Manage Aheadscale client profiles",
 	Long:  `Commands to list, add, remove, and switch profiles. Profiles allow you to maintain different accounts in one client app.`,
 }
 
 var profileListCmd = &cobra.Command{
 	Use:     "list",
 	Short:   "List all profiles",
-	Long:    `List all available profiles in the NetBird client.`,
+	Long:    `List all available profiles in the Aheadscale client.`,
 	Aliases: []string{"ls"},
 	RunE:    listProfilesFunc,
 }

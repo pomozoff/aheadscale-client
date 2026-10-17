@@ -9,9 +9,9 @@ import (
 	"os"
 	"testing"
 
-	"go.uber.org/mock/gomock"
 	"github.com/miekg/dns"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 
 	"github.com/netbirdio/netbird/client/iface"
@@ -59,13 +59,13 @@ func TestUpdateDNSServer(t *testing.T) {
 				ServiceEnable: true,
 				CustomZones: []nbdns.CustomZone{
 					{
-						Domain:  "netbird.cloud",
+						Domain:  "aheadscale.cloud",
 						Records: zoneRecords,
 					},
 				},
 				NameServerGroups: []*nbdns.NameServerGroup{
 					{
-						Domains:     []string{"netbird.io"},
+						Domains:     []string{"aheadscale.io"},
 						NameServers: nameServers,
 					},
 					{
@@ -76,11 +76,11 @@ func TestUpdateDNSServer(t *testing.T) {
 			},
 			expectedUpstreamMap: []handlerWrapper{
 				{
-					domain:   "netbird.io",
+					domain:   "aheadscale.io",
 					priority: PriorityUpstream,
 				},
 				{
-					domain:   "netbird.cloud",
+					domain:   "aheadscale.cloud",
 					priority: PriorityLocal,
 				},
 				{
@@ -88,14 +88,14 @@ func TestUpdateDNSServer(t *testing.T) {
 					priority: PriorityDefault,
 				},
 			},
-			expectedLocalQs: []dns.Question{{Name: "peera.netbird.cloud.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
+			expectedLocalQs: []dns.Question{{Name: "peera.aheadscale.cloud.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
 		},
 		{
 			name:           "New Config Should Succeed",
-			initLocalZones: []nbdns.CustomZone{{Domain: "netbird.cloud", Records: []nbdns.SimpleRecord{{Name: "netbird.cloud", Type: 1, Class: nbdns.DefaultClass, TTL: 300, RData: "10.0.0.1"}}}},
+			initLocalZones: []nbdns.CustomZone{{Domain: "aheadscale.cloud", Records: []nbdns.SimpleRecord{{Name: "aheadscale.cloud", Type: 1, Class: nbdns.DefaultClass, TTL: 300, RData: "10.0.0.1"}}}},
 			initUpstreamMap: []handlerWrapper{
 				{
-					domain:   "netbird.cloud",
+					domain:   "aheadscale.cloud",
 					handler:  &mockHandler{},
 					priority: PriorityUpstream,
 				},
@@ -106,24 +106,24 @@ func TestUpdateDNSServer(t *testing.T) {
 				ServiceEnable: true,
 				CustomZones: []nbdns.CustomZone{
 					{
-						Domain:  "netbird.cloud",
+						Domain:  "aheadscale.cloud",
 						Records: zoneRecords,
 					},
 				},
 				NameServerGroups: []*nbdns.NameServerGroup{
 					{
-						Domains:     []string{"netbird.io"},
+						Domains:     []string{"aheadscale.io"},
 						NameServers: nameServers,
 					},
 				},
 			},
 			expectedUpstreamMap: []handlerWrapper{
 				{
-					domain:   "netbird.io",
+					domain:   "aheadscale.io",
 					priority: PriorityUpstream,
 				},
 				{
-					domain:   "netbird.cloud",
+					domain:   "aheadscale.cloud",
 					priority: PriorityLocal,
 				},
 			},
@@ -147,7 +147,7 @@ func TestUpdateDNSServer(t *testing.T) {
 				ServiceEnable: true,
 				CustomZones: []nbdns.CustomZone{
 					{
-						Domain:  "netbird.cloud",
+						Domain:  "aheadscale.cloud",
 						Records: zoneRecords,
 					},
 				},
@@ -169,7 +169,7 @@ func TestUpdateDNSServer(t *testing.T) {
 				ServiceEnable: true,
 				CustomZones: []nbdns.CustomZone{
 					{
-						Domain:  "netbird.cloud",
+						Domain:  "aheadscale.cloud",
 						Records: zoneRecords,
 					},
 				},
@@ -191,7 +191,7 @@ func TestUpdateDNSServer(t *testing.T) {
 				ServiceEnable: true,
 				CustomZones: []nbdns.CustomZone{
 					{
-						Domain: "netbird.cloud",
+						Domain: "aheadscale.cloud",
 					},
 				},
 				NameServerGroups: []*nbdns.NameServerGroup{
@@ -208,7 +208,7 @@ func TestUpdateDNSServer(t *testing.T) {
 		},
 		{
 			name:           "Empty Config Should Succeed and Clean Maps",
-			initLocalZones: []nbdns.CustomZone{{Domain: "netbird.cloud", Records: []nbdns.SimpleRecord{{Name: "netbird.cloud", Type: int(dns.TypeA), Class: nbdns.DefaultClass, TTL: 300, RData: "10.0.0.1"}}}},
+			initLocalZones: []nbdns.CustomZone{{Domain: "aheadscale.cloud", Records: []nbdns.SimpleRecord{{Name: "aheadscale.cloud", Type: int(dns.TypeA), Class: nbdns.DefaultClass, TTL: 300, RData: "10.0.0.1"}}}},
 			initUpstreamMap: []handlerWrapper{
 				{
 					domain:   zoneRecords[0].Name,
@@ -224,7 +224,7 @@ func TestUpdateDNSServer(t *testing.T) {
 		},
 		{
 			name:           "Disabled Service Should clean map",
-			initLocalZones: []nbdns.CustomZone{{Domain: "netbird.cloud", Records: []nbdns.SimpleRecord{{Name: "netbird.cloud", Type: int(dns.TypeA), Class: nbdns.DefaultClass, TTL: 300, RData: "10.0.0.1"}}}},
+			initLocalZones: []nbdns.CustomZone{{Domain: "aheadscale.cloud", Records: []nbdns.SimpleRecord{{Name: "aheadscale.cloud", Type: int(dns.TypeA), Class: nbdns.DefaultClass, TTL: 300, RData: "10.0.0.1"}}}},
 			initUpstreamMap: []handlerWrapper{
 				{
 					domain:   zoneRecords[0].Name,
@@ -424,7 +424,7 @@ func TestDNSFakeResolverHandleUpdates(t *testing.T) {
 			priority: PriorityUpstream,
 		},
 	}
-	dnsServer.localResolver.Update([]nbdns.CustomZone{{Domain: "netbird.cloud", Records: []nbdns.SimpleRecord{{Name: "netbird.cloud", Type: int(dns.TypeA), Class: nbdns.DefaultClass, TTL: 300, RData: "10.0.0.1"}}}})
+	dnsServer.localResolver.Update([]nbdns.CustomZone{{Domain: "aheadscale.cloud", Records: []nbdns.SimpleRecord{{Name: "aheadscale.cloud", Type: int(dns.TypeA), Class: nbdns.DefaultClass, TTL: 300, RData: "10.0.0.1"}}}})
 	dnsServer.updateSerial = 0
 
 	nameServers := []nbdns.NameServer{
@@ -444,13 +444,13 @@ func TestDNSFakeResolverHandleUpdates(t *testing.T) {
 		ServiceEnable: true,
 		CustomZones: []nbdns.CustomZone{
 			{
-				Domain:  "netbird.cloud",
+				Domain:  "aheadscale.cloud",
 				Records: zoneRecords,
 			},
 		},
 		NameServerGroups: []*nbdns.NameServerGroup{
 			{
-				Domains:     []string{"netbird.io"},
+				Domains:     []string{"aheadscale.io"},
 				NameServers: nameServers,
 			},
 			{

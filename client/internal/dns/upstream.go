@@ -546,7 +546,7 @@ func (u *upstreamResolverBase) debugUpstreamTimeout(upstream netip.AddrPort) str
 		return ""
 	}
 
-	return fmt.Sprintf("(routes through NetBird peer %s)", FormatPeerStatus(peerInfo))
+	return fmt.Sprintf("(routes through Aheadscale peer %s)", FormatPeerStatus(peerInfo))
 }
 
 func (u *upstreamResolverBase) writeSuccessResponse(w dns.ResponseWriter, rm *dns.Msg, upstream netip.AddrPort, domain string, proto string, logger *log.Entry) {

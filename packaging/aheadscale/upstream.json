@@ -1,0 +1,11 @@
+{
+  "repository": "https://github.com/netbirdio/netbird",
+  "tag": "v0.80.0",
+  "commit": "fca64287cf51a85552a41b022013abbfdb335452",
+  "go": "1.26.7",
+  "node": "24.19.0",
+  "pnpm": "11.4.0",
+  "wails": "v3.0.0-beta.3",
+  "public_origin": "https://aheadscale.ru:443",
+  "internal_origin": "https://macmini.tailb71cbe.ts.net:10443"
+}

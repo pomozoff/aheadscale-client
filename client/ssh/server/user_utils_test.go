@@ -411,7 +411,7 @@ func TestUsedFallback_MeansNoPrivilegeDropping(t *testing.T) {
 
 	// Set up mocks for fallback scenario
 	getCurrentUser = func() (*user.User, error) {
-		return createTestUser("netbird", "1000", "1000", "/var/lib/netbird"), nil
+		return createTestUser("netbird", "1000", "1000", "/var/lib/aheadscale"), nil
 	}
 	getIsProcessPrivileged = func() bool { return false } // Non-privileged
 

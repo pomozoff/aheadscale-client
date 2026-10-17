@@ -33,15 +33,15 @@ func init() {
 	loginCmd.PersistentFlags().BoolVar(&noBrowser, noBrowserFlag, false, noBrowserDesc)
 	loginCmd.PersistentFlags().BoolVar(&showQR, showQRFlag, false, showQRDesc)
 	loginCmd.PersistentFlags().StringVar(&profileName, profileNameFlag, "", profileNameDesc)
-	loginCmd.PersistentFlags().StringVarP(&configPath, "config", "c", "", "(DEPRECATED) Netbird config file location")
+	loginCmd.PersistentFlags().StringVarP(&configPath, "config", "c", "", "(DEPRECATED) Aheadscale config file location")
 	loginCmd.PersistentFlags().BoolVar(&extendSessionFlag, "extend", false,
 		"refresh the SSO session expiry without tearing down the tunnel (requires an active connection)")
 }
 
 var loginCmd = &cobra.Command{
 	Use:   "login",
-	Short: "Log in to the NetBird network",
-	Long:  "Log in to the NetBird network using a setup key or SSO",
+	Short: "Log in to the Aheadscale network",
+	Long:  "Log in to the Aheadscale network using a setup key or SSO",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if err := setEnvAndFlags(cmd); err != nil {
 			return fmt.Errorf("set env and flags: %v", err)

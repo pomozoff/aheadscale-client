@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	quickActionsTriggerEventName = `Global\NetBirdQuickActionsTriggerEvent`
+	quickActionsTriggerEventName = `Global\AheadscaleQuickActionsTriggerEvent`
 	waitTimeout                  = 5 * time.Second
 	desiredAccesses              = windows.SYNCHRONIZE | windows.EVENT_MODIFY_STATE
 

@@ -20,7 +20,7 @@ func uiLogPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "netbird", configs.UILogFile), nil
+	return filepath.Join(dir, "aheadscale", configs.UILogFile), nil
 }
 
 // newDebugLog builds the GUI debug log, disabled when userSetLogFile is set

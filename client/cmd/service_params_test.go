@@ -25,8 +25,8 @@ func TestServiceParamsPath(t *testing.T) {
 	original := configs.StateDir
 	t.Cleanup(func() { configs.StateDir = original })
 
-	configs.StateDir = "/var/lib/netbird"
-	assert.Equal(t, filepath.Join("/var/lib/netbird", "service.json"), serviceParamsPath())
+	configs.StateDir = "/var/lib/aheadscale"
+	assert.Equal(t, filepath.Join("/var/lib/aheadscale", "service.json"), serviceParamsPath())
 
 	configs.StateDir = "/custom/state"
 	assert.Equal(t, filepath.Join("/custom/state", "service.json"), serviceParamsPath())
@@ -41,12 +41,12 @@ func TestSaveAndLoadServiceParams(t *testing.T) {
 
 	params := &serviceParams{
 		LogLevel:              "debug",
-		DaemonAddr:            "unix:///var/run/netbird.sock",
+		DaemonAddr:            "unix:///var/run/aheadscale.sock",
 		JSONSocket:            "tcp://127.0.0.1:8080",
 		EnableJSONSocket:      true,
 		ManagementURL:         "https://my.server.com",
-		ConfigPath:            "/etc/netbird/config.json",
-		LogFiles:              []string{"/var/log/netbird/client.log", "console"},
+		ConfigPath:            "/etc/aheadscale/config.json",
+		LogFiles:              []string{"/var/log/aheadscale/client.log", "console"},
 		DisableProfiles:       true,
 		DisableUpdateSettings: false,
 		ServiceEnvVars:        map[string]string{"NB_LOG_FORMAT": "json", "CUSTOM": "val"},
@@ -178,12 +178,12 @@ func TestApplyServiceParams_OnlyUnchangedFlags(t *testing.T) {
 
 	// Reset all flags to defaults.
 	logLevel = "info"
-	daemonAddr = "unix:///var/run/netbird.sock"
+	daemonAddr = "unix:///var/run/aheadscale.sock"
 	jsonSocket = defaultJSONSocket
 	enableJSONSocket = false
 	managementURL = ""
-	configPath = "/etc/netbird/config.json"
-	logFiles = []string{"/var/log/netbird/client.log"}
+	configPath = "/etc/aheadscale/config.json"
+	logFiles = []string{"/var/log/aheadscale/client.log"}
 	profilesDisabled = false
 	updateSettingsDisabled = false
 	serviceEnvVars = nil
@@ -276,7 +276,7 @@ func TestApplyServiceParams_ClearManagementURL(t *testing.T) {
 	// Simulate saved params where management URL was explicitly cleared.
 	saved := &serviceParams{
 		LogLevel:   "info",
-		DaemonAddr: "unix:///var/run/netbird.sock",
+		DaemonAddr: "unix:///var/run/aheadscale.sock",
 		// ManagementURL intentionally empty: was cleared with --management-url "".
 	}
 

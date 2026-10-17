@@ -117,7 +117,7 @@ func (r *SysOps) FlushMarkedRoutes() error {
 	}
 
 	if flushedCount > 0 {
-		log.Infof("Flushed %d residual NetBird routes from previous session", flushedCount)
+		log.Infof("Flushed %d residual Aheadscale routes from previous session", flushedCount)
 	}
 
 	return nberrors.FormatErrorOrNil(merr)

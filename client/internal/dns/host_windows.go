@@ -40,7 +40,7 @@ const (
 	// the match rules, the catch-all, and the .local exemption. Cleanup
 	// enumerates by this prefix, so a new kind of rule is removed by existing
 	// code as long as its key starts here.
-	NRPTKeyPrefix = "NetBird-"
+	NRPTKeyPrefix = "Aheadscale-"
 
 	// nrptMatchKeyName names the match-domain rules. Older versions used
 	// different layouts under the same name: a single unsuffixed key, then one
@@ -349,7 +349,7 @@ func (r *registryConfigurator) applyDNSConfig(config HostDNSConfig, stateManager
 			log.Infof("%s is set, leaving DNS resolution shared with the other adapters' resolvers instead of forcing it through %s", envLegacyDNSResolution, config.ServerIP)
 		} else {
 			matchDomains = append(matchDomains, nrptCatchAllNamespace)
-			log.Infof("routing every namespace through %s: DNS resolution is now exclusive to NetBird", config.ServerIP)
+			log.Infof("routing every namespace through %s: DNS resolution is now exclusive to Aheadscale", config.ServerIP)
 
 			if err := r.addDNSExemptLocalPolicy(); err != nil {
 				return fmt.Errorf("add dns exempt policy: %w", err)

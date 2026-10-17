@@ -217,7 +217,7 @@ func reinstallCommand() string {
 	if runtime.GOOS == "windows" {
 		return fmt.Sprintf("netbird service install --daemon-addr %s", daemonaddr.WindowsPipeAddr)
 	}
-	return "sudo netbird service install --daemon-addr unix:///var/run/netbird.sock"
+	return "sudo aheadscale service install --daemon-addr unix:///var/run/aheadscale.sock"
 }
 
 func capitalize(s string) string {

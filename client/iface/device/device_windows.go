@@ -17,7 +17,7 @@ import (
 	"github.com/netbirdio/netbird/client/iface/wgaddr"
 )
 
-const defaultWindowsGUIDSTring = "{f2f29e61-d91f-4d76-8151-119b20c4bdeb}"
+const defaultWindowsGUIDSTring = "{f5aaa5f3-b611-5e6d-b0d4-914c36c80ee4}"
 
 type TunDevice struct {
 	name    string
@@ -71,7 +71,7 @@ func (t *TunDevice) Create() (WGConfigurer, error) {
 	t.device = device.NewDevice(
 		t.filteredDevice,
 		t.iceBind,
-		device.NewLogger(wgLogLevel(), "[netbird] "),
+		device.NewLogger(wgLogLevel(), "[aheadscale] "),
 	)
 
 	luid := winipcfg.LUID(t.nativeTunDevice.LUID())

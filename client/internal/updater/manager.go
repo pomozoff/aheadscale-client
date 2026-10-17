@@ -10,6 +10,7 @@ import (
 	v "github.com/hashicorp/go-version"
 	log "github.com/sirupsen/logrus"
 
+	"github.com/netbirdio/netbird/client/configs"
 	"github.com/netbirdio/netbird/client/internal/peer"
 	"github.com/netbirdio/netbird/client/internal/statemanager"
 	"github.com/netbirdio/netbird/client/internal/updater/installer"
@@ -77,7 +78,7 @@ func NewManager(statusRecorder *peer.Status, stateManager *statemanager.Manager)
 		currentVersion:      version.NetbirdVersion(),
 		update:              version.NewUpdate("nb/client"),
 		downloadOnly:        true,
-		autoUpdateSupported: isAutoUpdateSupported,
+		autoUpdateSupported: func() bool { return configs.SelfUpdatesEnabled() && isAutoUpdateSupported() },
 	}
 
 	stateManager.RegisterState(&UpdateState{})
@@ -123,6 +124,9 @@ func (m *Manager) CheckUpdateSuccess(ctx context.Context) {
 }
 
 func (m *Manager) Start(ctx context.Context) {
+	if m.autoUpdateSupported == nil || !m.autoUpdateSupported() {
+		return
+	}
 	log.Infof("starting update manager")
 	m.mu.Lock()
 	defer m.mu.Unlock()

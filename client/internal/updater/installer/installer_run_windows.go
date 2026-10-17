@@ -14,11 +14,13 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sys/windows"
+
+	"github.com/netbirdio/netbird/client/configs"
 )
 
 const (
-	daemonName    = "netbird.exe"
-	uiName        = "netbird-ui.exe"
+	daemonName    = "aheadscale.exe"
+	uiName        = "aheadscale-ui.exe"
 	updaterBinary = "updater.exe"
 
 	msiLogFile = "msi.log"
@@ -34,7 +36,7 @@ const (
 )
 
 var (
-	defaultTempDir = filepath.Join(os.Getenv("ProgramData"), "Netbird", "tmp-install")
+	defaultTempDir = filepath.Join(os.Getenv("ProgramData"), "Aheadscale", "tmp-install")
 
 	// for the cleanup
 	binaryExtensions = []string{"msi", "exe"}
@@ -43,6 +45,10 @@ var (
 // Setup runs the installer with appropriate arguments and manages the daemon/UI state
 // This will be run by the updater process
 func (u *Installer) Setup(ctx context.Context, dryRun bool, installerFile string, daemonFolder string) (resultErr error) {
+	if !configs.SelfUpdatesEnabled() {
+		return fmt.Errorf("Aheadscale preview updates are disabled")
+	}
+
 	resultHandler := NewResultHandler(u.tempDir)
 
 	var uiSessions []uint32

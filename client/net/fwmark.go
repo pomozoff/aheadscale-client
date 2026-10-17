@@ -14,11 +14,11 @@ const (
 	// plugins, CNIs and other VPNs claim bits of the mark space for themselves,
 	// and a rule of theirs matching one of our bits acts on our traffic, so
 	// hosts running such software may need to move the range out of the way.
-	envFwmarkBase = "NB_FWMARK_BASE"
+	envFwmarkBase = "AS_FWMARK_BASE"
 
 	// defaultFwmarkBase is the base of the fwmark range used when the
 	// environment does not override it.
-	defaultFwmarkBase uint32 = 0x1BD00
+	defaultFwmarkBase uint32 = 0x1BE00
 
 	// fwmarkOffsetMask is the part of a mark that identifies the individual mark
 	// within the range, so the base occupies everything above it.

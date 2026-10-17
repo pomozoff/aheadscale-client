@@ -15,7 +15,7 @@ import (
 // Admins push values here through Group Policy, Intune ADMX ingestion, an
 // Intune custom Registry CSP profile, or `reg add` during MSI deployment.
 // Listed in the project's docs/mdm/netbird.admx schema.
-const policyRegistryPath = `Software\Policies\NetBird`
+const policyRegistryPath = `Software\Policies\Aheadscale`
 
 // readRegistryValue reads a single value under policyRegistryPath and,
 // on success, stores the type-coerced result in out[canonical]. Type

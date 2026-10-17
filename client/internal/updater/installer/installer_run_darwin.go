@@ -13,14 +13,16 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+
+	"github.com/netbirdio/netbird/client/configs"
 )
 
 const (
-	daemonName    = "netbird"
+	daemonName    = "aheadscale"
 	updaterBinary = "updater"
-	uiBinary      = "/Applications/NetBird.app"
+	uiBinary      = "/Applications/Aheadscale.app"
 
-	defaultTempDir = "/var/lib/netbird/tmp-install"
+	defaultTempDir = "/var/lib/aheadscale/tmp-install"
 
 	pkgDownloadURL = "https://github.com/netbirdio/netbird/releases/download/v%version/netbird_%version_darwin_%arch.pkg"
 )
@@ -32,6 +34,10 @@ var (
 // Setup runs the installer with appropriate arguments and manages the daemon/UI state
 // This will be run by the updater process
 func (u *Installer) Setup(ctx context.Context, dryRun bool, installerFile string, daemonFolder string) (resultErr error) {
+	if !configs.SelfUpdatesEnabled() {
+		return fmt.Errorf("Aheadscale preview updates are disabled")
+	}
+
 	resultHandler := NewResultHandler(u.tempDir)
 
 	// Always ensure daemon and UI are restarted after setup
@@ -196,15 +202,15 @@ func (u *Installer) updateHomeBrew(ctx context.Context) error {
 	homeDir := brewUser.HomeDir
 
 	// Check if netbird-ui is installed (must run as the brew user, not root)
-	checkUICmd := exec.CommandContext(ctx, "sudo", "-u", userName, brewBinPath, "list", "--formula", "netbirdio/tap/netbird-ui")
+	checkUICmd := exec.CommandContext(ctx, "sudo", "-u", userName, brewBinPath, "list", "--formula", "netbirdio/tap/aheadscale-ui")
 	checkUICmd.Env = append(os.Environ(), "HOME="+homeDir)
 	uiInstalled := checkUICmd.Run() == nil
 
 	// Homebrew does not support installing specific versions
 	// Thus it will always update to latest and ignore targetVersion
-	upgradeArgs := []string{"-u", userName, brewBinPath, "upgrade", "netbirdio/tap/netbird"}
+	upgradeArgs := []string{"-u", userName, brewBinPath, "upgrade", "netbirdio/tap/aheadscale"}
 	if uiInstalled {
-		upgradeArgs = append(upgradeArgs, "netbirdio/tap/netbird-ui")
+		upgradeArgs = append(upgradeArgs, "netbirdio/tap/aheadscale-ui")
 	}
 
 	cmd := exec.CommandContext(ctx, "sudo", upgradeArgs...)
@@ -220,7 +226,7 @@ func (u *Installer) updateHomeBrew(ctx context.Context) error {
 
 func (u *Installer) killUI() {
 	log.Infof("killing existing netbird-ui processes")
-	cmd := exec.Command("pkill", "-x", "netbird-ui")
+	cmd := exec.Command("pkill", "-x", "aheadscale-ui")
 	if output, err := cmd.CombinedOutput(); err != nil {
 		// pkill returns exit code 1 if no processes matched, which is fine
 		log.Debugf("pkill netbird-ui result: %v, output: %s", err, string(output))

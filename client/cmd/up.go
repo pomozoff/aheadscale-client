@@ -62,8 +62,8 @@ var (
 
 	upCmd = &cobra.Command{
 		Use:   "up",
-		Short: "Connect to the NetBird network",
-		Long:  "Connect to the NetBird network using the provided setup key or SSO auth. This command will bring up the WireGuard interface, connect to the management server, and establish peer-to-peer connections with other peers in the network if required.",
+		Short: "Connect to the Aheadscale network",
+		Long:  "Connect to the Aheadscale network using the provided setup key or SSO auth. This command will bring up the WireGuard interface, connect to the management server, and establish peer-to-peer connections with other peers in the network if required.",
 		RunE:  upFunc,
 	}
 )
@@ -91,7 +91,7 @@ func init() {
 	upCmd.PersistentFlags().BoolVar(&noBrowser, noBrowserFlag, false, noBrowserDesc)
 	upCmd.PersistentFlags().BoolVar(&showQR, showQRFlag, false, showQRDesc)
 	upCmd.PersistentFlags().StringVar(&profileName, profileNameFlag, "", profileNameDesc)
-	upCmd.PersistentFlags().StringVarP(&configPath, "config", "c", "", "(DEPRECATED) NetBird config file location. ")
+	upCmd.PersistentFlags().StringVarP(&configPath, "config", "c", "", "(DEPRECATED) Aheadscale config file location. ")
 
 }
 
@@ -193,7 +193,7 @@ func createProfile(ctx context.Context, profileName, username string) (profilema
 		//nolint
 		return "", fmt.Errorf("failed to connect to daemon error: %v\n"+
 			"If the daemon is not running please run: "+
-			"\nnetbird service install \nnetbird service start\n", err)
+			"\naheadscale service install \naheadscale service start\n", err)
 	}
 	defer conn.Close()
 
@@ -281,7 +281,7 @@ func runInForegroundMode(ctx context.Context, cmd *cobra.Command, activeProf *pr
 func runInDaemonMode(ctx context.Context, cmd *cobra.Command, pm *profilemanager.ProfileManager, activeProf *profilemanager.Profile, profileSwitched bool) error {
 	// Check if deprecated config flag is set and show warning
 	if cmd.Flag("config").Changed && configPath != "" {
-		cmd.PrintErrf("Warning: Config flag is deprecated on up command, it should be set as a service argument with $NB_CONFIG environment or with \"-config\" flag; netbird service reconfigure --service-env=\"NB_CONFIG=<file_path>\" or netbird service run --config=<file_path>\n")
+		cmd.PrintErrf("Warning: Config flag is deprecated on up command, it should be set as a service argument with $AS_CONFIG environment or with \"-config\" flag; aheadscale service reconfigure --service-env=\"AS_CONFIG=<file_path>\" or aheadscale service run --config=<file_path>\n")
 	}
 
 	customDNSAddressConverted, err := parseCustomDNSAddress(cmd.Flag(dnsResolverAddress).Changed)
@@ -294,7 +294,7 @@ func runInDaemonMode(ctx context.Context, cmd *cobra.Command, pm *profilemanager
 		//nolint
 		return fmt.Errorf("failed to connect to daemon error: %v\n"+
 			"If the daemon is not running please run: "+
-			"\nnetbird service install \nnetbird service start\n", err)
+			"\naheadscale service install \naheadscale service start\n", err)
 	}
 	defer func() {
 		err := conn.Close()

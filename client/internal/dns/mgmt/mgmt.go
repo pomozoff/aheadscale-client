@@ -139,7 +139,7 @@ func (m *Resolver) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	}
 
 	if inflight != nil && inflight.CompareAndSwap(false, true) {
-		log.Warnf("mgmt cache: possible resolver loop for domain=%s: served stale while an OS-fallback refresh was inflight (if NetBird is the system resolver, the OS-path predicate is wrong)",
+		log.Warnf("mgmt cache: possible resolver loop for domain=%s: served stale while an OS-fallback refresh was inflight (if Aheadscale is the system resolver, the OS-path predicate is wrong)",
 			question.Name)
 	}
 

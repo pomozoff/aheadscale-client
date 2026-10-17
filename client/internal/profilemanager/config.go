@@ -33,13 +33,15 @@ const (
 	// managementLegacyPortString is the port that was used before by the Management gRPC server.
 	// It is used for backward compatibility now.
 	managementLegacyPortString = "33073"
-	// DefaultManagementURL points to the NetBird's cloud management endpoint
-	DefaultManagementURL = "https://api.netbird.io:443"
 	// oldDefaultManagementURL points to the NetBird's old cloud management endpoint
 	oldDefaultManagementURL = "https://api.wiretrustee.com:443"
-	// DefaultAdminURL points to NetBird's cloud management console
-	DefaultAdminURL = "https://app.netbird.io:443"
 )
+
+// DefaultManagementURL is the Aheadscale management endpoint, set per build channel.
+var DefaultManagementURL = "https://aheadscale.ru:443"
+
+// DefaultAdminURL is the Aheadscale browser console endpoint, set per build channel.
+var DefaultAdminURL = "https://aheadscale.ru:443"
 
 // mgmProber is the subset of management client needed for URL migration probes.
 type mgmProber interface {
@@ -240,7 +242,7 @@ func getConfigDir() (string, error) {
 		return "", err
 	}
 
-	configDir := filepath.Join(base, "netbird")
+	configDir := filepath.Join(base, "aheadscale")
 	// Under sudo this is the invoking user's directory and strictly read-only:
 	// anything root creates in it would be root-owned and break the user's own
 	// runs. Reads of a missing directory fall through to defaults.
@@ -369,6 +371,13 @@ func (config *Config) apply(input ConfigInput) (updated bool, err error) {
 		}
 		config.AdminURL = newURL
 		updated = true
+	}
+
+	if err := validateBuildOrigin(config.ManagementURL); err != nil {
+		return false, err
+	}
+	if err := validateBuildOrigin(config.AdminURL); err != nil {
+		return false, err
 	}
 
 	if config.PrivateKey == "" {
@@ -762,6 +771,8 @@ func (config *Config) applyMDMPolicy(policy *mdm.Policy) {
 	if v, ok := policy.GetString(mdm.KeyManagementURL); ok {
 		if u, err := parseURL("Management URL", v); err != nil {
 			log.Warnf("MDM management URL %q invalid: %v; keeping previous value", v, err)
+		} else if err := validateBuildOrigin(u); err != nil {
+			log.Warnf("MDM management URL rejected by Aheadscale build policy: %v", err)
 		} else {
 			config.ManagementURL = u
 			logApplied(mdm.KeyManagementURL, u.String())

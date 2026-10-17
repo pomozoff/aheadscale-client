@@ -441,7 +441,7 @@ func (m *Manager) RemoveOutputDNAT(localAddr netip.Addr, protocol firewall.Proto
 }
 
 const (
-	chainNameRaw = "NETBIRD-RAW"
+	chainNameRaw = "ASCALE-RAW"
 	chainOutput  = "OUTPUT"
 	tableRaw     = "raw"
 )

@@ -32,7 +32,7 @@ func shouldEnableAutostartDefault(s autostartDefaultState) (bool, string) {
 	case s.mdmDisabled:
 		return false, "autostart disabled by MDM policy"
 	case s.priorInstall:
-		return false, "existing NetBird installation"
+		return false, "existing Aheadscale installation"
 	}
 	return true, ""
 }

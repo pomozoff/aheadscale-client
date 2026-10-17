@@ -381,5 +381,5 @@ func preferencesPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "netbird", preferencesFileName), nil
+	return filepath.Join(dir, "aheadscale", preferencesFileName), nil
 }

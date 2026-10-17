@@ -104,12 +104,12 @@ contexts:
 - context:
     cluster: foo
     namespace: default
-    user: netbird
+    user: aheadscale
   name: foo
 current-context: foo
 kind: Config
 users:
-- name: netbird
+- name: aheadscale
   user:
     token: none
 `

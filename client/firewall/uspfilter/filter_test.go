@@ -1285,10 +1285,10 @@ func TestShouldForward(t *testing.T) {
 			netstack:        false,
 			dstIP:           otherIP,
 			expected:        true,
-			description:     "should forward traffic to our other local interfaces (not NetBird IP)",
+			description:     "should forward traffic to our other local interfaces (not Aheadscale IP)",
 		},
 		{
-			name:            "traffic to NetBird IP, no netstack",
+			name:            "traffic to Aheadscale IP, no netstack",
 			localForwarding: true,
 			netstack:        false,
 			dstIP:           wgIP,

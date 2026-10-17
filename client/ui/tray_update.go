@@ -14,7 +14,6 @@ import (
 
 	"github.com/netbirdio/netbird/client/ui/services"
 	"github.com/netbirdio/netbird/client/ui/updater"
-	"github.com/netbirdio/netbird/version"
 )
 
 // trayUpdater owns the tray UI that reacts to auto-update. Composed inside Tray.
@@ -86,7 +85,7 @@ func (u *trayUpdater) handleClick() {
 	u.mu.Unlock()
 
 	if !state.Enforced {
-		_ = u.app.Browser.OpenURL(version.DownloadUrl())
+		_ = u.app.Browser.OpenURL("https://aheadscale.ru")
 		return
 	}
 

@@ -29,7 +29,7 @@ func (r *family) AddNatRule(pair firewall.RouterPair) error {
 	// to commit a rule nothing tracks.
 	var legacyExprs []expr.Any
 	if r.legacyManagement {
-		log.Warnf("This peer is connected to a NetBird Management service with an older version. Allowing all traffic for %s", pair.Destination)
+		log.Warnf("This peer is connected to a Aheadscale Management service with an older version. Allowing all traffic for %s", pair.Destination)
 
 		var err error
 		legacyExprs, err = r.legacyRouteRuleExprs(pair)

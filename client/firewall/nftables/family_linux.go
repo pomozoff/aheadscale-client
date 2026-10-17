@@ -25,19 +25,19 @@ const (
 	tableSecurity = "security"
 
 	chainNameNatPrerouting = "PREROUTING"
-	chainNameRoutingFw     = "netbird-rt-fwd"
-	chainNameRoutingNat    = "netbird-rt-postrouting"
-	chainNameRoutingRdr    = "netbird-rt-redirect"
-	chainNameNATOutput     = "netbird-nat-output"
+	chainNameRoutingFw     = "aheadscale-rt-fwd"
+	chainNameRoutingNat    = "aheadscale-rt-postrouting"
+	chainNameRoutingRdr    = "aheadscale-rt-redirect"
+	chainNameNATOutput     = "aheadscale-nat-output"
 	chainNameForward       = "FORWARD"
-	chainNameMangleForward = "netbird-mangle-forward"
+	chainNameMangleForward = "aheadscale-mangle-forward"
 
 	// Peer ACL chain names.
-	chainNameInputRules        = "netbird-acl-input-rules"
-	chainNameInputFilter       = "netbird-acl-input-filter"
-	chainNameForwardFilter     = "netbird-acl-forward-filter"
-	chainNameManglePrerouting  = "netbird-mangle-prerouting"
-	chainNameManglePostrouting = "netbird-mangle-postrouting"
+	chainNameInputRules        = "aheadscale-acl-input-rules"
+	chainNameInputFilter       = "aheadscale-acl-input-filter"
+	chainNameForwardFilter     = "aheadscale-acl-forward-filter"
+	chainNameManglePrerouting  = "aheadscale-mangle-prerouting"
+	chainNameManglePostrouting = "aheadscale-mangle-postrouting"
 
 	flushError = "flush: %w"
 

@@ -56,10 +56,10 @@ func TestSetFlagsFromEnvVars(t *testing.T) {
 	cmd.PersistentFlags().Uint16Var(&wireguardPort, wireguardPortFlag, iface.DefaultWgPort, "WireGuard interface listening port")
 	cmd.PersistentFlags().Uint16Var(&mtu, mtuFlag, iface.DefaultMTU, "Set MTU (Maximum Transmission Unit) for the WireGuard interface")
 
-	t.Setenv("NB_EXTERNAL_IP_MAP", "abc,dec")
-	t.Setenv("NB_INTERFACE_NAME", "test-name")
-	t.Setenv("NB_ENABLE_ROSENPASS", "true")
-	t.Setenv("NB_WIREGUARD_PORT", "10000")
+	t.Setenv("AS_EXTERNAL_IP_MAP", "abc,dec")
+	t.Setenv("AS_INTERFACE_NAME", "test-name")
+	t.Setenv("AS_ENABLE_ROSENPASS", "true")
+	t.Setenv("AS_WIREGUARD_PORT", "10000")
 	err := cmd.Execute()
 	if err != nil {
 		t.Fatalf("expected no error while running netbird command, got %v", err)

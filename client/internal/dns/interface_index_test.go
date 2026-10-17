@@ -25,7 +25,7 @@ func TestGetInterfaceIndexExisting(t *testing.T) {
 }
 
 func TestGetInterfaceIndexMissing(t *testing.T) {
-	index, err := getInterfaceIndex("netbird-interface-that-does-not-exist")
+	index, err := getInterfaceIndex("aheadscale-interface-that-does-not-exist")
 	if index != 0 {
 		t.Fatalf("expected missing interface index to be 0, got %d", index)
 	}

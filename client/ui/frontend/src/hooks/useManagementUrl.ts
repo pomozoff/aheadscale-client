@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import { useSettings } from "@/contexts/SettingsContext.tsx";
 import { useConfirm } from "@/contexts/DialogContext.tsx";
 
-export const CLOUD_MANAGEMENT_URL = "https://api.netbird.io:443";
+export const CLOUD_MANAGEMENT_URL =
+    import.meta.env.VITE_AHEADSCALE_MANAGEMENT_URL || "https://aheadscale.ru:443";
 const CLOUD_MANAGEMENT_URLS = new Set([
     CLOUD_MANAGEMENT_URL,
     "https://api.wiretrustee.com:443", // legacy cloud endpoint

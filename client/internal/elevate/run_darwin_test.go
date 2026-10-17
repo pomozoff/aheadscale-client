@@ -65,7 +65,7 @@ func TestAuthorizeUnknownRightIsNotDeclined(t *testing.T) {
 	var pinner runtime.Pinner
 	defer pinner.Unpin()
 
-	rights := itemSet(&pinner, authorizationItem{name: cString(&pinner, "io.netbird.right.that.does.not.exist")})
+	rights := itemSet(&pinner, authorizationItem{name: cString(&pinner, "ru.aheadscale.right.that.does.not.exist")})
 
 	var authorization uintptr
 	status := authorizationCreate(rights, nil, flagDefaults|flagExtendRights, &authorization)

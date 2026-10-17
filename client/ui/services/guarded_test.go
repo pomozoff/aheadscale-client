@@ -22,7 +22,7 @@ import (
 
 // A Unix socket, so the daemon address is one that carries a caller's identity and
 // elevation is worth offering at all: see Settings.canElevate.
-const testDaemonAddr = "unix:///var/run/netbird.sock"
+const testDaemonAddr = "unix:///var/run/aheadscale.sock"
 
 // storedManagementURL is what the stub daemon already holds, so that a request
 // naming a different one is a change: see Settings.guardedChanges.
@@ -211,7 +211,7 @@ func TestSetGuardedSettingsMapsFailures(t *testing.T) {
 		},
 		{
 			name:     "a failed run falls back to the command",
-			outcome:  errors.New("elevated netbird exited with 1"),
+			outcome:  errors.New("elevated aheadscale exited with 1"),
 			wantCode: CodeElevationFailed,
 		},
 	}
@@ -231,7 +231,7 @@ func TestSetGuardedSettingsMapsFailures(t *testing.T) {
 			assert.Equal(t, tt.wantCode, clientErr.Code, "error code")
 			assert.Contains(t, clientErr.Command, "--"+FlagEnableSSHRoot+"=true",
 				"the setting in the fallback command")
-			assert.Contains(t, clientErr.Command, "netbird up", "the fallback command")
+			assert.Contains(t, clientErr.Command, "aheadscale up", "the fallback command")
 		})
 	}
 }

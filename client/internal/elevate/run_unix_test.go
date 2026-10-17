@@ -74,7 +74,7 @@ func TestRunMapsPkexecExitCodes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fakePkexec(t, tt.exitCode, tt.stderr)
 
-			err := run(context.Background(), "/nonexistent/netbird-ui", []string{"--flag"})
+			err := run(context.Background(), "/nonexistent/aheadscale-ui", []string{"--flag"})
 			switch {
 			case tt.wantErr != nil:
 				require.ErrorIs(t, err, tt.wantErr, "exit %d said %q", tt.exitCode, tt.stderr)
@@ -94,7 +94,7 @@ func TestRunMapsPkexecExitCodes(t *testing.T) {
 func TestRunReportsOneShotFailure(t *testing.T) {
 	fakePkexec(t, 3, "the one-shot said no")
 
-	err := run(context.Background(), "/nonexistent/netbird-ui", nil)
+	err := run(context.Background(), "/nonexistent/aheadscale-ui", nil)
 
 	require.Error(t, err, "a one-shot that failed is not a prompt that was answered")
 	assert.NotErrorIs(t, err, ErrDeclined, "not the user's answer")
@@ -104,7 +104,7 @@ func TestRunReportsOneShotFailure(t *testing.T) {
 func TestRunWithoutPkexecIsUnavailable(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 
-	err := run(context.Background(), "/nonexistent/netbird-ui", nil)
+	err := run(context.Background(), "/nonexistent/aheadscale-ui", nil)
 	require.ErrorIs(t, err, ErrUnavailable, "no pkexec means no mechanism")
 	assert.False(t, mechanismAvailable(), "mechanismAvailable without pkexec on PATH")
 }

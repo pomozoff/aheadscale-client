@@ -10,7 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var scanDir = "/var/run/netbird"
+var scanDir = "/var/run/aheadscale"
 
 // setScanDir overrides the scan directory (used by tests).
 func setScanDir(dir string) {

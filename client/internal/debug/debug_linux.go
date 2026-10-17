@@ -79,7 +79,7 @@ func getServiceName() string {
 		return unitName
 	}
 
-	return "netbird"
+	return "aheadscale"
 }
 
 // getSystemdLogs retrieves logs from systemd journal for a specific service using journalctl

@@ -17,14 +17,14 @@ import (
 
 const (
 	envListenEvent        = "NB_LISTEN_DEBUG_EVENT"
-	debugTriggerEventName = `Global\NetbirdDebugTriggerEvent`
+	debugTriggerEventName = `Global\AheadscaleDebugTriggerEvent`
 
 	waitTimeout = 5 * time.Second
 )
 
 // SetupDebugHandler sets up a Windows event to listen for a signal to generate a debug bundle.
 // Example usage with PowerShell:
-// $evt = [System.Threading.EventWaitHandle]::OpenExisting("Global\NetbirdDebugTriggerEvent")
+// $evt = [System.Threading.EventWaitHandle]::OpenExisting("Global\AheadscaleDebugTriggerEvent")
 // $evt.Set()
 // $evt.Close()
 func SetupDebugHandler(

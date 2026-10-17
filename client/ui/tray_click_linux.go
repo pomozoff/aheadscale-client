@@ -21,7 +21,7 @@ package main
 // both buttons raised the main window on top of the menu, and on KDE/Waybar
 // a right click raised it over the freshly opened menu. The netbirdio/wails
 // fork (go.mod replace) drops that heuristic: a menu open never fires
-// OnClick. On GNOME the main window is reached via the "Open NetBird" menu
+// OnClick. On GNOME the main window is reached via the "Open Aheadscale" menu
 // entry; left-click-opens-window is not achievable there anyway, since the
 // host always opens the menu itself.
 //
@@ -30,7 +30,7 @@ package main
 // applySmartDefaults would pop the window alongside the menu on GNOME Shell
 // with the AppIndicator extension (see the bindTrayClick comment in tray.go).
 //
-// ShowWindow() is the same dispatcher the explicit "Open NetBird" menu entry
+// ShowWindow() is the same dispatcher the explicit "Open Aheadscale" menu entry
 // and SIGUSR1 use: it brings the install-progress / browser-login window
 // forward when one of those flows is active, otherwise routes through
 // WindowManager.ShowMain so the window re-centers on minimal WMs / the XEmbed

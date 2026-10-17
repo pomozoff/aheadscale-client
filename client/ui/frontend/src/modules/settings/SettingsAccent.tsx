@@ -61,7 +61,7 @@ function Accent({ onDone }: Readonly<{ onDone: () => void }>) {
         resize();
         window.addEventListener("resize", resize);
 
-        const chars = "TEAMNETBIRD";
+        const chars = "AHEADSCALE";
         const fontSize = 16;
         const columns = Math.floor(window.innerWidth / fontSize);
         const drops = Array.from({ length: columns }, () => Math.random() * -50);

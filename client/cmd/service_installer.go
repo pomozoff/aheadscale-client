@@ -129,7 +129,7 @@ func createServiceConfigForInstall() (*service.Config, error) {
 
 var installCmd = &cobra.Command{
 	Use:   "install",
-	Short: "Install NetBird service",
+	Short: "Install Aheadscale service",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if err := setupServiceCommand(cmd); err != nil {
 			return err
@@ -160,14 +160,14 @@ var installCmd = &cobra.Command{
 			cmd.PrintErrf("Warning: failed to save service params: %v\n", err)
 		}
 
-		cmd.Println("NetBird service has been installed")
+		cmd.Println("Aheadscale service has been installed")
 		return nil
 	},
 }
 
 var uninstallCmd = &cobra.Command{
 	Use:   "uninstall",
-	Short: "uninstalls NetBird service from system",
+	Short: "uninstalls Aheadscale service from system",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if err := setupServiceCommand(cmd); err != nil {
 			return err
@@ -196,15 +196,15 @@ var uninstallCmd = &cobra.Command{
 			}
 		}
 
-		cmd.Println("NetBird service has been uninstalled")
+		cmd.Println("Aheadscale service has been uninstalled")
 		return nil
 	},
 }
 
 var reconfigureCmd = &cobra.Command{
 	Use:   "reconfigure",
-	Short: "reconfigures NetBird service with new settings",
-	Long: `Reconfigures the NetBird service with new settings without manual uninstall/install.
+	Short: "reconfigures Aheadscale service with new settings",
+	Long: `Reconfigures the Aheadscale service with new settings without manual uninstall/install.
 This command will temporarily stop the service, update its configuration, and restart it if it was running.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if err := setupServiceCommand(cmd); err != nil {
@@ -234,7 +234,7 @@ This command will temporarily stop the service, update its configuration, and re
 		}
 
 		if wasRunning {
-			cmd.Println("Stopping NetBird service...")
+			cmd.Println("Stopping Aheadscale service...")
 			if err := s.Stop(); err != nil {
 				cmd.Printf("Warning: failed to stop service: %v\n", err)
 			}
@@ -255,13 +255,13 @@ This command will temporarily stop the service, update its configuration, and re
 		}
 
 		if wasRunning {
-			cmd.Println("Starting NetBird service...")
+			cmd.Println("Starting Aheadscale service...")
 			if err := s.Start(); err != nil {
 				return fmt.Errorf("start service after reconfigure: %w", err)
 			}
-			cmd.Println("NetBird service has been reconfigured and started")
+			cmd.Println("Aheadscale service has been reconfigured and started")
 		} else {
-			cmd.Println("NetBird service has been reconfigured")
+			cmd.Println("Aheadscale service has been reconfigured")
 		}
 
 		return nil
@@ -293,9 +293,9 @@ func isServiceRunning() (bool, error) {
 const (
 	networkdConf        = "/etc/systemd/networkd.conf"
 	networkdConfDir     = "/etc/systemd/networkd.conf.d"
-	networkdConfFile    = "/etc/systemd/networkd.conf.d/99-netbird.conf"
-	networkdConfContent = `# Created by NetBird to prevent systemd-networkd from removing
-# routes and policy rules managed by NetBird.
+	networkdConfFile    = "/etc/systemd/networkd.conf.d/99-aheadscale.conf"
+	networkdConfContent = `# Created by Aheadscale to prevent systemd-networkd from removing
+# routes and policy rules managed by Aheadscale.
 
 [Network]
 ManageForeignRoutes=no

@@ -16,6 +16,7 @@ import (
 	goversion "github.com/hashicorp/go-version"
 	log "github.com/sirupsen/logrus"
 
+	"github.com/netbirdio/netbird/client/configs"
 	"github.com/netbirdio/netbird/client/internal/updater/downloader"
 	"github.com/netbirdio/netbird/client/internal/updater/reposign"
 )
@@ -41,6 +42,9 @@ func NewWithDir(tempDir string) *Installer {
 // RunInstallation starts the updater process to run the installation
 // This will run by the original service process
 func (u *Installer) RunInstallation(ctx context.Context, targetVersion string) (err error) {
+	if !configs.SelfUpdatesEnabled() {
+		return fmt.Errorf("Aheadscale preview updates are disabled until the signed feed is ready")
+	}
 	resultHandler := NewResultHandler(u.tempDir)
 	if err := resultHandler.ClearStaleResult(); err != nil {
 		log.Warnf("clear stale installer result: %v", err)
