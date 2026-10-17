@@ -26,8 +26,9 @@ artifacts on a customer-facing CDN or disable OS security settings to install th
 ## Build
 
 See [`packaging/aheadscale/upstream.json`](packaging/aheadscale/upstream.json) for
-pinned tools and source revision. GitHub Actions builds Linux amd64 desktop/CLI,
-Linux arm64 CLI, Windows amd64/arm64 and macOS Intel/Apple Silicon previews.
+pinned tools and source revision. The current debug CI builds Linux amd64 desktop/CLI, Windows amd64 and macOS
+Apple Silicon (arm64) previews. macOS Intel, Windows arm64 and Linux arm64
+are deferred; they are not part of the current CI matrix.
 
 With the upstream platform build prerequisites and pinned Wails generator:
 

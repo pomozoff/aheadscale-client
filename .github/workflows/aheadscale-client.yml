@@ -1,4 +1,4 @@
-name: Aheadscale client previews
+name: Aheadscale desktop previews
 on:
   push:
     branches: [aheadscale, 'codex/**']
@@ -46,10 +46,7 @@ jobs:
       matrix:
         include:
           - {platform: linux, arch: amd64, runner: ubuntu-24.04}
-          - {platform: linux, arch: arm64, runner: ubuntu-24.04}
           - {platform: windows, arch: amd64, runner: ubuntu-24.04}
-          - {platform: windows, arch: arm64, runner: ubuntu-24.04}
-          - {platform: darwin, arch: amd64, runner: macos-26}
           - {platform: darwin, arch: arm64, runner: macos-26}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
