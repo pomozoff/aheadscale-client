@@ -49,7 +49,7 @@ jobs:
           - {platform: linux, arch: arm64, runner: ubuntu-24.04}
           - {platform: windows, arch: amd64, runner: ubuntu-24.04}
           - {platform: windows, arch: arm64, runner: ubuntu-24.04}
-          - {platform: darwin, arch: amd64, runner: macos-26-intel}
+          - {platform: darwin, arch: amd64, runner: macos-26}
           - {platform: darwin, arch: arm64, runner: macos-26}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
@@ -118,7 +118,7 @@ jobs:
               wails3 generate webview2bootstrapper
               mv MicrosoftEdgeWebview2Setup.exe 'build/windows-${{ matrix.arch }}-'"$channel/"
             fi
-            bash packaging/aheadscale/build.sh '${{ matrix.platform }}' '${{ matrix.arch }}' "$channel"
+            bash -x packaging/aheadscale/build.sh '${{ matrix.platform }}' '${{ matrix.arch }}' "$channel"
           done
           python3 - <<'PY'
           from pathlib import Path
