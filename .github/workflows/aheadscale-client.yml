@@ -1,0 +1,149 @@
+name: Aheadscale client previews
+on:
+  push:
+    branches: [aheadscale, 'codex/**']
+  pull_request:
+    branches: [aheadscale]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: aheadscale-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  unit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.7'
+      - name: Client configuration and identity tests
+        run: go test ./client/cmd ./client/internal/profilemanager ./client/internal/daemonaddr ./client/internal/ipcauth ./client/net ./client/internal/routemanager/systemops ./client/configs -count=1
+      - name: Preview updater policy
+        run: go test ./client/internal/updater -run TestAheadscale -count=1
+      - name: Package source checks
+        run: |
+          python3 -m py_compile packaging/aheadscale/package.py
+          bash -n packaging/aheadscale/build.sh packaging/aheadscale/scripts/macos-preinstall packaging/aheadscale/scripts/macos-postinstall packaging/aheadscale/scripts/macos-uninstall.command
+          sh -n packaging/aheadscale/scripts/postinst packaging/aheadscale/scripts/prerm
+          git diff --check
+  windows-identity:
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.7'
+      - name: Independent Windows adapter identity
+        run: go test ./client/iface/device -run TestAheadscale -count=1
+  build:
+    needs: [unit, windows-identity]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {platform: linux, arch: amd64, runner: ubuntu-24.04}
+          - {platform: linux, arch: arm64, runner: ubuntu-24.04}
+          - {platform: windows, arch: amd64, runner: ubuntu-24.04}
+          - {platform: windows, arch: arm64, runner: ubuntu-24.04}
+          - {platform: darwin, arch: amd64, runner: macos-26-intel}
+          - {platform: darwin, arch: arm64, runner: macos-26}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    env:
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.7'
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24.19.0'
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
+        with:
+          version: '11.4.0'
+      - name: Linux build tools
+        if: runner.os == 'Linux' && !(matrix.platform == 'linux' && matrix.arch == 'arm64')
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev libsoup-3.0-dev gcc-mingw-w64-x86-64 nsis p7zip-full
+      - name: Windows native dependencies
+        if: matrix.platform == 'windows'
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, urllib.request, zipfile, subprocess
+          files = [
+            ('https://pkgs.netbird.io/wintun/wintun-0.14.1.zip', 'wintun.zip', '07c256185d6ee3652e09fa55c0b673e2624b565e02c4b9091c79ca7d2f24ef51'),
+            ('https://pkgs.netbird.io/nsis/EnVar_plugin.zip', 'envar.zip', 'e9aa92de351345ed82795251d838f1ae9041ba35af9d381a5780c7843b01f56a'),
+            ('https://pkgs.netbird.io/nsis/ShellExecAsUser_amd64-Unicode.7z', 'shell.7z', '0a55ea25c7330a92cec028eda8afcaf1b1a7092e0dfb77c21c8f654564b4ff9d')]
+          work=Path('/tmp/aheadscale-deps'); work.mkdir()
+          for url,name,digest in files:
+              target=work/name; urllib.request.urlretrieve(url,target)
+              assert hashlib.sha256(target.read_bytes()).hexdigest()==digest, name+' checksum mismatch'
+              if name.endswith('.zip'):
+                  with zipfile.ZipFile(target) as archive: archive.extractall(work)
+              else: subprocess.run(['7z','x',str(target),'-o'+str(work)],check=True)
+          for dll in work.rglob('*.dll'):
+              if ('Plugins' in dll.parts and 'x86-unicode' in dll.parts) or dll.name == 'ShellExecAsUser.dll':
+                  subprocess.run(['sudo','cp',str(dll),'/usr/share/nsis/Plugins/x86-unicode/'],check=True)
+          PY
+          if [[ '${{ matrix.arch }}' == arm64 ]]; then
+            curl --fail --location --retry 3 -o /tmp/llvm-mingw.tar.xz https://github.com/mstorsjo/llvm-mingw/releases/download/20250709/llvm-mingw-20250709-ucrt-ubuntu-22.04-x86_64.tar.xz
+            echo '60cafae6474c7411174cff1d4ba21a8e46cadbaeb05a1bace306add301628337  /tmp/llvm-mingw.tar.xz' | sha256sum -c
+            tar -xf /tmp/llvm-mingw.tar.xz -C /tmp
+            echo '/tmp/llvm-mingw-20250709-ucrt-ubuntu-22.04-x86_64/bin' >> "$GITHUB_PATH"
+            echo 'CC=aarch64-w64-mingw32-clang' >> "$GITHUB_ENV"
+            echo 'CXX=aarch64-w64-mingw32-clang++' >> "$GITHUB_ENV"
+          else
+            echo 'CC=x86_64-w64-mingw32-gcc' >> "$GITHUB_ENV"
+          fi
+      - name: Install pinned binding generator
+        if: ${{ !(matrix.platform == 'linux' && matrix.arch == 'arm64') }}
+        run: CC=cc CXX=c++ go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.3
+      - name: Build private and public-endpoint previews
+        shell: bash
+        run: |
+          for channel in internal public; do
+            if [[ '${{ matrix.platform }}' == windows ]]; then
+              mkdir -p 'build/windows-${{ matrix.arch }}-'"$channel"
+              cp '/tmp/aheadscale-deps/wintun/bin/${{ matrix.arch }}/wintun.dll' 'build/windows-${{ matrix.arch }}-'"$channel/"
+              cp /tmp/aheadscale-deps/wintun/LICENSE.txt 'build/windows-${{ matrix.arch }}-'"$channel/WINTUN-LICENSE.txt"
+              wails3 generate webview2bootstrapper
+              mv MicrosoftEdgeWebview2Setup.exe 'build/windows-${{ matrix.arch }}-'"$channel/"
+            fi
+            bash packaging/aheadscale/build.sh '${{ matrix.platform }}' '${{ matrix.arch }}' "$channel"
+          done
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          outputs=[p for p in Path('dist').iterdir() if p.is_file()]
+          Path('dist/SHA256SUMS').write_text(''.join(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name+'\n' for p in sorted(outputs)))
+          PY
+      - name: Native UI service tests
+        if: matrix.platform == 'linux' && matrix.arch == 'amd64'
+        run: CGO_ENABLED=1 go test -timeout 5m ./client/ui/authsession/... ./client/ui/i18n/... ./client/ui/preferences/... ./client/ui/services/...
+      - name: Linux preview installation and removal
+        if: matrix.platform == 'linux' && matrix.arch == 'amd64'
+        run: |
+          sudo apt-get install -y ./dist/aheadscale_*_linux_amd64_internal.deb
+          sudo systemctl is-active --quiet aheadscale
+          aheadscale status
+          sudo apt-get remove -y aheadscale
+          test ! -f /etc/systemd/system/aheadscale.service
+          test ! -x /usr/bin/aheadscale
+      - name: Save test installers
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: aheadscale-${{ matrix.platform }}-${{ matrix.arch }}-UNSIGNED-PREVIEW
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 7
+# No releases, CDN upload, signing secrets or production environment in preview CI.
+# Publisher signing and the independently verified backend gates must be added
+# before a separate protected release workflow is enabled.
