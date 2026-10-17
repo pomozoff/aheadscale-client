@@ -67,7 +67,7 @@ func init() {
 	DefaultConfigPathDir = "/var/lib/aheadscale/"
 	oldDefaultConfigPathDir = "/etc/aheadscale/"
 
-	if stateDir := os.Getenv("NB_STATE_DIR"); stateDir != "" {
+	if stateDir := os.Getenv("AS_STATE_DIR"); stateDir != "" {
 		DefaultConfigPathDir = stateDir
 	} else {
 		switch runtime.GOOS {

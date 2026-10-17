@@ -23,7 +23,7 @@ import (
 	"github.com/netbirdio/netbird/util"
 )
 
-// extendSessionFlag drives the `netbird login --extend` flow: refresh the
+// extendSessionFlag drives the `aheadscale login --extend` flow: refresh the
 // SSO session expiry on the management server without tearing down the
 // tunnel. Mutually exclusive with setup-key login (a setup-key cannot
 // refresh an SSO-tracked peer — see auth.errSetupKeyOnSSOExpiredPeer).
@@ -104,7 +104,7 @@ func doDaemonLogin(ctx context.Context, cmd *cobra.Command, providedSetupKey str
 		//nolint
 		return fmt.Errorf("failed to connect to daemon error: %v\n"+
 			"If the daemon is not running please run: "+
-			"\nnetbird service install \nnetbird service start\n", err)
+			"\naheadscale service install \naheadscale service start\n", err)
 	}
 	defer conn.Close()
 
@@ -182,7 +182,7 @@ func doExtendSession(ctx context.Context, cmd *cobra.Command, activeProf *profil
 		//nolint
 		return fmt.Errorf("failed to connect to daemon error: %v\n"+
 			"If the daemon is not running please run: "+
-			"\nnetbird service install \nnetbird service start\n", err)
+			"\naheadscale service install \naheadscale service start\n", err)
 	}
 	defer conn.Close()
 
@@ -246,7 +246,7 @@ func getActiveProfile(ctx context.Context, pm *profilemanager.ProfileManager, pr
 	}
 
 	if activeProf == nil {
-		return nil, fmt.Errorf("active profile not found, please run 'netbird profile create' first")
+		return nil, fmt.Errorf("active profile not found, please run 'aheadscale profile create' first")
 	}
 	return activeProf, nil
 }
@@ -294,7 +294,7 @@ func switchProfile(ctx context.Context, handle string, username string) (profile
 		//nolint
 		return "", fmt.Errorf("failed to connect to daemon error: %v\n"+
 			"If the daemon is not running please run: "+
-			"\nnetbird service install \nnetbird service start\n", err)
+			"\naheadscale service install \naheadscale service start\n", err)
 	}
 	defer conn.Close()
 

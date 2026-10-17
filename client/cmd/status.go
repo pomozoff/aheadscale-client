@@ -89,10 +89,10 @@ func statusFunc(cmd *cobra.Command, args []string) error {
 	if needsAuth && !jsonFlag && !yamlFlag {
 		cmd.Printf("Daemon status: %s\n\n"+
 			"Run UP command to log in with SSO (interactive login):\n\n"+
-			" netbird up \n\n"+
-			"If you are running a self-hosted version and no SSO provider has been configured in your Management Server,\n"+
-			"you can use a setup-key:\n\n netbird up --management-url <YOUR_MANAGEMENT_URL> --setup-key <YOUR_SETUP_KEY>\n\n"+
-			"More info: https://docs.netbird.io/how-to/register-machines-using-setup-keys\n\n",
+			" aheadscale up \n\n"+
+			"For a server without a browser, use an Aheadscale setup key:\n"+
+			" aheadscale up --setup-key <YOUR_SETUP_KEY>\n\n"+
+			"Account: https://aheadscale.ru\n\n",
 			resp.GetStatus(),
 		)
 		return nil
@@ -166,7 +166,7 @@ func getStatus(ctx context.Context, fullPeerStatus bool, shouldRunProbes bool) (
 		//nolint
 		return nil, fmt.Errorf("failed to connect to daemon error: %v\n"+
 			"If the daemon is not running please run: "+
-			"\nnetbird service install \nnetbird service start\n", err)
+			"\naheadscale service install \naheadscale service start\n", err)
 	}
 	defer conn.Close()
 

@@ -154,7 +154,7 @@ func upFunc(cmd *cobra.Command, args []string) error {
 
 // switchOrCreateProfile switches the active profile to the one identified by
 // handle, creating it first when it does not exist yet. This restores the
-// pre-0.73 behaviour where `netbird up --profile <name>` auto-creates a
+// pre-0.73 behaviour where `aheadscale up --profile <name>` auto-creates a
 // missing profile instead of failing. Returns the daemon-resolved profile so
 // callers act on it directly instead of re-reading the local state, which is
 // not updated under sudo.

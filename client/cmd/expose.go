@@ -37,10 +37,10 @@ var exposeCmd = &cobra.Command{
 	Use:   "expose <port>",
 	Short: "Expose a local port via the Aheadscale reverse proxy",
 	Args:  cobra.ExactArgs(1),
-	Example: `  netbird expose --with-password safe-pass 8080
-  netbird expose --protocol tcp 5432
-  netbird expose --protocol tcp --with-external-port 5433 5432
-  netbird expose --protocol tls --with-custom-domain tls.example.com 4443`,
+	Example: `  aheadscale expose --with-password safe-pass 8080
+  aheadscale expose --protocol tcp 5432
+  aheadscale expose --protocol tcp --with-external-port 5433 5432
+  aheadscale expose --protocol tls --with-custom-domain tls.example.com 4443`,
 	RunE: exposeFn,
 }
 

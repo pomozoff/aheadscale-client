@@ -112,17 +112,17 @@ SSH Options:
   -o, --known-hosts string             Path to known_hosts file
 
 Examples:
-  netbird ssh peer-hostname
-  netbird ssh root@peer-hostname
-  netbird ssh --login root peer-hostname
-  netbird ssh peer-hostname ls -la
-  netbird ssh peer-hostname whoami
-  netbird ssh -t peer-hostname tmux                  # Force PTY for tmux/screen
-  netbird ssh -t peer-hostname sudo -i               # Force PTY for interactive sudo
-  netbird ssh -L 8080:localhost:80 peer-hostname     # Local port forwarding
-  netbird ssh -R 9090:localhost:3000 peer-hostname   # Remote port forwarding
-  netbird ssh -L "*:8080:localhost:80" peer-hostname # Bind to all interfaces
-  netbird ssh -L 8080:/tmp/socket peer-hostname      # Unix socket forwarding`,
+  aheadscale ssh peer-hostname
+  aheadscale ssh root@peer-hostname
+  aheadscale ssh --login root peer-hostname
+  aheadscale ssh peer-hostname ls -la
+  aheadscale ssh peer-hostname whoami
+  aheadscale ssh -t peer-hostname tmux                  # Force PTY for tmux/screen
+  aheadscale ssh -t peer-hostname sudo -i               # Force PTY for interactive sudo
+  aheadscale ssh -L 8080:localhost:80 peer-hostname     # Local port forwarding
+  aheadscale ssh -R 9090:localhost:3000 peer-hostname   # Remote port forwarding
+  aheadscale ssh -L "*:8080:localhost:80" peer-hostname # Bind to all interfaces
+  aheadscale ssh -L 8080:/tmp/socket peer-hostname      # Unix socket forwarding`,
 	DisableFlagParsing: true,
 	Args:               validateSSHArgsWithoutFlagParsing,
 	RunE:               sshFn,
@@ -528,7 +528,7 @@ func runSSH(ctx context.Context, addr string, cmd *cobra.Command) error {
 	if err != nil {
 		cmd.Printf("Failed to connect to %s@%s\n", username, target)
 		cmd.Printf("\nTroubleshooting steps:\n")
-		cmd.Printf("  1. Check peer connectivity: netbird status -d\n")
+		cmd.Printf("  1. Check peer connectivity: aheadscale status -d\n")
 		cmd.Printf("  2. Verify SSH server is enabled on the peer\n")
 		cmd.Printf("  3. Ensure correct hostname/IP is used\n")
 		return fmt.Errorf("dial %s: %w", target, err)
