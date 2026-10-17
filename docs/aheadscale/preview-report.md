@@ -25,7 +25,7 @@ Tailscale не мигрируются. `NB_CONFIG`/`WT_CONFIG` не выбира
 перезаписи ключей, переноса регистрации или переключения аккаунта. MDM не может
 перенаправить такой клиент в другое окружение.
 
-Один desktop-пакет содержит службу и UI. Предусмотрены Linux amd64 desktop/CLI, Windows amd64 NSIS и macOS Apple Silicon (arm64) pkg.
+Один desktop-пакет содержит службу и UI. Предусмотрены Linux amd64/arm64 desktop/CLI, Windows amd64/arm64 NSIS и macOS Apple Silicon (arm64) pkg.
 По уточнению пользователя macOS Intel и остальные архитектуры пока отложены.
 macOS включает отдельное удаление только Aheadscale; данные регистрации
 сохраняются. Windows сохраняет данные, пока пользователь явно не выберет их
@@ -63,7 +63,8 @@ Windows amd64 и тест отдельного GUID адаптера скомп�
 Общий запуск отменён из-за задачи macOS Intel; перечисленные выше три задачи
 успешно завершились, их артефакты доступны. Повторные сборки после изменения
 матрицы остановлены: изменение списка платформ не требует пересобирать уже
-готовые пакеты. Текущий CI ограничен Windows amd64, Linux amd64 и macOS arm64.
+готовые пакеты. Режим CI `current` сохраняет Windows amd64, Linux amd64 и macOS arm64;
+дополнительный режим `arm64` собирает только Windows/Linux arm64.
 
 - [Windows amd64](https://github.com/pomozoff/aheadscale-client/actions/runs/39022500060/artifacts/12097407780)
 - [Linux amd64](https://github.com/pomozoff/aheadscale-client/actions/runs/39022500060/artifacts/12097097442)
@@ -86,6 +87,26 @@ npm, без переключения версии сторонним bootstrappe
 выявила остаточный `NB_STATE_DIR`: теперь каталог состояния задаёт только
 `AS_STATE_DIR`. Подсказки CLI предлагают команды Aheadscale и не требуют ввода
 адреса сервера.
+
+## ARM64 для UTM — 18 октября 2026
+
+[Запуск 39057470367](https://github.com/pomozoff/aheadscale-client/actions/runs/39057470367)
+полностью прошёл; исходники `a89587893b2a48b7d052058fb8f43d219c88735b`.
+Существующие x64/macOS установщики повторно не собирались.
+
+- [Windows arm64](https://github.com/pomozoff/aheadscale-client/actions/runs/39057470367/artifacts/12110266402): NSIS installer со службой, UI и Wintun; все три payload-файла проверены как ARM64. Для ВМ на Apple Silicon использовать Windows 11 arm64.
+- [Linux arm64](https://github.com/pomozoff/aheadscale-client/actions/runs/39057470367/artifacts/12110336451): desktop .deb со службой и UI, отдельный CLI .deb. Требуется Ubuntu 24.04 или совместимая более новая система с GTK 4.14+/WebKitGTK 6.
+
+Скачанные пакеты прошли SHA256SUMS, payload содержит ARM64 daemon/UI, Windows —
+также ARM64 Wintun. Нативные Linux UI tests и установка/запуск службы/удаление
+прошли на `ubuntu-24.04-arm`. GitHub Actions также подтвердил тесты
+конфигурации/IPC и Windows adapter identity (на x64 runner). Windows ARM64
+UI и установка на реальной ВМ, browser login и полезный обмен между ВМ
+остаются Pending; успешная сборка их не заменяет.
+
+Для интернет-проверки выбирать файл `public`, без суффикса `_cli` для Linux
+с графическим клиентом. Архивы содержат SHA256SUMS и сохраняются семь дней.
+Подписи издателя Windows пока нет; публичный релиз/CDN не выполнялся.
 
 ## Условия внешнего запуска
 

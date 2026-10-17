@@ -20,6 +20,26 @@ Do not mark an OS installation or network scenario passed from compilation alone
 
 CI evidence: [preview run 39022500060](https://github.com/pomozoff/aheadscale-client/actions/runs/39022500060), source `b9f43a05d0cd8d4f71b5650fc53037ad6f539e7f`. The three selected platform jobs passed and their artifacts remain available; the overall run was canceled for macOS Intel, which remains deferred. Windows/Linux arm64 are added in a separate selected run.
 
+## ARM64 extension
+
+[Run 39057470367](https://github.com/pomozoff/aheadscale-client/actions/runs/39057470367),
+source `a89587893b2a48b7d052058fb8f43d219c88735b`, passed all four jobs.
+Only Windows/Linux arm64 installers were built in this run.
+
+| Check | Linux arm64 | Windows arm64 |
+| --- | --- | --- |
+| CLI and desktop compilation/package creation | Passed, native Ubuntu 24.04 arm64 | Passed, LLVM-MinGW cross-build |
+| Downloaded SHA256SUMS and actual payload architecture | Passed, ARM64 daemon/UI | Passed, ARM64 daemon/UI/Wintun |
+| Native UI service tests | Passed | Pending on ARM64 Windows |
+| Service package installation/start/removal | Passed on native ARM64 runner | Pending |
+| Clean VM UI, browser login, reboot, directory/DNS and useful traffic | Pending | Pending |
+| Publisher signature | Pending | Pending certificate |
+
+The Windows adapter identity CI job runs on x64; it does not establish native
+Windows ARM64 execution. See the preview report for download links and VM OS
+requirements. Select `public` for Internet VMs, and the non-`_cli` Linux package
+for the graphical client.
+
 ## Public service gates
 
 - Server signup with verified email/password and idempotent creation of an isolated
