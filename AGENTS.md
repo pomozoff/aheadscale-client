@@ -1,5 +1,9 @@
 # NetBird Agent Guidelines
 
+Документацию Aheadscale — инструкции, планы, отчёты и новые разделы документов —
+пиши на русском языке. Названия продуктов, идентификаторы, параметры, команды,
+пути и URL сохраняй в исходном виде.
+
 **NetBird** is an open source connectivity platform: a WireGuard®-based overlay
 network with a control plane. The **agent** (`client/`) runs on user machines as
 a privileged daemon and manages the WireGuard interface, routing, firewall, and
