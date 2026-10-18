@@ -2,7 +2,7 @@
 
 <div class="nb-card">
     <h1 class="nb-heading">Grant Access</h1>
-    <p class="nb-subheading">{{ .Client }} wants to access your account</p>
+    <p class="nb-subheading">{{ if eq .Client "NetBird Dashboard" }}Aheadscale Dashboard{{ else if eq .Client "NetBird CLI" }}Aheadscale CLI{{ else }}{{ .Client }}{{ end }} wants to access your account</p>
 
     <form method="post">
         <input type="hidden" name="req" value="{{ .ReqID }}"/>

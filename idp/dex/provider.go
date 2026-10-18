@@ -304,7 +304,7 @@ func buildDexConfig(yamlConfig *YAMLConfig, stor storage.Storage, logger *slog.L
 		cfg.IDTokensValidFor = 24 * time.Hour
 	}
 	if cfg.Web.Issuer == "" {
-		cfg.Web.Issuer = "NetBird"
+		cfg.Web.Issuer = "Aheadscale"
 	}
 	if len(cfg.SupportedResponseTypes) == 0 {
 		cfg.SupportedResponseTypes = []string{"code"}
@@ -452,13 +452,13 @@ func (p *Provider) EnsureDefaultClients(ctx context.Context, dashboardURIs, cliU
 	clients := []storage.Client{
 		{
 			ID:           "netbird-dashboard",
-			Name:         "NetBird Dashboard",
+			Name:         "Aheadscale Dashboard",
 			RedirectURIs: dashboardURIs,
 			Public:       true,
 		},
 		{
 			ID:           "netbird-cli",
-			Name:         "NetBird CLI",
+			Name:         "Aheadscale CLI",
 			RedirectURIs: cliURIs,
 			Public:       true,
 		},
