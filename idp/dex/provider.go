@@ -124,7 +124,7 @@ func NewProvider(ctx context.Context, config *Config) (*Provider, error) {
 		IDTokensValidFor:           24 * time.Hour,
 		RefreshTokenPolicy:         refreshPolicy,
 		Web: server.WebConfig{
-			Issuer: "NetBird",
+			Issuer: "Aheadscale",
 		},
 		Signer: localSigner,
 	}

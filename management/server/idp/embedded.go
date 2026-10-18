@@ -184,7 +184,7 @@ func (c *EmbeddedIdPConfig) ToYAMLConfig() (*dex.YAMLConfig, error) {
 			GrantTypes:         c.GrantTypes,
 		},
 		Frontend: dex.Frontend{
-			Issuer: "NetBird",
+			Issuer: "Aheadscale",
 			Theme:  "light",
 		},
 		// Always enable password DB initially - we disable the local connector after startup if needed.
@@ -193,14 +193,14 @@ func (c *EmbeddedIdPConfig) ToYAMLConfig() (*dex.YAMLConfig, error) {
 		StaticClients: []storage.Client{
 			{
 				ID:                     StaticClientDashboard,
-				Name:                   "NetBird Dashboard",
+				Name:                   "Aheadscale Dashboard",
 				Public:                 true,
 				RedirectURIs:           redirectURIs,
 				PostLogoutRedirectURIs: sanitizePostLogoutRedirectURIs(dashboardPostLogoutRedirectURIs),
 			},
 			{
 				ID:           StaticClientCLI,
-				Name:         "NetBird CLI",
+				Name:         "Aheadscale CLI",
 				Public:       true,
 				RedirectURIs: redirectURIs,
 			},
@@ -265,7 +265,7 @@ func configureMFA(cfg *dex.YAMLConfig, sessionMaxLifetime, sessionIdleTimeout st
 		// Has to be caps otherwise it will fail
 		Type: "TOTP",
 		Config: map[string]interface{}{
-			"issuer": "NetBird",
+			"issuer": "Aheadscale",
 		},
 		ConnectorTypes: []string{LocalConnectorID},
 	}}

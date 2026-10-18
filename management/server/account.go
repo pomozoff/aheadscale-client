@@ -242,7 +242,7 @@ func BuildManager(
 	}
 
 	// enable single account mode only if configured by user and number of existing accounts is not grater than 1
-	am.singleAccountMode = singleAccountModeDomain != "" && accountsCounter <= 1
+	am.singleAccountMode = singleAccountModeDomain != "" && accountsCounter <= 1 && os.Getenv("AS_SELF_REGISTRATION") != "true"
 	if am.singleAccountMode {
 		if !nbdomain.IsValidDomainNoWildcard(singleAccountModeDomain) {
 			return nil, status.Errorf(status.InvalidArgument, "invalid domain \"%s\" provided for a single account mode. Please review your input for --single-account-mode-domain", singleAccountModeDomain)

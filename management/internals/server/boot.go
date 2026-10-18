@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net/http"
 	"net/netip"
+	"os"
 	"slices"
 	"time"
 
@@ -39,8 +40,10 @@ import (
 	nbContext "github.com/netbirdio/netbird/management/server/context"
 	nbhttp "github.com/netbirdio/netbird/management/server/http"
 	"github.com/netbirdio/netbird/management/server/idp"
+	"github.com/netbirdio/netbird/management/server/registration"
 	"github.com/netbirdio/netbird/management/server/store"
 	"github.com/netbirdio/netbird/management/server/telemetry"
+	"github.com/netbirdio/netbird/shared/auth"
 	mgmtProto "github.com/netbirdio/netbird/shared/management/proto"
 	"github.com/netbirdio/netbird/shared/ratelimit"
 	"github.com/netbirdio/netbird/util/crypt"
@@ -162,7 +165,14 @@ func (s *BaseServer) IDPHandler() http.Handler {
 	if !ok || embeddedIdP == nil {
 		return nil
 	}
-	return cors.AllowAll().Handler(embeddedIdP.Handler())
+	handler := embeddedIdP.Handler()
+	if os.Getenv("AS_SELF_REGISTRATION") == "true" {
+		handler = registration.NewHandler(s.Config.EmbeddedIdP.Issuer, embeddedIdP, func(ctx context.Context, user *idp.UserData) error {
+			_, err := s.AccountManager().GetOrCreateAccountByUser(ctx, auth.UserAuth{UserId: user.ID, Email: user.Email, Name: user.Name})
+			return err
+		}, handler)
+	}
+	return cors.AllowAll().Handler(handler)
 }
 
 func (s *BaseServer) Router() *mux.Router {

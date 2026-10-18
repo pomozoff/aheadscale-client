@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"os"
 	"slices"
 	"strings"
 	"time"
@@ -884,7 +885,20 @@ func (am *DefaultAccountManager) AddPeer(ctx context.Context, accountID, setupKe
 			}
 		}
 
+		unlockQuota := func() {}
+		if os.Getenv("AS_SELF_REGISTRATION") == "true" {
+			unlockQuota = am.Store.AcquireGlobalLock(ctx)
+		}
 		err = am.Store.ExecuteInTransaction(ctx, func(transaction store.Store) error {
+			if os.Getenv("AS_SELF_REGISTRATION") == "true" {
+				registered, err := transaction.GetAccountPeers(ctx, store.LockingStrengthNone, accountID, "", "")
+				if err != nil {
+					return err
+				}
+				if len(registered) >= 5 {
+					return status.Errorf(status.PermissionDenied, "Aheadscale Free supports up to 5 registered devices; remove a device before adding another")
+				}
+			}
 			err = transaction.AddPeerToAccount(ctx, newPeer)
 			if err != nil {
 				return err
@@ -942,6 +956,7 @@ func (am *DefaultAccountManager) AddPeer(ctx context.Context, accountID, setupKe
 			log.WithContext(ctx).Debugf("Peer %s added to account %s", newPeer.ID, accountID)
 			return nil
 		})
+		unlockQuota()
 		if err == nil {
 			break
 		}

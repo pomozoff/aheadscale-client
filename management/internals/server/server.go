@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -464,6 +465,11 @@ func (s *BaseServer) serveGRPCWithHTTP(ctx context.Context, listener net.Listene
 // Fresh installs use the default self-hosted domain, while existing installs reuse the
 // persisted account domain to keep addressing stable across config changes.
 func (s *BaseServer) ResolveDomains(ctx context.Context) {
+	if os.Getenv("AS_SELF_REGISTRATION") == "true" {
+		s.dnsDomain = "aheadscale.internal"
+		s.mgmtSingleAccModeDomain = ""
+		return
+	}
 	st := s.Store()
 
 	setDefault := func(logMsg string, args ...any) {

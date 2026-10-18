@@ -51,3 +51,21 @@ Linux arm64 для виртуализации в UTM на Apple Silicon. Оба 
 ## Пользовательские требования
 
 Один аккаунт — одна личная сеть, максимум пять зарегистрированных устройств. Список всех устройств, включая offline, поиск по имени/IP и копирование; приватные имена доступны приложениям. Регистрация/вход email+пароль через браузер. Автосоздание аккаунтов/сетей — отдельная серверная часть, не исполняется как изменение рабочего bootstrap в этой задаче.
+
+### Task 5: Browser signup and Aheadscale web branding — 18 October 2026
+
+User approved browser-based registration with complete Aheadscale branding.
+Preserve the existing OAuth request/PKCE: switch Sign in/Sign up on the Dex page,
+create a local user and independent account/network, then submit the original
+Dex login form automatically. Existing owner/keys/sessions stay intact.
+Disable single-account email-domain grouping only with AS_SELF_REGISTRATION=true.
+Keep signup origin-checked, bounded, rate limited, and compensate failed account
+creation. Enforce five registered devices atomically on this single-server
+prototype. Brand server auth pages and pinned dashboard v2.94.0 with Aheadscale
+marks, names and #2563eb; preserve protocol IDs and LICENSE/notices.
+Check real IdP/account isolation, duplicate/invalid signup, quota concurrency,
+UI rendering and real OAuth continuation. Build only server/dashboard images;
+existing installers remain usable. Deploy only own Aheadscale containers after
+fixture checks, preserving the owner and unrelated services. No external pilot
+or publisher release is implied; email ownership verification and recovery
+remain a later public-service gate (the prototype has no mail provider).
