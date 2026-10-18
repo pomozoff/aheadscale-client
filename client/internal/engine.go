@@ -482,6 +482,12 @@ func (e *Engine) stopLocked() {
 
 	e.stopDNSForwarder()
 
+	if e.wgInterface != nil {
+		if err := dns.PrepareInterfaceRemoval(e.config.WgIfaceName); err != nil {
+			log.Debugf("coordinate interface shutdown with NetworkManager: %v", err)
+		}
+	}
+
 	// stop/restore DNS after peers are closed but before interface goes down
 	// so dbus and friends don't complain because of a missing interface
 	e.stopDNSServer()
