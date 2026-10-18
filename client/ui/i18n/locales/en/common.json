@@ -796,11 +796,11 @@
         "description": "Option label for using a self-hosted management server. 'Self-hosted' is a common technical term."
     },
     "settings.general.management.urlPlaceholder": {
-        "message": "https://netbird.selfhosted.com:443",
+        "message": "https://aheadscale.ru:443",
         "description": "Example URL placeholder for the self-hosted server field. It is a sample URL — do not translate the URL itself."
     },
     "settings.general.management.urlError": {
-        "message": "Please enter a valid URL, e.g., https://netbird.selfhosted.com:443",
+        "message": "Please enter a valid URL, e.g., https://aheadscale.ru:443",
         "description": "Validation message for an invalid management-server URL. The example URL stays as-is."
     },
     "settings.general.management.urlUnreachable": {
@@ -1472,11 +1472,11 @@
         "description": "Field label for the management-server URL."
     },
     "welcome.management.urlPlaceholder": {
-        "message": "https://netbird.selfhosted.com:443",
+        "message": "https://aheadscale.ru:443",
         "description": "Example URL placeholder. Sample URL — do not translate it."
     },
     "welcome.management.urlInvalid": {
-        "message": "Please enter a valid URL, e.g., https://netbird.selfhosted.com:443",
+        "message": "Please enter a valid URL, e.g., https://aheadscale.ru:443",
         "description": "Validation message for an invalid URL. The example URL stays as-is."
     },
     "welcome.management.urlUnreachable": {

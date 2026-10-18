@@ -599,10 +599,10 @@
         "message": "自托管"
     },
     "settings.general.management.urlPlaceholder": {
-        "message": "https://netbird.selfhosted.com:443"
+        "message": "https://aheadscale.ru:443"
     },
     "settings.general.management.urlError": {
-        "message": "请输入有效的 URL，例如：https://netbird.selfhosted.com:443"
+        "message": "请输入有效的 URL，例如：https://aheadscale.ru:443"
     },
     "settings.general.management.urlUnreachable": {
         "message": "无法连接到此服务器。请检查 URL，如果确认无误，也可以照常保存。"
@@ -1106,10 +1106,10 @@
         "message": "管理服务器 URL"
     },
     "welcome.management.urlPlaceholder": {
-        "message": "https://netbird.selfhosted.com:443"
+        "message": "https://aheadscale.ru:443"
     },
     "welcome.management.urlInvalid": {
-        "message": "请输入有效的 URL，例如：https://netbird.selfhosted.com:443"
+        "message": "请输入有效的 URL，例如：https://aheadscale.ru:443"
     },
     "welcome.management.urlUnreachable": {
         "message": "无法连接到此服务器。请检查 URL 或您的网络，如果确认无误，再继续。"

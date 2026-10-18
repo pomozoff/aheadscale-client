@@ -599,10 +599,10 @@
         "message": "Auto-hébergé"
     },
     "settings.general.management.urlPlaceholder": {
-        "message": "https://netbird.selfhosted.com:443"
+        "message": "https://aheadscale.ru:443"
     },
     "settings.general.management.urlError": {
-        "message": "Veuillez saisir une URL valide, ex. https://netbird.selfhosted.com:443"
+        "message": "Veuillez saisir une URL valide, ex. https://aheadscale.ru:443"
     },
     "settings.general.management.urlUnreachable": {
         "message": "Impossible de joindre ce serveur. Vérifiez l’URL, ou enregistrez quand même si vous êtes sûr qu’elle est correcte."
@@ -1106,10 +1106,10 @@
         "message": "URL du serveur de gestion"
     },
     "welcome.management.urlPlaceholder": {
-        "message": "https://netbird.selfhosted.com:443"
+        "message": "https://aheadscale.ru:443"
     },
     "welcome.management.urlInvalid": {
-        "message": "Veuillez saisir une URL valide, ex. https://netbird.selfhosted.com:443"
+        "message": "Veuillez saisir une URL valide, ex. https://aheadscale.ru:443"
     },
     "welcome.management.urlUnreachable": {
         "message": "Impossible de joindre ce serveur. Vérifiez l’URL ou votre réseau, puis continuez si vous êtes sûr qu’elle est correcte."

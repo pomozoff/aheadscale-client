@@ -1,5 +1,7 @@
 .PHONY: lint lint-all lint-install setup-hooks test-unit test-privileged
 GOLANGCI_LINT := $(shell pwd)/bin/golangci-lint
+LINT_BASE ?= origin/aheadscale
+LINT_TIMEOUT ?= 2m
 
 # Install golangci-lint locally if needed
 $(GOLANGCI_LINT):
@@ -10,7 +12,7 @@ $(GOLANGCI_LINT):
 # Lint only changed files (fast, for pre-push)
 lint: $(GOLANGCI_LINT)
 	@echo "Running lint on changed files..."
-	@$(GOLANGCI_LINT) run --new-from-rev=origin/main --timeout=2m
+	@$(GOLANGCI_LINT) run --new-from-rev=$(LINT_BASE) --timeout=$(LINT_TIMEOUT)
 
 # Lint entire codebase (slow, matches CI)
 lint-all: $(GOLANGCI_LINT)

@@ -55,6 +55,7 @@ func Test_LatestVersion_Linux(t *testing.T) {
 		m := NewManager(recorder, statemanager.New(tmpFile))
 		m.update = mockUpdate
 		m.currentVersion = c.daemonVersion
+		m.autoUpdateSupported = func() bool { return true }
 		m.Start(context.Background())
 		m.SetDownloadOnly()
 

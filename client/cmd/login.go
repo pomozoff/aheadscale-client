@@ -457,7 +457,7 @@ func openURL(cmd *cobra.Command, verificationURIComplete, userCode string, noBro
 	if !noBrowser {
 		if err := util.OpenBrowser(verificationURIComplete); err != nil {
 			cmd.Println("\nAlternatively, you may want to use a setup key, see:\n\n" +
-				"https://docs.netbird.io/how-to/register-machines-using-setup-keys")
+				"https://github.com/pomozoff/aheadscale-client/blob/aheadscale/docs/aheadscale/user-guide.md")
 		}
 	}
 }

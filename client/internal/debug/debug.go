@@ -517,7 +517,7 @@ func (g *BundleGenerator) addReadme() error {
 	if g.anonymize {
 		level = g.anonymizeLevel.String()
 	}
-	header := fmt.Sprintf("Netbird debug bundle\nAnonymization level applied to this bundle: %s\n", level)
+	header := fmt.Sprintf("Aheadscale debug bundle\nAnonymization level applied to this bundle: %s\n", level)
 
 	readmeReader := strings.NewReader(header + readmeContent)
 	if err := g.addFileToZip(readmeReader, "README.txt"); err != nil {
@@ -694,7 +694,7 @@ func isSensitiveEnvVar(key string) bool {
 }
 
 func (g *BundleGenerator) addCommonConfigFields(configContent *strings.Builder) {
-	configContent.WriteString("NetBird Client Configuration:\n\n")
+	configContent.WriteString("Aheadscale Client Configuration:\n\n")
 
 	if key, err := wgtypes.ParseKey(g.internalConfig.PrivateKey); err == nil {
 		configContent.WriteString(fmt.Sprintf("PublicKey: %s\n", g.anonymizer.AnonymizeWGKey(key.PublicKey().String())))

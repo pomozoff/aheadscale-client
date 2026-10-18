@@ -597,10 +597,10 @@
         "message": "Власний сервер"
     },
     "settings.general.management.urlPlaceholder": {
-        "message": "https://netbird.selfhosted.com:443"
+        "message": "https://aheadscale.ru:443"
     },
     "settings.general.management.urlError": {
-        "message": "Будь ласка, введіть дійсну URL-адресу, наприклад: https://netbird.selfhosted.com:443"
+        "message": "Будь ласка, введіть дійсну URL-адресу, наприклад: https://aheadscale.ru:443"
     },
     "settings.general.management.urlUnreachable": {
         "message": "Не вдалося підключитися до цього сервера. Перевірте URL-адресу або все одно збережіть зміни, якщо ви впевнені, що вона правильна."
@@ -1104,10 +1104,10 @@
         "message": "URL-адреса сервера керування"
     },
     "welcome.management.urlPlaceholder": {
-        "message": "https://netbird.selfhosted.com:443"
+        "message": "https://aheadscale.ru:443"
     },
     "welcome.management.urlInvalid": {
-        "message": "Будь ласка, введіть дійсну URL-адресу, наприклад: https://netbird.selfhosted.com:443"
+        "message": "Будь ласка, введіть дійсну URL-адресу, наприклад: https://aheadscale.ru:443"
     },
     "welcome.management.urlUnreachable": {
         "message": "Не вдалося підключитися до цього сервера. Перевірте URL-адресу або вашу мережу, а потім продовжуйте, якщо ви впевнені, що вона правильна."

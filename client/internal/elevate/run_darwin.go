@@ -71,7 +71,7 @@ const rightExecute = "system.privilege.admin"
 // the system's in the dialog. It is about the change rather than the mechanism.
 const (
 	promptKey  = "prompt"
-	promptText = "NetBird needs to change a setting that grants SSH access to this computer."
+	promptText = "Aheadscale needs to change a setting that grants SSH access to this computer."
 )
 
 // OSStatus values from SecBase.h that mean something to us; anything else is

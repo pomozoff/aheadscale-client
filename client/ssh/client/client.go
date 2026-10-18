@@ -415,7 +415,7 @@ func connectToDaemon(daemonAddr string) (*grpc.ClientConn, error) {
 	conn, err := grpc.NewClient(target, opts...)
 	if err != nil {
 		log.Debugf("failed to create gRPC client for NetBird daemon at %s: %v", daemonAddr, err)
-		return nil, fmt.Errorf("failed to connect to NetBird daemon: %w", err)
+		return nil, fmt.Errorf("failed to connect to Aheadscale daemon: %w", err)
 	}
 
 	return conn, nil

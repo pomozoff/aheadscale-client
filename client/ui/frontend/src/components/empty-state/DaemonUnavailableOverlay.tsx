@@ -4,7 +4,7 @@ import { Browser } from "@wailsio/runtime";
 import { Button } from "@/components/buttons/Button";
 import { useStatus } from "@/contexts/StatusContext.tsx";
 
-const DOCS_URL = "https://docs.netbird.io/how-to/installation";
+const DOCS_URL = "https://github.com/pomozoff/aheadscale-client/blob/aheadscale/docs/aheadscale/user-guide.md";
 
 function openUrl(url: string) {
     Browser.OpenURL(url).catch(() => globalThis.open(url, "_blank"));

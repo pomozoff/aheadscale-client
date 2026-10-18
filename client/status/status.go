@@ -450,7 +450,7 @@ func (o *OutputOverview) GeneralSummary(showURL bool, showRelays bool, showNameS
 
 	ipv6Line := ""
 	if o.IPv6 != "" {
-		ipv6Line = fmt.Sprintf("NetBird IPv6: %s\n", o.IPv6)
+		ipv6Line = fmt.Sprintf("Aheadscale IPv6: %s\n", o.IPv6)
 	}
 
 	var relaysString string
@@ -610,7 +610,7 @@ func (o *OutputOverview) GeneralSummary(showURL bool, showRelays bool, showNameS
 			"Relays: %s\n"+
 			"Nameservers: %s\n"+
 			"FQDN: %s\n"+
-			"NetBird IP: %s\n"+
+			"Aheadscale IP: %s\n"+
 			"%s"+
 			"Interface type: %s\n"+
 			"Wireguard port: %s\n"+
@@ -807,12 +807,12 @@ func parsePeers(peers PeersStateOutput, rosenpassEnabled, rosenpassPermissive bo
 
 		ipv6Line := ""
 		if peerState.IPv6 != "" {
-			ipv6Line = fmt.Sprintf("  NetBird IPv6: %s\n", peerState.IPv6)
+			ipv6Line = fmt.Sprintf("  Aheadscale IPv6: %s\n", peerState.IPv6)
 		}
 
 		peerString := fmt.Sprintf(
 			"\n %s:\n"+
-				"  NetBird IP: %s\n"+
+				"  Aheadscale IP: %s\n"+
 				"%s"+
 				"  Public key: %s\n"+
 				"  Status: %s\n"+

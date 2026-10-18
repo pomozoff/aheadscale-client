@@ -599,10 +599,10 @@
         "message": "セルフホスト"
     },
     "settings.general.management.urlPlaceholder": {
-        "message": "https://netbird.selfhosted.com:443"
+        "message": "https://aheadscale.ru:443"
     },
     "settings.general.management.urlError": {
-        "message": "有効なURLを入力してください（例: https://netbird.selfhosted.com:443）"
+        "message": "有効なURLを入力してください（例: https://aheadscale.ru:443）"
     },
     "settings.general.management.urlUnreachable": {
         "message": "このサーバーに到達できませんでした。URLを確認するか、正しいことが確実な場合はそのまま保存してください。"
@@ -1106,10 +1106,10 @@
         "message": "管理サーバーのURL"
     },
     "welcome.management.urlPlaceholder": {
-        "message": "https://netbird.selfhosted.com:443"
+        "message": "https://aheadscale.ru:443"
     },
     "welcome.management.urlInvalid": {
-        "message": "有効なURLを入力してください（例: https://netbird.selfhosted.com:443）"
+        "message": "有効なURLを入力してください（例: https://aheadscale.ru:443）"
     },
     "welcome.management.urlUnreachable": {
         "message": "このサーバーに到達できませんでした。URLまたはネットワークを確認し、正しいことが確実な場合は続行してください。"

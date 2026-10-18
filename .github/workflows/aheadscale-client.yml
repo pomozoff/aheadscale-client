@@ -27,7 +27,7 @@ jobs:
         with:
           go-version: '1.26.7'
       - name: Client configuration and identity tests
-        run: go test ./client/cmd ./client/internal/profilemanager ./client/internal/daemonaddr ./client/internal/ipcauth ./client/net ./client/internal/routemanager/systemops ./client/configs -count=1
+        run: go test ./client/cmd ./client/status ./client/internal/auth ./client/internal/templates ./client/internal/profilemanager ./client/internal/daemonaddr ./client/internal/ipcauth ./client/net ./client/internal/routemanager/systemops ./client/configs -count=1
       - name: Preview updater policy
         run: go test ./client/internal/updater -run TestAheadscale -count=1
       - name: Package source checks

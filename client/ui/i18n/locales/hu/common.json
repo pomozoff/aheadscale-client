@@ -599,10 +599,10 @@
         "message": "Saját üzemeltetésű"
     },
     "settings.general.management.urlPlaceholder": {
-        "message": "https://netbird.selfhosted.com:443"
+        "message": "https://aheadscale.ru:443"
     },
     "settings.general.management.urlError": {
-        "message": "Adjon meg egy érvényes URL-t, pl. https://netbird.selfhosted.com:443"
+        "message": "Adjon meg egy érvényes URL-t, pl. https://aheadscale.ru:443"
     },
     "settings.general.management.urlUnreachable": {
         "message": "A szerver nem érhető el. Ellenőrizze az URL-t, vagy mentse el, ha biztos benne, hogy helyes."
@@ -1106,10 +1106,10 @@
         "message": "Felügyeleti szerver URL"
     },
     "welcome.management.urlPlaceholder": {
-        "message": "https://netbird.selfhosted.com:443"
+        "message": "https://aheadscale.ru:443"
     },
     "welcome.management.urlInvalid": {
-        "message": "Adjon meg egy érvényes URL-t, pl. https://netbird.selfhosted.com:443"
+        "message": "Adjon meg egy érvényes URL-t, pl. https://aheadscale.ru:443"
     },
     "welcome.management.urlUnreachable": {
         "message": "A szerver nem érhető el. Ellenőrizze az URL-t vagy a hálózatot, majd folytassa, ha biztos benne, hogy helyes."
