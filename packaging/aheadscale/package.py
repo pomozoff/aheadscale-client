@@ -39,9 +39,12 @@ if args.platform == 'linux':
     if not args.cli_only:
         copy(binaries / 'aheadscale-ui', staging / 'usr/bin/aheadscale-ui')
         copy(root / 'packaging/aheadscale/icon.png', staging / 'usr/share/icons/hicolor/512x512/apps/aheadscale.png')
-        desktop = staging / 'usr/share/applications/aheadscale.desktop'
+        desktop = staging / 'usr/share/applications/org.wails.aheadscale.desktop'
         desktop.parent.mkdir(parents=True, exist_ok=True)
-        desktop.write_text('[Desktop Entry]\nType=Application\nName=Aheadscale\nExec=/usr/bin/aheadscale-ui\nIcon=aheadscale\nTerminal=false\nCategories=Network;\n')
+        desktop.write_text(
+            '[Desktop Entry]\nType=Application\nName=Aheadscale\n'
+            'Exec=/usr/bin/aheadscale-ui\nIcon=aheadscale\nTerminal=false\n'
+            'Categories=Network;\nStartupWMClass=org.wails.aheadscale\n')
     copy(root / 'LICENSE', staging / 'usr/share/doc/aheadscale/LICENSE')
     copy(root / 'packaging/aheadscale/NOTICES.md', staging / 'usr/share/doc/aheadscale/NOTICES.md')
     control = staging / 'DEBIAN'
