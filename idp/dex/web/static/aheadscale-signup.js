@@ -2,12 +2,28 @@
  const form = document.querySelector('form');
  const login = document.getElementById('login');
  const password = document.getElementById('password');
+ const passwordToggle = document.getElementById('as-password-toggle');
  const submit = document.getElementById('submit-login');
  const error = document.getElementById('as-error');
  const signin = document.getElementById('as-signin');
  const signup = document.getElementById('as-signup');
  let creating = false;
  let pending = false;
+ function setPasswordVisible(visible, focus = false) {
+  const start = password.selectionStart;
+  const end = password.selectionEnd;
+  const direction = password.selectionDirection;
+  password.type = visible ? 'text' : 'password';
+  passwordToggle.setAttribute('aria-pressed', String(visible));
+  const label = visible ? 'Hide password' : 'Show password';
+  passwordToggle.setAttribute('aria-label', label);
+  passwordToggle.title = label;
+  if (focus) password.focus({preventScroll:true});
+  if (start !== null && end !== null) password.setSelectionRange(start, end, direction);
+ }
+ passwordToggle.addEventListener('click', () => setPasswordVisible(password.type === 'password', true));
+ passwordToggle.hidden = false;
+ window.addEventListener('pageshow', () => setPasswordVisible(false));
  function updateSubmit() {
   submit.disabled = pending || !login.validity.valid;
   login.setAttribute('aria-invalid', String(login.value !== '' && !login.validity.valid));
@@ -18,6 +34,7 @@
  function choose(value) {
   if (pending) return;
   creating = value;
+  setPasswordVisible(false);
   signin.setAttribute('aria-selected', String(!value));
   signup.setAttribute('aria-selected', String(value));
   document.getElementById('as-title').textContent = value ? 'Create your Aheadscale account' : 'Sign in';
@@ -33,6 +50,7 @@
  login.type = 'email';
  choose(false);
  form.onsubmit = async event => {
+  setPasswordVisible(false);
   if (pending || !form.reportValidity()) {
    event.preventDefault();
    updateSubmit();

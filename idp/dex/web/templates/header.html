@@ -19,6 +19,15 @@
         .nb-input{width:100%;padding:10px 14px;background-color:rgba(63,68,75,.5);border:1px solid rgba(63,68,75,.8);border-radius:8px;color:#e4e7e9;font-size:14px;outline:none;transition:border-color .2s}
         .nb-input:focus{border-color:#2563eb}
         .nb-input::placeholder{color:rgba(167,177,185,.5)}
+        .as-password-field{position:relative}
+        .as-password-field .nb-input{min-height:44px;padding-right:52px}
+        .as-password-field .nb-input[type=password]{-webkit-text-security:disc}
+        .as-password-field .nb-input[type=text]{-webkit-text-security:none}
+        .as-password-field .nb-input::-ms-reveal,.as-password-field .nb-input::-ms-clear{display:none}
+        .as-password-toggle{position:absolute;right:0;top:0;width:44px;height:100%;display:flex;align-items:center;justify-content:center;background:transparent;border:0;border-radius:8px;color:#a7b1b9;cursor:pointer}
+        .as-password-toggle:hover{color:#e4e7e9}
+        .as-password-toggle[hidden],.as-password-strike{display:none}
+        .as-password-toggle[aria-pressed=true] .as-password-strike{display:block}
         .nb-btn{width:100%;padding:12px 20px;background-color:#2563eb;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:500;cursor:pointer;transition:background-color .2s}
         .nb-btn:hover{background-color:#1d4ed8}
         .nb-btn:disabled{opacity:.6;cursor:not-allowed}
