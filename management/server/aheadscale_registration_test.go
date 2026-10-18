@@ -12,6 +12,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/netbirdio/netbird/idp/dex"
 	"github.com/netbirdio/netbird/management/server/idp"
 	"github.com/netbirdio/netbird/management/server/registration"
 	"github.com/netbirdio/netbird/shared/auth"
@@ -110,4 +111,22 @@ func TestAheadscaleDeviceLimit(t *testing.T) {
 	peers, err := manager.Store.GetAccountPeers(context.Background(), "", account.Id, "", "")
 	require.NoError(t, err)
 	require.Len(t, peers, 5, "the limit counts registered devices, including offline devices")
+}
+
+func TestAheadscaleSocialAccountIsolation(t *testing.T) {
+	t.Setenv("AS_SELF_REGISTRATION", "true")
+	manager, _, err := createManagerWithEmbeddedIdPMode(t, "")
+	require.NoError(t, err)
+	accounts := make(map[string]bool)
+	for _, provider := range []string{"local", "vkid", "mailru", "ok", "yandex"} {
+		claims := auth.UserAuth{UserId: dex.EncodeDexUserID("same-provider-id", provider), Email: "same@example.test", Name: provider}
+		account, err := manager.GetOrCreateAccountByUser(context.Background(), claims)
+		require.NoError(t, err)
+		require.False(t, accounts[account.Id], "matching email must not link different provider identities")
+		accounts[account.Id] = true
+		again, err := manager.GetOrCreateAccountByUser(context.Background(), claims)
+		require.NoError(t, err)
+		require.Equal(t, account.Id, again.Id)
+	}
+	require.Len(t, accounts, 5)
 }

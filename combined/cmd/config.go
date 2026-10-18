@@ -13,6 +13,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
+	"github.com/netbirdio/netbird/idp/dex"
 	"github.com/netbirdio/netbird/management/server/idp"
 	"github.com/netbirdio/netbird/management/server/types"
 	"github.com/netbirdio/netbird/util"
@@ -142,6 +143,7 @@ type ManagementConfig struct {
 
 // AuthConfig contains authentication/identity provider settings
 type AuthConfig struct {
+	Connectors                      []dex.Connector   `yaml:"connectors,omitempty"`
 	Issuer                          string            `yaml:"issuer"`
 	LocalAuthDisabled               bool              `yaml:"localAuthDisabled"`
 	SignKeyRefreshEnabled           bool              `yaml:"signKeyRefreshEnabled"`
@@ -628,6 +630,7 @@ func (c *CombinedConfig) buildEmbeddedIdPConfig(mgmt ManagementConfig) (*idp.Emb
 		CLIRedirectURIs:                 mgmt.Auth.CLIRedirectURIs,
 		DashboardPostLogoutRedirectURIs: mgmt.Auth.DashboardPostLogoutRedirectURIs,
 		GrantTypes:                      mgmt.Auth.GrantTypes,
+		StaticConnectors:                mgmt.Auth.Connectors,
 	}
 
 	if mgmt.Auth.Owner != nil && mgmt.Auth.Owner.Email != "" {

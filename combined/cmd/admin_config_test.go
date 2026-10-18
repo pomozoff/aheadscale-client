@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/netbirdio/netbird/idp/dex"
 	"github.com/stretchr/testify/require"
 
 	nbconfig "github.com/netbirdio/netbird/management/internals/server/config"
@@ -44,4 +45,17 @@ func TestApplyServerStoreEnv(t *testing.T) {
 
 	applyServerStoreEnv(StoreConfig{Engine: "mysql", DSN: "mysql-dsn"})
 	require.Equal(t, "mysql-dsn", os.Getenv("NB_STORE_ENGINE_MYSQL_DSN"))
+}
+
+func TestAheadscaleStaticConnectors(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Management.Auth.Issuer = "https://aheadscale.example/oauth2"
+	cfg.Management.Auth.Connectors = []dex.Connector{{Type: "aheadscale-vkid", ID: "vkid", Name: "VK ID", Config: map[string]interface{}{"clientID": "123"}}}
+	embedded, err := cfg.buildEmbeddedIdPConfig(cfg.Management)
+	require.NoError(t, err)
+	require.Equal(t, cfg.Management.Auth.Connectors, embedded.StaticConnectors)
+	cfg.Management.Auth.Connectors = nil
+	embedded, err = cfg.buildEmbeddedIdPConfig(cfg.Management)
+	require.NoError(t, err)
+	require.Empty(t, embedded.StaticConnectors)
 }

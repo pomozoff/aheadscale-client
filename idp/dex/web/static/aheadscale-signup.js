@@ -7,7 +7,16 @@
  const signin = document.getElementById('as-signin');
  const signup = document.getElementById('as-signup');
  let creating = false;
+ let pending = false;
+ function updateSubmit() {
+  submit.disabled = pending || !login.validity.valid;
+  login.setAttribute('aria-invalid', String(login.value !== '' && !login.validity.valid));
+ }
+ login.addEventListener('input', updateSubmit);
+ login.addEventListener('change', updateSubmit);
+ window.addEventListener('pageshow', updateSubmit);
  function choose(value) {
+  if (pending) return;
   creating = value;
   signin.setAttribute('aria-selected', String(!value));
   signup.setAttribute('aria-selected', String(value));
@@ -17,13 +26,20 @@
   password.autocomplete = value ? 'new-password' : 'current-password';
   password.minLength = value ? 8 : 1;
   error.hidden = true;
+  updateSubmit();
  }
  signin.onclick = () => choose(false);
  signup.onclick = () => choose(true);
  login.type = 'email';
  choose(false);
  form.onsubmit = async event => {
-  submit.disabled = true;
+  if (pending || !form.reportValidity()) {
+   event.preventDefault();
+   updateSubmit();
+   return;
+  }
+  pending = true;
+  updateSubmit();
   if (!creating) return;
   event.preventDefault();
   error.hidden = true;
@@ -35,7 +51,8 @@
   } catch (problem) {
    error.textContent = problem.message || 'Could not create account. Please try again.';
    error.hidden = false;
-   submit.disabled = false;
+   pending = false;
+   updateSubmit();
   }
  };
 })();

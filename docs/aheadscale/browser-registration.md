@@ -42,3 +42,16 @@ checked separate account/user API views, repeated CLI PKCE login and signed into
 the branded dashboard. Desktop/mobile screenshots and #2563eb were checked.
 The owner explicitly authorized publishing these server changes in the existing
 public fork and updating the live service after the automatic publication gate.
+
+Email validation follow-up: the submit button starts disabled in HTML and is
+updated for input/change/pageshow in both Sign in and Sign up. Native email
+validation, a dotted domain and the 254-character limit must pass before the
+button is enabled. Invalid forms are also rejected in the submit handler; an
+in-flight request stays disabled, and failed signup restores validation-aware
+retry. See social-login.md for the four optional Russian login connectors.
+
+The updated isolated browser check passed empty/malformed/undotted email
+blocking, tab switching, valid email enablement and clearing the field, followed
+by two signups, isolated account/user views, repeat CLI PKCE login and dashboard
+login. The disposable instance was initialized with a synthetic owner before
+registration. Desktop/mobile layout and Aheadscale branding remained correct.

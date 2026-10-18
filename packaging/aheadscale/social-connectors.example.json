@@ -1,0 +1,45 @@
+{
+  "server": {
+    "auth": {
+      "connectors": [
+        {
+          "type": "aheadscale-vkid",
+          "id": "vkid",
+          "name": "VK ID",
+          "config": {
+            "clientID": "$AS_VKID_CLIENT_ID",
+            "redirectURI": "https://aheadscale.ru/oauth2/callback"
+          }
+        },
+        {
+          "type": "aheadscale-yandex",
+          "id": "yandex",
+          "name": "Яндекс ID",
+          "config": {
+            "clientID": "$AS_YANDEX_CLIENT_ID",
+            "redirectURI": "https://aheadscale.ru/oauth2/callback",
+            "clientSecret": "$AS_YANDEX_CLIENT_SECRET"
+          }
+        },
+        {
+          "type": "aheadscale-mailru",
+          "id": "mailru",
+          "name": "Mail.ru",
+          "config": {
+            "clientID": "$AS_VKID_CLIENT_ID",
+            "redirectURI": "https://aheadscale.ru/oauth2/callback"
+          }
+        },
+        {
+          "type": "aheadscale-ok",
+          "id": "ok",
+          "name": "Одноклассники",
+          "config": {
+            "clientID": "$AS_VKID_CLIENT_ID",
+            "redirectURI": "https://aheadscale.ru/oauth2/callback"
+          }
+        }
+      ]
+    }
+  }
+}
