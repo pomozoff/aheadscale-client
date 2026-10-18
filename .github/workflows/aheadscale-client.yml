@@ -28,13 +28,17 @@ jobs:
           go-version: '1.26.7'
       - name: Client configuration and identity tests
         run: go test ./client/cmd ./client/status ./client/internal/auth ./client/internal/templates ./client/internal/profilemanager ./client/internal/daemonaddr ./client/internal/ipcauth ./client/net ./client/internal/routemanager/systemops ./client/configs -count=1
+      - name: Проверки DNS и остановки Linux-клиента
+        env:
+          DBUS_SYSTEM_BUS_ADDRESS: unix:path=/tmp/aheadscale-unit-no-system-bus
+        run: go test -race -tags devcert ./client/internal/dns ./client/internal
       - name: Preview updater policy
         run: go test ./client/internal/updater -run TestAheadscale -count=1
       - name: Package source checks
         run: |
           python3 -m py_compile packaging/aheadscale/package.py
           bash -n packaging/aheadscale/build.sh packaging/aheadscale/scripts/macos-preinstall packaging/aheadscale/scripts/macos-postinstall packaging/aheadscale/scripts/macos-uninstall.command
-          sh -n packaging/aheadscale/scripts/postinst packaging/aheadscale/scripts/prerm
+          sh -n packaging/aheadscale/scripts/postinst packaging/aheadscale/scripts/prerm packaging/aheadscale/scripts/cleanup-networkmanager
           git diff --check
   windows-identity:
     runs-on: windows-2025
