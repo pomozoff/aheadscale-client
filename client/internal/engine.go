@@ -236,7 +236,8 @@ type Engine struct {
 
 	started bool
 
-	wgInterface WGIface
+	wgInterface           WGIface
+	networkManagerCleanup func() error
 
 	// wgDevice is a lock-free handle on the WireGuard device behind
 	// wgInterface. Reaching the device through wgInterface requires
@@ -2173,6 +2174,13 @@ func (e *Engine) close() {
 		e.wgInterface = nil
 		e.statusRecorder.SetWgIface(nil)
 	}
+	cleanup := e.networkManagerCleanup
+	e.networkManagerCleanup = nil
+	if cleanup != nil {
+		if err := cleanup(); err != nil {
+			log.Warnf("remove Aheadscale NetworkManager policy: %v", err)
+		}
+	}
 
 	if e.firewall != nil {
 		err := e.firewall.Close(e.stateManager)
@@ -2236,6 +2244,12 @@ func (e *Engine) newWgIface() (*iface.WGIface, error) {
 }
 
 func (e *Engine) wgInterfaceCreate() (err error) {
+	if e.networkManagerCleanup == nil {
+		e.networkManagerCleanup, err = dns.PrepareNetworkManagerInterface(e.config.WgIfaceName)
+		if err != nil {
+			return err
+		}
+	}
 	switch runtime.GOOS {
 	case "android":
 		err = e.wgInterface.CreateOnAndroid(e.routeManager.CurrentRouteRange(), e.dnsServer.DnsIP().String(), e.dnsServer.SearchDomains())

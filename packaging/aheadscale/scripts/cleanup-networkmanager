@@ -1,0 +1,18 @@
+#!/bin/sh
+set -eu
+changed=0
+for rule in /run/NetworkManager/conf.d/90-aheadscale-*.conf; do
+    [ -f "$rule" ] && [ ! -L "$rule" ] || continue
+    iface=${rule##*/90-aheadscale-}
+    iface=${iface%.conf}
+    case "$iface" in ''|*[!a-zA-Z0-9_.+-]*) continue ;; esac
+    [ "${#iface}" -le 15 ] || continue
+    expected=$(printf '# Managed by Aheadscale (runtime).\n[device-aheadscale-%s]\nmatch-device=interface-name:%s\nmanaged=0\n' "$iface" "$iface")
+    if [ "$(cat "$rule")" = "$expected" ]; then
+        rm -- "$rule"
+        changed=1
+    fi
+done
+if [ "$changed" = 1 ] && command -v nmcli >/dev/null 2>&1 && nmcli -t -f STATE general >/dev/null 2>&1; then
+    nmcli general reload conf
+fi

@@ -30,11 +30,7 @@ func PrepareInterfaceRemoval(ifaceName string) error {
 		}
 		return fmt.Errorf("connect NetworkManager bus: %w", err)
 	}
-	defer func() {
-		if err := conn.Close(); err != nil {
-			log.Debugf("close NetworkManager shutdown bus: %v", err)
-		}
-	}()
+	defer closeNetworkManagerBus(conn)
 
 	manager := conn.Object(networkManagerDest, networkManagerDbusObjectNode)
 	var device dbus.ObjectPath
@@ -135,5 +131,11 @@ func isMissingNetworkManagerConnection(err error) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+func closeNetworkManagerBus(conn *dbus.Conn) {
+	if err := conn.Close(); err != nil {
+		log.Debugf("close NetworkManager bus: %v", err)
 	}
 }

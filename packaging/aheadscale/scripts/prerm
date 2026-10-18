@@ -3,6 +3,7 @@ set -eu
 case "${1:-}" in
     remove|deconfigure)
         /usr/bin/aheadscale service stop
+    /usr/lib/aheadscale/cleanup-networkmanager
         /usr/bin/aheadscale service uninstall
         ;;
 esac

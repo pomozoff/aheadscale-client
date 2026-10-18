@@ -43,4 +43,9 @@ func TestNetworkManagerShutdownOnlyOwnExternalConnection(t *testing.T) {
 func TestNetworkManagerShutdownWithoutSystemBus(t *testing.T) {
 	t.Setenv("DBUS_SYSTEM_BUS_ADDRESS", "unix:path="+t.TempDir()+"/missing-bus")
 	require.NoError(t, PrepareInterfaceRemoval("as0"), "Linux without a system bus must still disconnect normally")
+	release, err := PrepareNetworkManagerInterface("as0")
+	require.NoError(t, err)
+	if release != nil {
+		require.NoError(t, release(), "Linux without NetworkManager has no policy to clean up")
+	}
 }
