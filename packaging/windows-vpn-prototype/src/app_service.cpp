@@ -8,6 +8,7 @@
 #include <atomic>
 #include <iostream>
 #include <memory>
+#include <mutex>
 using namespace winrt;
 using namespace Windows::ApplicationModel;
 using namespace Windows::ApplicationModel::AppService;
@@ -139,15 +140,19 @@ int RunBroker(bool packetProbe) {
     auto connection = NewConnection();
     struct BrokerState {
         Handle complete{CreateEventW(nullptr, TRUE, FALSE, nullptr)};
-        std::atomic<bool> failed{};
+        std::mutex mutex;
+        unsigned inFlight{};
+        bool closed{}, succeeded{}, failed{};
     };
     auto state = std::make_shared<BrokerState>();
     check_bool(state->complete.value != nullptr);
     auto record = ProcessContext();
     auto requestToken = connection.RequestReceived([state, packetProbe](auto const&, AppServiceRequestReceivedEventArgs const& args) {
         auto deferral = args.GetDeferral();
+        { std::lock_guard guard(state->mutex); ++state->inFlight; }
         auto record = ProcessContext();
         DWORD result = ERROR_ACCESS_DENIED;
+        bool failed = false;
         try {
             auto message = args.Request().Message();
             bool packetEcho = Operation(message) == L"packet-echo";
@@ -167,15 +172,23 @@ int RunBroker(bool packetProbe) {
         } catch (hresult_error const& error) {
             record.SetNamedValue(L"hresult", JsonValue::CreateNumberValue(static_cast<int32_t>(error.code())));
             std::cout << to_string(record.Stringify()) << std::endl;
-            state->failed = true;
+            failed = true;
             try { args.Request().SendResponseAsync(Reply(ERROR_INVALID_DATA)).get(); } catch (...) {}
         }
         deferral.Complete();
-        if (!packetProbe || result != ERROR_SUCCESS || record.HasKey(L"pluginPacketRoundTrip")) SetEvent(state->complete.value);
+        std::lock_guard guard(state->mutex);
+        --state->inFlight;
+        state->failed = state->failed || failed || result != ERROR_SUCCESS;
+        bool terminal = !packetProbe || record.HasKey(L"pluginPacketRoundTrip");
+        if (terminal && !state->failed) state->succeeded = true;
+        if (terminal || state->failed || (state->closed && !state->inFlight)) SetEvent(state->complete.value);
     });
     auto closeToken = connection.ServiceClosed([state](auto const&, auto const&) {
-        state->failed = true;
-        SetEvent(state->complete.value);
+        std::lock_guard guard(state->mutex);
+        state->closed = true;
+        // Close после доставленного ответа может обогнать окончание RequestReceived.
+        // Обработчик сам завершает ожидание; стек и event живут до его окончания.
+        if (!state->inFlight) SetEvent(state->complete.value);
     });
     struct Cleanup {
         AppServiceConnection connection;
@@ -204,7 +217,8 @@ int RunBroker(bool packetProbe) {
     std::cout << to_string(record.Stringify()) << std::endl;
     DWORD wait = WaitForSingleObject(state->complete.value, 90000);
     if (wait != WAIT_OBJECT_0) throw hresult_error(HRESULT_FROM_WIN32(ERROR_TIMEOUT), L"Плагин не запросил состояние службы");
-    return state->failed ? 1 : 0;
+    std::lock_guard guard(state->mutex);
+    return state->failed || !state->succeeded ? 1 : 0;
 }
 int ProbeAppServiceCaller() {
     auto connection = NewConnection();
