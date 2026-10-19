@@ -87,7 +87,9 @@ void ConnectNativeChannel(VpnChannel const& channel){
    step=L"start-channel";ConfigureNativeChannel(channel,config,state->transport);
   }
   if(state->closed)throw hresult_canceled();
-  step=L"acknowledge-channel";Check(Send(state->connection,Request(L"native-started",state->generation)));
+  step=L"acknowledge-channel";
+  auto startedRecord=ProcessContext();startedRecord.SetNamedValue(L"event",JsonValue::CreateStringValue(L"native-channel-start-returned"));LogProbe(L"native-channel.json",startedRecord);
+  Check(Send(state->connection,Request(L"native-started",state->generation)));
   state->dataReady=true;
   step=L"engine-ready";bool ready=false;
   for(unsigned attempt=0;attempt<200 && !state->closed;attempt++){
@@ -100,9 +102,10 @@ void ConnectNativeChannel(VpnChannel const& channel){
   if(!ready)throw hresult_error(HRESULT_FROM_WIN32(ERROR_TIMEOUT));
   auto record=ProcessContext();record.SetNamedValue(L"event",JsonValue::CreateStringValue(L"native-channel-ready"));LogProbe(L"native-channel.json",record);
  }catch(hresult_error const& error){
+  // Диагностика предшествует Stop: Windows может завершить host после закрытия канала.
+  auto record=ProcessContext();record.SetNamedValue(L"event",JsonValue::CreateStringValue(L"native-channel-failed"));record.SetNamedValue(L"step",JsonValue::CreateStringValue(step));record.SetNamedValue(L"hresult",JsonValue::CreateNumberValue(static_cast<int32_t>(error.code())));record.SetNamedValue(L"message",JsonValue::CreateStringValue(error.message()));LogProbe(L"native-channel.json",record);
   state->Stop();
   if(state->connection){try{Send(state->connection,Request(L"native-disconnect",state->generation));}catch(...){}}
-  auto record=ProcessContext();record.SetNamedValue(L"event",JsonValue::CreateStringValue(L"native-channel-failed"));record.SetNamedValue(L"step",JsonValue::CreateStringValue(step));record.SetNamedValue(L"hresult",JsonValue::CreateNumberValue(static_cast<int32_t>(error.code())));record.SetNamedValue(L"message",JsonValue::CreateStringValue(error.message()));LogProbe(L"native-channel.json",record);
   channel.SetErrorMessage(L"Aheadscale: не удалось запустить системный VPN. Проверьте вход и службу Aheadscale.");throw;
  }
 }

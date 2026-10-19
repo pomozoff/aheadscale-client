@@ -86,3 +86,7 @@ HTTP и DNS с Ubuntu. Одно появление строки Aheadscale в н
 
 [Предлагаемый первый этап](../superpowers/specs/2026-10-19-windows-vpn-integration-design.md)
 подготовлен для согласования до изменения сетевой части клиента.
+
+## Уточнение по проверке на Windows 11 ARM64
+
+На опытном пакете 0.1.20.1 защищённая передача конфигурации и AssociateTransport прошли. Дальнейший запуск с ненастроенным DatagramSocket завершился HRESULT `0x8000000E`; интерфейс не создан. В [описании Microsoft StartWithMainTransport](https://learn.microsoft.com/en-us/uwp/api/windows.networking.vpn.vpnchannel.startwithmaintransport?view=winrt-26100) указано, что socket должен быть unconnected. При этом [первичный исходный пример автора плагина](https://github.com/defaultshr/UWPVPNPluginSample/blob/master/VisualStudioSamples/BackgroundTask/cpp/Tasks/TunnelPlugin.cpp) выполняет AssociateTransport → Bind/ConnectAsync → StartWithMainTransport. Это расхождение требует проверки на реальной ОС; одно описание API не доказывает работоспособность последовательности. Следующий опыт назначает UDP endpoint aheadscale.ru:443, сохраняя передачу IP только через аутентифицированный AppService. Успешный сетевой обмен ещё не подтверждён.
