@@ -13,18 +13,18 @@
 #include <thread>
 #include <chrono>
 using namespace winrt;
-using namespace Windows::ApplicationModel;
-using namespace Windows::ApplicationModel::AppService;
-using namespace Windows::Foundation;
-using namespace Windows::Foundation::Collections;
-using namespace Windows::Networking::Vpn;
-using namespace Windows::Data::Json;
+using namespace winrt::Windows::ApplicationModel;
+using namespace winrt::Windows::ApplicationModel::AppService;
+using namespace winrt::Windows::Foundation;
+using namespace winrt::Windows::Foundation::Collections;
+using namespace winrt::Windows::Networking::Vpn;
+using namespace winrt::Windows::Data::Json;
 namespace aheadscale {
 namespace {
 struct ChannelSession {
  VpnChannel channel{nullptr};
  AppServiceConnection connection{nullptr};
- Windows::Networking::Sockets::DatagramSocket transport{nullptr};
+ winrt::Windows::Networking::Sockets::DatagramSocket transport{nullptr};
  hstring generation;
  std::atomic<bool> closed{};
  std::mutex delivery;
@@ -49,7 +49,7 @@ ValueSet Send(AppServiceConnection const& connection,ValueSet const& request){
  if(!response.Message().HasKey(L"win32"))throw hresult_invalid_argument();return response.Message();
 }
 void Check(ValueSet const& reply){auto code=unbox_value<uint32_t>(reply.Lookup(L"win32"));if(code)throw hresult_error(HRESULT_FROM_WIN32(code));}
-uint8_t* Bytes(Windows::Storage::Streams::IBuffer const& buffer){
+uint8_t* Bytes(winrt::Windows::Storage::Streams::IBuffer const& buffer){
  uint8_t* bytes{};check_hresult(buffer.as<::Windows::Storage::Streams::IBufferByteAccess>()->Buffer(&bytes));return bytes;
 }
 }
@@ -68,7 +68,7 @@ void ConnectNativeChannel(VpnChannel const& channel){
   if(state->generation.size()!=32)throw hresult_invalid_argument();
   for(auto ch:state->generation)if(!((ch>=L'0' && ch<=L'9') || (ch>=L'a' && ch<=L'f')))throw hresult_invalid_argument();
   {std::lock_guard lock(sessionMutex);if(active && !active->closed)throw hresult_error(HRESULT_FROM_WIN32(ERROR_BUSY));active=state;}
-  state->transport=Windows::Networking::Sockets::DatagramSocket();
+  state->transport=winrt::Windows::Networking::Sockets::DatagramSocket();
   // Платформе нужен socket transport; IP-пакеты передаются только через AppService.
   // Encapsulate оставляет входные buffers платформе и ничего не отправляет в socket.
   channel.AssociateTransport(state->transport,nullptr);

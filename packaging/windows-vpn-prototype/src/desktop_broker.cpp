@@ -13,11 +13,11 @@
 #include <vector>
 #include <chrono>
 using namespace winrt;
-using namespace Windows::ApplicationModel;
-using namespace Windows::ApplicationModel::AppService;
-using namespace Windows::Foundation;
-using namespace Windows::Foundation::Collections;
-using namespace Windows::Data::Json;
+using namespace winrt::Windows::ApplicationModel;
+using namespace winrt::Windows::ApplicationModel::AppService;
+using namespace winrt::Windows::Foundation;
+using namespace winrt::Windows::Foundation::Collections;
+using namespace winrt::Windows::Data::Json;
 namespace aheadscale {
 namespace {
 constexpr wchar_t PacketPipe[]=L"\\\\.\\pipe\\ProtectedPrefix\\Administrators\\aheadscale-vpn-prototype";
@@ -87,6 +87,7 @@ int RunNativeBroker(){
  auto package=Package::Current();
  if(FamilyName()!=PrototypeFamily || package.Id().Name()!=PackageName || package.Id().Publisher()!=Publisher)throw hresult_access_denied();
  auto state=std::make_shared<NativeBrokerState>();
+ state->connection=AppServiceConnection();
  state->connection.AppServiceName(L"Aheadscale.VpnPrototype.Broker");state->connection.PackageFamilyName(PrototypeFamily);
  auto token=state->connection.RequestReceived([state](auto const&,AppServiceRequestReceivedEventArgs const& args){
   auto deferral=args.GetDeferral();

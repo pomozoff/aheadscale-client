@@ -3,10 +3,10 @@
 #include <winrt/Windows.Foundation.Collections.h>
 #include <string>
 using namespace winrt;
-using namespace Windows::Networking;
-using namespace Windows::Networking::Vpn;
+using namespace winrt::Windows::Networking;
+using namespace winrt::Windows::Networking::Vpn;
 namespace aheadscale {
-void ConfigureNativeChannel(VpnChannel const& channel,Windows::Data::Json::JsonObject const& config,Windows::Networking::Sockets::DatagramSocket const& transport) {
+void ConfigureNativeChannel(VpnChannel const& channel,winrt::Windows::Data::Json::JsonObject const& config,winrt::Windows::Networking::Sockets::DatagramSocket const& transport) {
  auto prefix=config.GetNamedString(L"address");std::wstring address(prefix);
  auto slash=address.find(L'/');if(slash==std::wstring::npos)throw hresult_invalid_argument();
  address.resize(slash);
