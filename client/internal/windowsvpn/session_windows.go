@@ -66,7 +66,9 @@ func AcceptSession(ctx context.Context, configuration SessionConfiguration) (net
 		return nil, errors.New("native VPN configuration too large")
 	}
 	listener, err := winio.ListenPipe(PrototypePipe, &winio.PipeConfig{
-		SecurityDescriptor: "D:P(A;;GA;;;SY)(A;;GA;;;" + OwnerSID + ")",
+		// Pin the service owner: LocalSystem otherwise defaults to Administrators,
+		// which correctly fails the broker's narrower LocalSystem ownership check.
+		SecurityDescriptor: "O:SYD:P(A;;GA;;;SY)(A;;GA;;;" + OwnerSID + ")",
 		InputBufferSize:    65539, OutputBufferSize: 65539,
 	})
 	if err != nil {
