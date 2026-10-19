@@ -10,6 +10,7 @@ import (
 	"github.com/netbirdio/netbird/client/iface/udpmux"
 	"github.com/netbirdio/netbird/client/iface/wgaddr"
 	"github.com/netbirdio/netbird/client/internal/windowsvpn"
+	nbnet "github.com/netbirdio/netbird/client/net"
 	"golang.org/x/sys/windows"
 	"golang.zx2c4.com/wireguard/device"
 	"golang.zx2c4.com/wireguard/tun/netstack"
@@ -36,7 +37,11 @@ func NewVpnTunDevice(ctx context.Context, address wgaddr.Address, port int, key 
 	return &VpnTunDevice{ctx: ctx, name: windowsvpn.ProfileName, address: address, port: port, key: key, mtu: 1280, iceBind: iceBind}
 }
 func (t *VpnTunDevice) Create() (WGConfigurer, error) {
-	conf := windowsvpn.SessionConfiguration{Address: t.address.Prefix(), MTU: 1280, Routes: []netip.Prefix{t.address.Prefix().Masked()}, DNSDomains: []string{"aheadscale.internal"}, DNSServers: []netip.Addr{t.address.IP}}
+	dnsAddress, err := nbnet.GetLastIPFromNetwork(t.address.Network, 1)
+	if err != nil {
+		return nil, err
+	}
+	conf := windowsvpn.SessionConfiguration{Address: t.address.Prefix(), MTU: 1280, Routes: []netip.Prefix{t.address.Prefix().Masked()}, DNSDomains: []string{"aheadscale.internal"}, DNSServers: []netip.Addr{dnsAddress}}
 	conn, err := windowsvpn.AcceptSession(t.ctx, conf)
 	if err != nil {
 		return nil, err
