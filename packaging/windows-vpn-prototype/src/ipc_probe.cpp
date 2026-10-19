@@ -89,6 +89,7 @@ DWORD DaemonProbe() {
     return exitCode == 0 ? ERROR_SUCCESS : ERROR_SERVICE_NOT_ACTIVE;
 }
 }
+DWORD ProbeDaemonStatus() { return DaemonProbe(); }
 std::wstring FamilyName(HANDLE process) {
     UINT32 length{};
     LONG result = GetPackageFamilyName(process, &length, nullptr);
@@ -126,7 +127,7 @@ void LogProbe(wchar_t const* name, JsonObject const& record) {
     if (!file) throw hresult_error(E_ACCESSDENIED, L"Не удалось записать безопасный отчёт прототипа");
     file << to_string(record.Stringify());
 }
-DWORD ProbeBroker(JsonObject* diagnostic) {
+DWORD ProbePipeBroker(JsonObject* diagnostic) {
     auto stage = [&](wchar_t const* value) {
         if (diagnostic) diagnostic->SetNamedValue(L"probeStep", JsonValue::CreateStringValue(value));
     };
@@ -163,7 +164,7 @@ DWORD ProbeBroker(JsonObject* diagnostic) {
     }
     return ERROR_TIMEOUT;
 }
-int RunBroker() {
+int RunPipeBroker() {
     std::cout << "{\"event\":\"broker-entered\"}" << std::endl;
     auto family = FamilyName();
     if (family != PrototypeFamily || Windows::ApplicationModel::Package::Current().Id().Name() != PackageName ||

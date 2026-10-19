@@ -1,4 +1,5 @@
 #include "ipc_probe.h"
+#include "app_service.h"
 #include <winrt/Windows.ApplicationModel.h>
 #include <winrt/Windows.Foundation.Collections.h>
 #include <winrt/Windows.Networking.Vpn.h>
@@ -14,6 +15,7 @@ int wmain(int argc, wchar_t** argv) {
     try {
         if (argc != 2) throw hresult_invalid_argument(L"add | status | connect | disconnect | remove | broker | probe");
         std::wstring command(argv[1]);
+        if (command == L"probe-service") return aheadscale::ProbeAppServiceCaller();
         if (command == L"probe") {
             DWORD result = aheadscale::ProbeBroker();
             std::cout << "{\"probeWin32\":" << result << "}" << std::endl;

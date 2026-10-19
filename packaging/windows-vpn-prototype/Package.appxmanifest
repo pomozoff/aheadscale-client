@@ -20,6 +20,9 @@
   <Application Id="Plugin">
    <uap:VisualElements DisplayName="Aheadscale VPN Prototype" Description="Опытный VPN-плагин Aheadscale" BackgroundColor="#2563EB" Square150x150Logo="Assets\Logo.png" Square44x44Logo="Assets\SmallLogo.png" AppListEntry="none"/>
    <Extensions>
+    <uap:Extension Category="windows.appService" Executable="AheadscaleVpnHost.exe" EntryPoint="Aheadscale.VpnPrototype.BackgroundTask">
+     <uap:AppService Name="Aheadscale.VpnPrototype.Broker"/>
+    </uap:Extension>
     <Extension Category="windows.backgroundTasks" Executable="AheadscaleVpnHost.exe" EntryPoint="Aheadscale.VpnPrototype.BackgroundTask">
      <BackgroundTasks><uap:Task Type="vpnClient"/></BackgroundTasks>
     </Extension>

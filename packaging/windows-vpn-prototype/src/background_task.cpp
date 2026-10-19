@@ -1,4 +1,5 @@
 #include "vpn_plugin.h"
+#include "app_service.h"
 #include "ipc_probe.h"
 #include <winrt/Windows.ApplicationModel.Background.h>
 #include <winrt/Windows.ApplicationModel.Core.h>
@@ -8,6 +9,7 @@ using namespace Windows::ApplicationModel::Background;
 namespace aheadscale {
 struct BackgroundTask : implements<BackgroundTask, IBackgroundTask> {
     void Run(IBackgroundTaskInstance const& task) {
+        if (TryRunAppService(task)) return;
         auto deferral = task.GetDeferral();
         try {
             auto properties = Windows::ApplicationModel::Core::CoreApplication::Properties();
