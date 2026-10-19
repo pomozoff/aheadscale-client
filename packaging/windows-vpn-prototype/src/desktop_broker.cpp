@@ -49,6 +49,7 @@ struct NativeBrokerState {
  std::mutex writeMutex;
  std::thread reader;
  hstring generation;
+ hstring step=L"idle";
  std::atomic<bool> closing{},started{};
  AppServiceConnection connection{nullptr};
  void Stop()noexcept{if(!closing.exchange(true))SetEvent(complete.value);}
@@ -57,7 +58,8 @@ struct NativeBrokerState {
   if(reader.joinable()){CancelSynchronousIo(reader.native_handle());reader.join();}
  }
  void Open(){
-  up.value=StartCLI(L"up");
+  step=L"start-engine";up.value=StartCLI(L"up");
+  step=L"open-packet-pipe";
   for(unsigned attempt=0;attempt<150 && !closing;attempt++){
    pipe.value=CreateFileW(PacketPipe,GENERIC_READ|GENERIC_WRITE|READ_CONTROL,0,nullptr,OPEN_EXISTING,SECURITY_SQOS_PRESENT|SECURITY_IDENTIFICATION,nullptr);
    if(pipe.value!=INVALID_HANDLE_VALUE)break;
@@ -65,12 +67,13 @@ struct NativeBrokerState {
    if(WaitForSingleObject(complete.value,100)==WAIT_OBJECT_0)throw hresult_canceled();
   }
   if(pipe.value==INVALID_HANDLE_VALUE)throw hresult_error(HRESULT_FROM_WIN32(ERROR_NOT_CONNECTED),L"Опытная служба не открыла защищённый канал");
-  PSID owner{};PSECURITY_DESCRIPTOR descriptor{};
+  step=L"read-pipe-owner";PSID owner{};PSECURITY_DESCRIPTOR descriptor{};
   auto result=GetSecurityInfo(pipe.value,SE_KERNEL_OBJECT,OWNER_SECURITY_INFORMATION,&owner,nullptr,nullptr,nullptr,&descriptor);
   if(result)throw hresult_error(HRESULT_FROM_WIN32(result));
   struct Free{PSECURITY_DESCRIPTOR value;~Free(){LocalFree(value);}} free{descriptor};
   LPWSTR sid{};check_bool(ConvertSidToStringSidW(owner,&sid));std::wstring actual(sid);LocalFree(sid);
-  if(actual!=L"S-1-5-18")throw hresult_access_denied(L"Pipe создан не службой LocalSystem");
+  auto record=ProcessContext();record.SetNamedValue(L"event",JsonValue::CreateStringValue(L"native-pipe-owner"));record.SetNamedValue(L"ownerSid",JsonValue::CreateStringValue(actual));LogProbe(L"native-broker.json",record);
+  step=L"verify-pipe-owner";if(actual!=L"S-1-5-18")throw hresult_access_denied(L"Pipe создан не службой LocalSystem");
  }
 };
 ValueSet Send(AppServiceConnection const& connection,ValueSet const& request){
@@ -97,7 +100,7 @@ int RunNativeBroker(){
    auto operation=unbox_value<hstring>(request.Lookup(L"operation"));auto reply=Reply(ERROR_SUCCESS);
    if(operation==L"native-config" && request.Size()==1){
     if(state->pipe.value!=INVALID_HANDLE_VALUE)throw hresult_invalid_argument();
-    state->Open();std::array<char,4> magic{};ReadExact(state->pipe.value,magic.data(),4);
+    state->Open();state->step=L"read-configuration";std::array<char,4> magic{};ReadExact(state->pipe.value,magic.data(),4);
     if(magic!=std::array<char,4>{'A','S','V','1'})throw hresult_invalid_argument();
     auto bytes=ReadPacket(state->pipe.value,4096);auto text=to_hstring(std::string(bytes.begin(),bytes.end()));
     auto config=JsonObject::Parse(text);state->generation=config.GetNamedString(L"sessionId");
@@ -136,6 +139,7 @@ int RunNativeBroker(){
    }
    args.Request().SendResponseAsync(reply).get();
   }catch(hresult_error const& error){
+   auto record=ProcessContext();record.SetNamedValue(L"event",JsonValue::CreateStringValue(L"native-broker-failed"));record.SetNamedValue(L"step",JsonValue::CreateStringValue(state->step));record.SetNamedValue(L"hresult",JsonValue::CreateNumberValue(static_cast<int32_t>(error.code())));record.SetNamedValue(L"message",JsonValue::CreateStringValue(error.message()));LogProbe(L"native-broker.json",record);
    try{args.Request().SendResponseAsync(Reply(HRESULT_CODE(error.code()))).get();}catch(...){}
    state->Stop();
   }

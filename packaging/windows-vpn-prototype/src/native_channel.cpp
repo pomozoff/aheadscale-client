@@ -56,6 +56,7 @@ uint8_t* Bytes(winrt::Windows::Storage::Streams::IBuffer const& buffer){
 void ConnectNativeChannel(VpnChannel const& channel){
  auto state=std::make_shared<ChannelSession>();state->channel=channel;
  {std::lock_guard lock(sessionMutex);if(active && !active->closed)throw hresult_error(HRESULT_FROM_WIN32(ERROR_BUSY));active=state;}
+ hstring step=L"launch-broker";
  try{
   if(!ActiveBroker(true))FullTrustProcessLauncher::LaunchFullTrustProcessForCurrentAppAsync().get();
   for(unsigned attempt=0;attempt<100;attempt++){
@@ -63,6 +64,7 @@ void ConnectNativeChannel(VpnChannel const& channel){
    std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
   if(!state->connection)throw hresult_error(HRESULT_FROM_WIN32(ERROR_NOT_CONNECTED),L"Не запущен посредник Aheadscale");
+  step=L"broker-configuration";
   auto reply=Send(state->connection,Request(L"native-config"));Check(reply);
   if(state->closed)throw hresult_canceled();
   auto config=JsonObject::Parse(unbox_value<hstring>(reply.Lookup(L"configuration")));
@@ -70,19 +72,20 @@ void ConnectNativeChannel(VpnChannel const& channel){
   if(state->generation.size()!=32)throw hresult_invalid_argument();
   for(auto ch:state->generation)if(!((ch>=L'0' && ch<=L'9') || (ch>=L'a' && ch<=L'f')))throw hresult_invalid_argument();
   if(state->closed)throw hresult_canceled();
+  step=L"create-transport";
   state->transport=winrt::Windows::Networking::Sockets::DatagramSocket();
   // Платформе нужен socket transport; IP-пакеты передаются только через AppService.
   // Encapsulate оставляет входные buffers платформе и ничего не отправляет в socket.
-  channel.AssociateTransport(state->transport,nullptr);
+  step=L"associate-transport";channel.AssociateTransport(state->transport,nullptr);
   {
    std::lock_guard lock(state->delivery);
    if(state->closed)throw hresult_canceled();
-   ConfigureNativeChannel(channel,config,state->transport);
+   step=L"start-channel";ConfigureNativeChannel(channel,config,state->transport);
   }
   if(state->closed)throw hresult_canceled();
-  Check(Send(state->connection,Request(L"native-started",state->generation)));
+  step=L"acknowledge-channel";Check(Send(state->connection,Request(L"native-started",state->generation)));
   state->dataReady=true;
-  bool ready=false;
+  step=L"engine-ready";bool ready=false;
   for(unsigned attempt=0;attempt<200 && !state->closed;attempt++){
    auto status=Send(state->connection,Request(L"native-ready",state->generation));
    auto code=unbox_value<uint32_t>(status.Lookup(L"win32"));
@@ -95,7 +98,7 @@ void ConnectNativeChannel(VpnChannel const& channel){
  }catch(hresult_error const& error){
   state->Stop();
   if(state->connection){try{Send(state->connection,Request(L"native-disconnect",state->generation));}catch(...){}}
-  auto record=ProcessContext();record.SetNamedValue(L"event",JsonValue::CreateStringValue(L"native-channel-failed"));record.SetNamedValue(L"hresult",JsonValue::CreateNumberValue(static_cast<int32_t>(error.code())));record.SetNamedValue(L"message",JsonValue::CreateStringValue(error.message()));LogProbe(L"native-channel.json",record);
+  auto record=ProcessContext();record.SetNamedValue(L"event",JsonValue::CreateStringValue(L"native-channel-failed"));record.SetNamedValue(L"step",JsonValue::CreateStringValue(step));record.SetNamedValue(L"hresult",JsonValue::CreateNumberValue(static_cast<int32_t>(error.code())));record.SetNamedValue(L"message",JsonValue::CreateStringValue(error.message()));LogProbe(L"native-channel.json",record);
   channel.SetErrorMessage(L"Aheadscale: не удалось запустить системный VPN. Проверьте вход и службу Aheadscale.");throw;
  }
 }
