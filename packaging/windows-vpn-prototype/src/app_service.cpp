@@ -34,6 +34,7 @@ struct ServiceSession {
     Windows::ApplicationModel::Background::BackgroundTaskDeferral deferral{nullptr};
     AppServiceConnection connection{nullptr};
     event_token requestToken{}, closeToken{}, cancelToken{};
+    hstring callerFamily;
     std::atomic<bool> closed{};
     void Close() {
         if (closed.exchange(true)) return;
@@ -67,6 +68,7 @@ bool TryRunAppService(Windows::ApplicationModel::Background::IBackgroundTaskInst
     session->task = task;
     session->deferral = task.GetDeferral();
     session->connection = trigger.AppServiceConnection();
+    session->callerFamily = trigger.CallerPackageFamilyName();
     session->requestToken = session->connection.RequestReceived([session](auto const&, AppServiceRequestReceivedEventArgs const& args) {
         auto deferral = args.GetDeferral();
         try {
@@ -74,7 +76,9 @@ bool TryRunAppService(Windows::ApplicationModel::Background::IBackgroundTaskInst
             if (Operation(args.Request().Message()) == L"register-broker") {
                 Core::CoreApplication::Properties().Insert(ActiveConnectionKey, session->connection);
                 code = ERROR_SUCCESS;
-                Record(L"app-service.json", ProcessContext(), L"broker-registered");
+                auto record = ProcessContext();
+                record.SetNamedValue(L"callerPackageFamilyName", JsonValue::CreateStringValue(session->callerFamily));
+                Record(L"app-service.json", record, L"broker-registered");
             }
             args.Request().SendResponseAsync(Reply(code)).get();
         } catch (hresult_error const& error) {
@@ -140,6 +144,8 @@ int RunBroker() {
     auto response = connection.SendMessageAsync(request).get();
     if (response.Status() != AppServiceResponseStatus::Success ||
         !response.Message().HasKey(L"win32") || unbox_value<uint32_t>(response.Message().Lookup(L"win32")) != 0) return 1;
+    record.SetNamedValue(L"event", JsonValue::CreateStringValue(L"app-service-broker-ready"));
+    std::cout << to_string(record.Stringify()) << std::endl;
     DWORD wait = WaitForSingleObject(complete.value, 90000);
     connection.Close();
     if (wait != WAIT_OBJECT_0) throw hresult_error(HRESULT_FROM_WIN32(ERROR_TIMEOUT), L"Плагин не запросил состояние службы");
@@ -151,8 +157,21 @@ int ProbeAppServiceCaller() {
     JsonObject record;
     record.SetNamedValue(L"packageFamilyName", JsonValue::CreateStringValue(FamilyName()));
     record.SetNamedValue(L"openStatus", JsonValue::CreateNumberValue(static_cast<int>(status)));
+    if (status != AppServiceConnectionStatus::Success) {
+        std::cout << to_string(record.Stringify()) << std::endl;
+        connection.Close();
+        return 1;
+    }
+    ValueSet request;
+    request.Insert(L"operation", box_value(hstring(L"register-broker")));
+    auto response = connection.SendMessageAsync(request).get();
+    record.SetNamedValue(L"responseStatus", JsonValue::CreateNumberValue(static_cast<int>(response.Status())));
+    DWORD result = ERROR_ACCESS_DENIED;
+    if (response.Status() == AppServiceResponseStatus::Success && response.Message().HasKey(L"win32"))
+        result = unbox_value<uint32_t>(response.Message().Lookup(L"win32"));
+    record.SetNamedValue(L"win32", JsonValue::CreateNumberValue(result));
     std::cout << to_string(record.Stringify()) << std::endl;
     connection.Close();
-    return status == AppServiceConnectionStatus::Success ? 0 : 1;
+    return result == ERROR_SUCCESS ? 0 : 1;
 }
 }

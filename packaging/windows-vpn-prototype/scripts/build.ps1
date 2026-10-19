@@ -35,12 +35,23 @@ try {
 $package=Join-Path $dist "Aheadscale.VpnPrototype_${Version}_arm64.msix"
 & (Join-Path $tools 'makeappx.exe') pack /d $stage /p $package /o
 if($LASTEXITCODE){throw 'Пакет MSIX не прошёл проверку MakeAppx'}
+# Второй пакет с другой идентичностью — только для реальной отрицательной проверки.
+$negativeStage=Join-Path $root 'out\negative-stage'
+New-Item -ItemType Directory -Force $negativeStage | Out-Null
+Copy-Item (Join-Path $stage 'Assets') $negativeStage -Recurse
+Copy-Item (Join-Path $stage 'AheadscaleVpnController.exe') $negativeStage
+(Get-Content (Join-Path $root 'NegativeProbe.appxmanifest') -Raw).Replace('@VERSION@',$Version) | Set-Content (Join-Path $negativeStage 'AppxManifest.xml') -Encoding utf8
+$negativePackage=Join-Path $dist "Aheadscale.VpnNegativeProbe_${Version}_arm64.msix"
+& (Join-Path $tools 'makeappx.exe') pack /d $negativeStage /p $negativePackage /o
+if($LASTEXITCODE){throw 'Не собран отрицательный пакет'}
 $cert=New-SelfSignedCertificate -Type CodeSigningCert -Subject 'CN=Aheadscale VPN Prototype' -CertStoreLocation Cert:\CurrentUser\My -KeyAlgorithm RSA -KeyLength 3072 -HashAlgorithm SHA256 -KeyExportPolicy NonExportable -NotAfter (Get-Date).AddDays(14)
 try {
  & (Join-Path $tools 'signtool.exe') sign /fd SHA256 /sha1 $cert.Thumbprint $package
  if($LASTEXITCODE){throw 'Не удалось подписать опытный MSIX'}
+ & (Join-Path $tools 'signtool.exe') sign /fd SHA256 /sha1 $cert.Thumbprint $negativePackage
+ if($LASTEXITCODE){throw 'Не подписан отрицательный пакет'}
  Export-Certificate -Cert $cert -FilePath (Join-Path $dist 'Aheadscale.VpnPrototype.cer') | Out-Null
- $manifest=[ordered]@{name='Aheadscale.VpnPrototype';publisher=$cert.Subject;version=$Version;architecture=$Architecture;sdk=$SdkVersion;certificateThumbprint=$cert.Thumbprint;packageFile=(Split-Path $package -Leaf);sha256=(Get-FileHash $package -Algorithm SHA256).Hash;sourceCommit=(& git -C $repo rev-parse HEAD)}
+ $manifest=[ordered]@{name='Aheadscale.VpnPrototype';publisher=$cert.Subject;version=$Version;architecture=$Architecture;sdk=$SdkVersion;certificateThumbprint=$cert.Thumbprint;packageFile=(Split-Path $package -Leaf);sha256=(Get-FileHash $package -Algorithm SHA256).Hash;negativePackageFile=(Split-Path $negativePackage -Leaf);negativeSha256=(Get-FileHash $negativePackage -Algorithm SHA256).Hash;sourceCommit=(& git -C $repo rev-parse HEAD)}
  $manifest | ConvertTo-Json | Set-Content (Join-Path $dist 'build-manifest.json') -Encoding utf8
  Copy-Item (Join-Path $PSScriptRoot 'install-test.ps1'),(Join-Path $PSScriptRoot 'remove-test.ps1') $dist
  Get-ChildItem $dist | Select-Object Name,Length
