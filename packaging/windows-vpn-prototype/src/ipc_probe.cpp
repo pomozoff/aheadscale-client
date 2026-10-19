@@ -92,7 +92,10 @@ JsonObject ProcessContext() {
     check_bool(OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token));
     Handle owned(token);
     auto info = TokenInfo(token, TokenIsAppContainer);
+    DWORD session{};
+    check_bool(ProcessIdToSessionId(GetCurrentProcessId(), &session));
     JsonObject record;
+    record.SetNamedValue(L"sessionId", JsonValue::CreateNumberValue(session));
     record.SetNamedValue(L"pid", JsonValue::CreateNumberValue(GetCurrentProcessId()));
     record.SetNamedValue(L"userSid", JsonValue::CreateStringValue(UserSid(token)));
     record.SetNamedValue(L"packageFamilyName", JsonValue::CreateStringValue(FamilyName()));
@@ -135,14 +138,21 @@ DWORD ProbeBroker() {
     return ERROR_TIMEOUT;
 }
 int RunBroker() {
+    std::cout << "{\"event\":\"broker-entered\"}" << std::endl;
     auto family = FamilyName();
     if (family.empty() || Windows::ApplicationModel::Package::Current().Id().Name() != PackageName)
         throw hresult_access_denied(L"Посредник должен запускаться из опытного пакета");
     auto user = CurrentUserSid();
+    auto record = ProcessContext();
+    record.SetNamedValue(L"event", JsonValue::CreateStringValue(L"broker-context"));
+    std::cout << to_string(record.Stringify()) << std::endl;
     PSID packageSid{};
     check_hresult(DeriveAppContainerSidFromAppContainerName(family.c_str(), &packageSid));
     auto packageSidText = SidText(packageSid);
     FreeSid(packageSid);
+    record.SetNamedValue(L"event", JsonValue::CreateStringValue(L"broker-derived-sid"));
+    record.SetNamedValue(L"expectedAppContainerSid", JsonValue::CreateStringValue(packageSidText));
+    std::cout << to_string(record.Stringify()) << std::endl;
     auto sddl = L"D:P(A;;GA;;;" + user + L")(A;;GRGW;;;" + packageSidText + L")";
     PSECURITY_DESCRIPTOR descriptor{};
     check_bool(ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl.c_str(), SDDL_REVISION_1, &descriptor, nullptr));
@@ -158,9 +168,13 @@ int RunBroker() {
     operation.hEvent = event.value;
     BOOL connected = ConnectNamedPipe(pipe.value, &operation);
     DWORD code = connected ? ERROR_SUCCESS : GetLastError();
-    auto record = ProcessContext();
     record.SetNamedValue(L"event", JsonValue::CreateStringValue(L"broker-listening"));
-    LogProbe(L"broker.json", record);
+    // Ошибка необязательного файла диагностики не меняет результат проверки личности.
+    // Stdout перенаправляется оператором в собственный файл тестового сеанса.
+    try { LogProbe(L"broker.json", record); }
+    catch (hresult_error const& error) {
+        record.SetNamedValue(L"diagnosticFileHresult", JsonValue::CreateNumberValue(static_cast<int32_t>(error.code())));
+    }
     std::cout << to_string(record.Stringify()) << std::endl;
     if (!connected && code == ERROR_IO_PENDING) {
         if (WaitForSingleObject(event.value, 90000) != WAIT_OBJECT_0) {
@@ -214,7 +228,10 @@ int RunBroker() {
     record.SetNamedValue(L"event", JsonValue::CreateStringValue(L"broker-probe-result"));
     record.SetNamedValue(L"clientPid", JsonValue::CreateNumberValue(pid));
     record.SetNamedValue(L"win32", JsonValue::CreateNumberValue(result));
-    LogProbe(L"broker.json", record);
+    try { LogProbe(L"broker.json", record); }
+    catch (hresult_error const& error) {
+        record.SetNamedValue(L"diagnosticFileHresult", JsonValue::CreateNumberValue(static_cast<int32_t>(error.code())));
+    }
     std::cout << to_string(record.Stringify()) << std::endl;
     return result == ERROR_SUCCESS ? 0 : 1;
 }
