@@ -30,7 +30,7 @@ void ConfigureNativeChannel(VpnChannel const& channel,winrt::Windows::Data::Json
   std::wstring route(item.GetString());auto split=route.find(L'/');if(split==std::wstring::npos)throw hresult_invalid_argument();
   auto bits=std::stoi(route.substr(split+1));route.resize(split);
   if(bits<1 || bits>32 || HostName(route).Type()!=HostNameType::Ipv4)throw hresult_invalid_argument();
-  meshMask=bits==32?0xffffffffu:(0xffffffffu<<(32-bits));meshNetwork=IPv4(route)&meshMask;
+  meshMask=bits==32?0xffffffffu:(0xffffffffu<<(32-bits));meshNetwork=IPv4(hstring(route))&meshMask;
   routes.Ipv4InclusionRoutes().Append(VpnRoute(HostName(route),static_cast<uint8_t>(bits)));
  }
  VpnDomainNameAssignment domains;
