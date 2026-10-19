@@ -7,6 +7,7 @@ import (
 	"net/netip"
 	"runtime"
 
+	"github.com/netbirdio/netbird/client/internal/routemanager/vars"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -30,6 +31,10 @@ type IPRule struct {
 }
 
 func (r *SysOps) AddVPNRoute(prefix netip.Prefix, intf *net.Interface) error {
+	if nativeVPNRouting() {
+		return vars.ErrRouteNotAllowed
+	} // Первый этап поддерживает только mesh-подсеть канала.
+
 	if err := r.validateRoute(prefix); err != nil {
 		return err
 	}
@@ -37,6 +42,10 @@ func (r *SysOps) AddVPNRoute(prefix netip.Prefix, intf *net.Interface) error {
 }
 
 func (r *SysOps) RemoveVPNRoute(prefix netip.Prefix, intf *net.Interface) error {
+	if nativeVPNRouting() {
+		return nil
+	}
+
 	if err := r.validateRoute(prefix); err != nil {
 		return err
 	}

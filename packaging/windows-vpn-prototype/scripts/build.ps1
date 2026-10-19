@@ -21,7 +21,14 @@ New-Item -ItemType Directory -Force $stage,$dist,(Join-Path $stage 'Assets') | O
 if($LASTEXITCODE){throw 'Ошибка CMake configure'}
 & cmake --build $build --config Release --parallel 2
 if($LASTEXITCODE){throw 'Ошибка компиляции C++/WinRT'}
-Copy-Item (Join-Path $build 'Release\AheadscaleVpnPlugin.dll'),(Join-Path $build 'Release\AheadscaleVpnController.exe'),(Join-Path $build 'Release\AheadscaleVpnHost.exe') $stage
+Copy-Item (Join-Path $build 'Release\AheadscaleVpnPlugin.dll'),(Join-Path $build 'Release\AheadscaleVpnController.exe'),(Join-Path $build 'Release\AheadscaleVpnHost.exe'),(Join-Path $build 'Release\AheadscaleVpnBroker.exe') $stage
+# Отдельный опытный daemon; штатный Wintun-клиент не заменяется сборкой.
+$env:GOTOOLCHAIN='go1.26.7';$env:GOOS='windows';$env:GOARCH='arm64';$env:CGO_ENABLED='0'
+$goVersion=& go -C $repo version
+if($LASTEXITCODE -or $goVersion -notmatch '^go version go1\.26\.7 windows/amd64$'){throw 'Нужен Go 1.26.7 для Windows build runner'}
+$flags='-s -w -X github.com/netbirdio/netbird/version.version=0.80.0-aheadscale.vpn-prototype -X github.com/netbirdio/netbird/client/internal/profilemanager.DefaultManagementURL=https://aheadscale.ru -X github.com/netbirdio/netbird/client/internal/profilemanager.DefaultAdminURL=https://aheadscale.ru -X github.com/netbirdio/netbird/client/internal/profilemanager.LockedServerOrigin=https://aheadscale.ru'
+& go -C $repo build -trimpath -tags windowsvpnprototype -ldflags $flags -o (Join-Path $stage 'AheadscaleNativeDaemon.exe') ./client
+if($LASTEXITCODE){throw 'Не собран опытный Windows daemon'}
 (Get-Content (Join-Path $root 'Package.appxmanifest') -Raw).Replace('@VERSION@',$Version) | Set-Content (Join-Path $stage 'AppxManifest.xml') -Encoding utf8
 Add-Type -AssemblyName System.Drawing
 $original=[Drawing.Image]::FromFile((Join-Path $repo 'packaging\aheadscale\icon.png'))
@@ -51,7 +58,7 @@ try {
  & (Join-Path $tools 'signtool.exe') sign /fd SHA256 /sha1 $cert.Thumbprint $negativePackage
  if($LASTEXITCODE){throw 'Не подписан отрицательный пакет'}
  Export-Certificate -Cert $cert -FilePath (Join-Path $dist 'Aheadscale.VpnPrototype.cer') | Out-Null
- $manifest=[ordered]@{name='Aheadscale.VpnPrototype';publisher=$cert.Subject;version=$Version;architecture=$Architecture;sdk=$SdkVersion;certificateThumbprint=$cert.Thumbprint;packageFile=(Split-Path $package -Leaf);sha256=(Get-FileHash $package -Algorithm SHA256).Hash;negativePackageFile=(Split-Path $negativePackage -Leaf);negativeSha256=(Get-FileHash $negativePackage -Algorithm SHA256).Hash;sourceCommit=(& git -C $repo rev-parse HEAD)}
+ $manifest=[ordered]@{name='Aheadscale.VpnPrototype';publisher=$cert.Subject;version=$Version;architecture=$Architecture;sdk=$SdkVersion;go='1.26.7';nativeDaemonSha256=(Get-FileHash (Join-Path $stage 'AheadscaleNativeDaemon.exe') -Algorithm SHA256).Hash;certificateThumbprint=$cert.Thumbprint;packageFile=(Split-Path $package -Leaf);sha256=(Get-FileHash $package -Algorithm SHA256).Hash;negativePackageFile=(Split-Path $negativePackage -Leaf);negativeSha256=(Get-FileHash $negativePackage -Algorithm SHA256).Hash;sourceCommit=(& git -C $repo rev-parse HEAD)}
  $manifest | ConvertTo-Json | Set-Content (Join-Path $dist 'build-manifest.json') -Encoding utf8
  Copy-Item (Join-Path $PSScriptRoot 'install-test.ps1'),(Join-Path $PSScriptRoot 'remove-test.ps1') $dist
  Get-ChildItem $dist | Select-Object Name,Length

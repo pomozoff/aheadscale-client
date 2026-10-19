@@ -1,4 +1,4 @@
-//go:build !linux && !ios && !android && !js
+//go:build !linux && !ios && !android && !js && (!windows || !windowsvpnprototype)
 
 package iface
 

@@ -112,6 +112,7 @@ const (
 )
 
 type registryConfigurator struct {
+	native          bool
 	guid            string
 	routingAll      bool
 	gpo             bool
@@ -125,8 +126,9 @@ func newHostManager(wgInterface WGIface) (*registryConfigurator, error) {
 	}
 
 	configurator := &registryConfigurator{
-		guid: guid,
-		gpo:  useGPOPolicyStore(),
+		guid:   guid,
+		native: nativeVPNPlatform(),
+		gpo:    useGPOPolicyStore(),
 	}
 
 	origNameservers, err := configurator.captureOriginalNameservers()
@@ -139,6 +141,10 @@ func newHostManager(wgInterface WGIface) (*registryConfigurator, error) {
 		log.Debugf("captured %d original nameservers from non-WG adapters: %v", len(origNameservers), origNameservers)
 	}
 	configurator.origNameservers = origNameservers
+
+	if configurator.native {
+		return configurator, nil
+	}
 
 	if err := configurator.configureInterface(); err != nil {
 		log.Errorf("failed to configure interface settings: %v", err)
@@ -307,6 +313,18 @@ func (r *registryConfigurator) disableWINSForInterface() error {
 }
 
 func (r *registryConfigurator) applyDNSConfig(config HostDNSConfig, stateManager *statemanager.Manager) error {
+	if r.native {
+		if config.ServerPort != 53 {
+			return fmt.Errorf("Windows VPN prototype requires DNS port 53")
+		}
+		for _, domain := range config.Domains {
+			if !domain.Disabled && strings.TrimSuffix(domain.Domain, ".") != "aheadscale.internal" {
+				return fmt.Errorf("Windows VPN prototype does not support additional DNS domains")
+			}
+		}
+		return nil // Адреса DNS и правила имён принадлежат VpnChannel.
+	}
+
 	// Clear every rule the previous apply installed before installing any new
 	// one, including a leftover catch-all: removal is unconditional so a rule
 	// from an earlier run cannot survive into a config that no longer wants it.
@@ -597,6 +615,10 @@ func (r *registryConfigurator) getInterfaceRegistryKey() (registry.Key, error) {
 }
 
 func (r *registryConfigurator) restoreHostDNS() error {
+	if r.native {
+		return nil
+	}
+
 	// Propagated, unlike in applyDNSConfig: there we are about to write fresh
 	// rules over whatever survived, here we are leaving, and a rule left behind
 	// keeps sending every query to an address that is about to disappear.

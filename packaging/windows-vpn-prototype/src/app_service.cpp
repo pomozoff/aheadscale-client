@@ -1,6 +1,7 @@
 #include "app_service.h"
 #include "ipc_probe.h"
 #include "packet_bridge.h"
+#include "native_channel.h"
 #include <winrt/Windows.ApplicationModel.h>
 #include <winrt/Windows.ApplicationModel.AppService.h>
 #include <winrt/Windows.ApplicationModel.Core.h>
@@ -17,6 +18,7 @@ using namespace Windows::Data::Json;
 namespace aheadscale {
 namespace {
 constexpr wchar_t ServiceName[] = L"Aheadscale.VpnPrototype.Broker";
+constexpr wchar_t NativeRoleKey[]=L"Aheadscale.VpnPrototype.NativeBroker";
 constexpr wchar_t ActiveConnectionKey[] = L"Aheadscale.VpnPrototype.AuthenticatedDesktop";
 ValueSet Reply(DWORD code) {
     ValueSet response;
@@ -50,6 +52,7 @@ struct ServiceSession {
                 get_abi(properties.Lookup(ActiveConnectionKey).as<AppServiceConnection>()) == get_abi(connection))
                 properties.Remove(ActiveConnectionKey);
         } catch (...) {}
+        try { NativeConnectionLost(connection); } catch (...) {}
         try { connection.Close(); } catch (...) {}
         try { deferral.Complete(); } catch (...) {}
     }
@@ -82,13 +85,18 @@ bool TryRunAppService(Windows::ApplicationModel::Background::IBackgroundTaskInst
         try {
             auto code = ERROR_ACCESS_DENIED;
             auto message = args.Request().Message();
+            ValueSet nativeReply;
+            if(HandleNativeRequest(message,nativeReply)){
+                args.Request().SendResponseAsync(nativeReply).get();deferral.Complete();return;
+            }
             if (Operation(message) == L"packet-echo") {
                 args.Request().SendResponseAsync(EchoPacket(message)).get();
                 deferral.Complete();
                 return;
             }
-            if (message.Size() == 1 && Operation(message) == L"register-broker") {
+            if (message.Size() == 1 && (Operation(message) == L"register-broker" || Operation(message) == L"register-native-broker")) {
                 Core::CoreApplication::Properties().Insert(ActiveConnectionKey, session->connection);
+                Core::CoreApplication::Properties().Insert(NativeRoleKey,box_value(Operation(message)==L"register-native-broker"));
                 code = ERROR_SUCCESS;
                 auto record = ProcessContext();
                 record.SetNamedValue(L"callerPackageFamilyName", JsonValue::CreateStringValue(session->callerFamily));
@@ -115,6 +123,12 @@ bool TryRunAppService(Windows::ApplicationModel::Background::IBackgroundTaskInst
     });
     Record(L"app-service.json", record, L"trusted-service-opened");
     return true;
+}
+AppServiceConnection ActiveBroker(bool nativeOnly){
+ auto properties=Core::CoreApplication::Properties();
+ if(!properties.HasKey(ActiveConnectionKey))return nullptr;
+ if(nativeOnly && (!properties.HasKey(NativeRoleKey) || !unbox_value<bool>(properties.Lookup(NativeRoleKey))))return nullptr;
+ return properties.Lookup(ActiveConnectionKey).as<AppServiceConnection>();
 }
 DWORD ProbeBroker(JsonObject* diagnostic) {
     if (diagnostic) diagnostic->SetNamedValue(L"probeStep", JsonValue::CreateStringValue(L"app-service-session"));

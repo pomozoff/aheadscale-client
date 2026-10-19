@@ -43,7 +43,7 @@ func daemonServerOptions(network string) []grpc.ServerOption {
 			"so privileged operations (SSH root login, SSH auth, enabling the SSH server, management URL changes, "+
 			"deregistration) will be denied, and the SSH JWT cache is neither filled nor served. "+
 			"Use a unix socket, or npipe:// on Windows", daemonAddr)
-		return nil
+		return prototypeServerOptions()
 	}
 
 	creds := ipcauth.NewTransportCredentials() //nolint:staticcheck
@@ -53,7 +53,7 @@ func daemonServerOptions(network string) []grpc.ServerOption {
 		return nil
 	}
 
-	return []grpc.ServerOption{grpc.Creds(creds)}
+	return append([]grpc.ServerOption{grpc.Creds(creds)}, prototypeServerOptions()...)
 }
 
 func (p *program) Start(svc service.Service) error {

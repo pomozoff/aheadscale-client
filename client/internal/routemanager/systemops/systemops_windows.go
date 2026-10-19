@@ -211,6 +211,10 @@ func (r *SysOps) CleanupRouting(stateManager *statemanager.Manager, advancedRout
 }
 
 func (r *SysOps) addToRouteTable(prefix netip.Prefix, nexthop Nexthop) error {
+	if nativeVPNRouting() {
+		return nil
+	} // Исключения транспорта не нужны без default route; маршруты канала задаёт Windows.
+
 	log.Debugf("Adding route to %s via %s", prefix, nexthop)
 	// if we don't have an interface but a zone, extract the interface index from the zone
 	if nexthop.IP.Zone() != "" && nexthop.Intf == nil {
@@ -225,6 +229,10 @@ func (r *SysOps) addToRouteTable(prefix netip.Prefix, nexthop Nexthop) error {
 }
 
 func (r *SysOps) removeFromRouteTable(prefix netip.Prefix, nexthop Nexthop) error {
+	if nativeVPNRouting() {
+		return nil
+	}
+
 	log.Debugf("Removing route to %s via %s", prefix, nexthop)
 	return deleteRoute(prefix, nexthop)
 }

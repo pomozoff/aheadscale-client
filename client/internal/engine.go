@@ -2219,6 +2219,7 @@ func (e *Engine) newWgIface() (*iface.WGIface, error) {
 	}
 
 	opts := iface.WGIFaceOpts{
+ Context: e.ctx,
 		IFaceName:    e.config.WgIfaceName,
 		Address:      e.config.WgAddr,
 		WGPort:       e.config.WgPort,

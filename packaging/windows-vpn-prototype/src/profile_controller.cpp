@@ -20,7 +20,7 @@ try {
  $p=Get-VpnConnection -Name $name -ErrorAction SilentlyContinue
  if($p -and $p.PlugInApplicationID -ne $family){throw 'Профиль принадлежит другому приложению'}
  switch($action) {
-  'add' {if(-not $p){Add-VpnConnection -Name $name -ServerAddress 'aheadscale.ru' -PlugInApplicationID $family -CustomConfiguration ([xml]'<AheadscalePrototype version="1"/>') -Force | Out-Null}}
+  'add' {if(-not $p){Add-VpnConnection -Name $name -ServerAddress 'aheadscale.ru' -DnsSuffix 'aheadscale.internal' -PlugInApplicationID $family -CustomConfiguration ([xml]'<AheadscalePrototype version="1"/>') -Force | Out-Null}}
   'connect' {if(-not $p){throw 'Опытный профиль не установлен'}; & "$env:WINDIR\System32\rasdial.exe" $name | Out-Null; $code=$LASTEXITCODE}
   'disconnect' {if($p -and $p.ConnectionStatus -ne 'Disconnected'){& "$env:WINDIR\System32\rasdial.exe" $name /disconnect | Out-Null; $code=$LASTEXITCODE}}
   'remove' {

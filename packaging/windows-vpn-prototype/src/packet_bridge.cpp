@@ -18,6 +18,7 @@ com_array<uint8_t> Payload(ValueSet const& message) {
     return packet;
 }
 }
+com_array<uint8_t> ReadPacketPayload(ValueSet const& message){return Payload(message);}
 ValueSet PacketMessage(array_view<uint8_t const> packet) {
     if (packet.empty() || packet.size() > MaximumPacketSize) throw hresult_invalid_argument(L"Неверный размер IP-пакета");
     ValueSet message;
