@@ -22,6 +22,6 @@ std::wstring UserSid(HANDLE token);
 std::wstring CurrentUserSid();
 winrt::Windows::Data::Json::JsonObject ProcessContext();
 void LogProbe(wchar_t const* name, winrt::Windows::Data::Json::JsonObject const& record);
-DWORD ProbeBroker();
+DWORD ProbeBroker(winrt::Windows::Data::Json::JsonObject* diagnostic = nullptr);
 int RunBroker();
 }

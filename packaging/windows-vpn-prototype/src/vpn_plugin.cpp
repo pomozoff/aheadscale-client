@@ -5,11 +5,11 @@ using namespace Windows::Networking::Vpn;
 using namespace Windows::Data::Json;
 namespace aheadscale {
 void VpnPlugin::Connect(VpnChannel const& channel) {
+    auto record = ProcessContext();
     try {
-        auto record = ProcessContext();
         record.SetNamedValue(L"event", JsonValue::CreateStringValue(L"connect-invoked"));
         LogProbe(L"vpn-plugin.json", record);
-        auto result = ProbeBroker();
+        auto result = ProbeBroker(&record);
         record.SetNamedValue(L"win32", JsonValue::CreateNumberValue(result));
         record.SetNamedValue(L"event", JsonValue::CreateStringValue(L"connect-probe-result"));
         LogProbe(L"vpn-plugin.json", record);
@@ -20,6 +20,8 @@ void VpnPlugin::Connect(VpnChannel const& channel) {
         // До настоящего канала данных профиль обязан оставаться отключённым.
         throw hresult_error(HRESULT_FROM_WIN32(result ? result : ERROR_NOT_SUPPORTED), message);
     } catch (hresult_error const& error) {
+        record.SetNamedValue(L"hresult", JsonValue::CreateNumberValue(static_cast<int32_t>(error.code())));
+        LogProbe(L"vpn-plugin.json", record);
         channel.LogDiagnosticMessage(error.message());
         throw;
     }

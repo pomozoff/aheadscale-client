@@ -1,6 +1,7 @@
 #include "ipc_probe.h"
 #include <appmodel.h>
 #include <sddl.h>
+#include <securityappcontainer.h>
 #include <userenv.h>
 #include <winrt/Windows.ApplicationModel.h>
 #include <winrt/Windows.Storage.h>
@@ -38,7 +39,23 @@ std::wstring ProcessUser(HANDLE process) {
     Handle owned(token);
     return UserSid(token);
 }
-std::wstring PipePath() { return L"\\\\.\\pipe\\LOCAL\\Aheadscale.VpnPrototype." + CurrentUserSid(); }
+std::wstring PipePath(bool appContainer) {
+    auto tail = L"Aheadscale.VpnPrototype." + CurrentUserSid();
+    if (appContainer) return L"\\\\.\\pipe\\LOCAL\\" + tail;
+    PSID sid{};
+    check_bool(ConvertStringSidToSidW(PrototypeContainerSid, &sid));
+    wchar_t path[1024]{};
+    ULONG required{};
+    BOOL success = GetAppContainerNamedObjectPath(nullptr, sid, 1024, path, &required);
+    DWORD error = success ? ERROR_SUCCESS : GetLastError();
+    LocalFree(sid);
+    check_win32(error);
+    auto expected = std::wstring(L"AppContainerNamedObjects\\") + PrototypeContainerSid;
+    if (path != expected) throw hresult_access_denied(L"Неожиданное пространство имён пакета");
+    DWORD session{};
+    check_bool(ProcessIdToSessionId(GetCurrentProcessId(), &session));
+    return L"\\\\.\\pipe\\Sessions\\" + std::to_wstring(session) + L"\\" + path + L"\\" + tail;
+}
 DWORD CheckedProcess(DWORD pid, std::wstring const& family, std::wstring const& user) {
     Handle process(OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid));
     if (!process.value) return GetLastError();
@@ -109,21 +126,30 @@ void LogProbe(wchar_t const* name, JsonObject const& record) {
     if (!file) throw hresult_error(E_ACCESSDENIED, L"Не удалось записать безопасный отчёт прототипа");
     file << to_string(record.Stringify());
 }
-DWORD ProbeBroker() {
+DWORD ProbeBroker(JsonObject* diagnostic) {
+    auto stage = [&](wchar_t const* value) {
+        if (diagnostic) diagnostic->SetNamedValue(L"probeStep", JsonValue::CreateStringValue(value));
+    };
+    stage(L"open-pipe");
+    auto context = ProcessContext();
     auto family = FamilyName();
     auto user = CurrentUserSid();
     CREATEFILE2_EXTENDED_PARAMETERS parameters{sizeof(parameters)};
     parameters.dwSecurityQosFlags = SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION;
-    Handle pipe(CreateFile2(PipePath().c_str(), GENERIC_READ | GENERIC_WRITE, 0, OPEN_EXISTING, &parameters));
+    Handle pipe(CreateFile2(PipePath(context.GetNamedBoolean(L"isAppContainer")).c_str(), GENERIC_READ | GENERIC_WRITE, 0, OPEN_EXISTING, &parameters));
     if (pipe.value == INVALID_HANDLE_VALUE) return GetLastError();
+    stage(L"server-process-id");
     ULONG pid{};
     if (!GetNamedPipeServerProcessId(pipe.value, &pid)) return GetLastError();
+    stage(L"verify-server-identity");
     DWORD result = CheckedProcess(pid, family, user);
     if (result) return result;
     DWORD transferred{};
+    stage(L"write-probe");
     DWORD request = ProbeMagic;
     if (!WriteFile(pipe.value, &request, sizeof(request), &transferred, nullptr)) return GetLastError();
     if (transferred != sizeof(request)) return ERROR_INVALID_DATA;
+    stage(L"read-probe-reply");
     // Сервер обязан ответить за ограниченное время; никакого вечного ожидания в Connect.
     for (int i = 0; i != 100; ++i) {
         DWORD available{};
@@ -153,11 +179,12 @@ int RunBroker() {
     record.SetNamedValue(L"event", JsonValue::CreateStringValue(L"broker-pinned-policy"));
     record.SetNamedValue(L"expectedAppContainerSid", JsonValue::CreateStringValue(packageSidText));
     std::cout << to_string(record.Stringify()) << std::endl;
-    auto sddl = L"D:P(A;;GA;;;" + user + L")(A;;GRGW;;;" + packageSidText + L")";
+    auto sddl = L"D:P(A;;GA;;;" + user + L")(A;;GRGW;;;" + packageSidText + L")S:(ML;;NW;;;LW)";
     PSECURITY_DESCRIPTOR descriptor{};
     check_bool(ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl.c_str(), SDDL_REVISION_1, &descriptor, nullptr));
     SECURITY_ATTRIBUTES attributes{sizeof(attributes), descriptor, FALSE};
-    Handle pipe(CreateNamedPipeW(PipePath().c_str(), PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED | FILE_FLAG_FIRST_PIPE_INSTANCE,
+    record.SetNamedValue(L"pipePath", JsonValue::CreateStringValue(PipePath(false)));
+    Handle pipe(CreateNamedPipeW(PipePath(false).c_str(), PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED | FILE_FLAG_FIRST_PIPE_INSTANCE,
         PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS, 1, 128, 128, 0, &attributes));
     DWORD pipeError = pipe.value == INVALID_HANDLE_VALUE ? GetLastError() : ERROR_SUCCESS;
     LocalFree(descriptor);
