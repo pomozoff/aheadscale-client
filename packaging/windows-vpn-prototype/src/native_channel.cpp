@@ -55,6 +55,7 @@ uint8_t* Bytes(winrt::Windows::Storage::Streams::IBuffer const& buffer){
 }
 void ConnectNativeChannel(VpnChannel const& channel){
  auto state=std::make_shared<ChannelSession>();state->channel=channel;
+ {std::lock_guard lock(sessionMutex);if(active && !active->closed)throw hresult_error(HRESULT_FROM_WIN32(ERROR_BUSY));active=state;}
  try{
   if(!ActiveBroker(true))FullTrustProcessLauncher::LaunchFullTrustProcessForCurrentAppAsync().get();
   for(unsigned attempt=0;attempt<100;attempt++){
@@ -63,11 +64,12 @@ void ConnectNativeChannel(VpnChannel const& channel){
   }
   if(!state->connection)throw hresult_error(HRESULT_FROM_WIN32(ERROR_NOT_CONNECTED),L"Не запущен посредник Aheadscale");
   auto reply=Send(state->connection,Request(L"native-config"));Check(reply);
+  if(state->closed)throw hresult_canceled();
   auto config=JsonObject::Parse(unbox_value<hstring>(reply.Lookup(L"configuration")));
   state->generation=config.GetNamedString(L"sessionId");
   if(state->generation.size()!=32)throw hresult_invalid_argument();
   for(auto ch:state->generation)if(!((ch>=L'0' && ch<=L'9') || (ch>=L'a' && ch<=L'f')))throw hresult_invalid_argument();
-  {std::lock_guard lock(sessionMutex);if(active && !active->closed)throw hresult_error(HRESULT_FROM_WIN32(ERROR_BUSY));active=state;}
+  if(state->closed)throw hresult_canceled();
   state->transport=winrt::Windows::Networking::Sockets::DatagramSocket();
   // Платформе нужен socket transport; IP-пакеты передаются только через AppService.
   // Encapsulate оставляет входные buffers платформе и ничего не отправляет в socket.

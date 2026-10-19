@@ -13,6 +13,9 @@ import (
 func InterfaceFilter(disallowList []string) func(string) bool {
 
 	return func(iFace string) bool {
+		if nativeVPNInterface(iFace) {
+			return false
+		}
 
 		if strings.HasPrefix(iFace, "lo") {
 			// hardcoded loopback check to support already installed agents

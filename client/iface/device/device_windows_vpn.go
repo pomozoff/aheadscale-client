@@ -66,6 +66,7 @@ func (t *VpnTunDevice) Create() (WGConfigurer, error) {
 		_ = raw.Close()
 		return nil, fmt.Errorf("native VPN address must belong to exactly one adapter, got %d", matches)
 	}
+	windowsvpn.SetAdapterName(t.name)
 	t.filteredDevice = newDeviceFilter(raw)
 	t.device = device.NewDevice(t.filteredDevice, t.iceBind, device.NewLogger(wgLogLevel(), "[aheadscale-native] "))
 	t.configurer = configurer.NewUSPConfigurerNoUAPI(t.device, t.name, t.iceBind.ActivityRecorder())

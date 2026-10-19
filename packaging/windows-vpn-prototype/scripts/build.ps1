@@ -29,6 +29,11 @@ if($LASTEXITCODE -or $goVersion -notmatch '^go version go1\.26\.7 windows/amd64$
 $flags='-s -w -X github.com/netbirdio/netbird/version.version=0.80.0-aheadscale.vpn-prototype -X github.com/netbirdio/netbird/client/internal/profilemanager.DefaultManagementURL=https://aheadscale.ru -X github.com/netbirdio/netbird/client/internal/profilemanager.DefaultAdminURL=https://aheadscale.ru -X github.com/netbirdio/netbird/client/internal/profilemanager.LockedServerOrigin=https://aheadscale.ru'
 & go -C $repo build -trimpath -tags windowsvpnprototype -ldflags $flags -o (Join-Path $stage 'AheadscaleNativeDaemon.exe') ./client
 if($LASTEXITCODE){throw 'Не собран опытный Windows daemon'}
+$standardCheck=Join-Path $root 'out\standard-check.exe'
+& go -C $repo build -trimpath -o $standardCheck ./client
+if($LASTEXITCODE){throw 'Нарушена компиляция обычного Windows daemon'}
+Remove-Item $standardCheck
+
 (Get-Content (Join-Path $root 'Package.appxmanifest') -Raw).Replace('@VERSION@',$Version) | Set-Content (Join-Path $stage 'AppxManifest.xml') -Encoding utf8
 Add-Type -AssemblyName System.Drawing
 $original=[Drawing.Image]::FromFile((Join-Path $repo 'packaging\aheadscale\icon.png'))

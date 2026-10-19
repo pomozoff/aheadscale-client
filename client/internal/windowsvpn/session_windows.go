@@ -12,6 +12,7 @@ import (
 	"io"
 	"net"
 	"net/netip"
+	"sync/atomic"
 	"time"
 	"unsafe"
 
@@ -157,3 +158,14 @@ type nativeConn struct {
 }
 
 func (c *nativeConn) Close() error { c.stop(); return c.Conn.Close() }
+
+var nativeAdapterName atomic.Value
+
+func SetAdapterName(name string) { nativeAdapterName.Store(name) }
+func AdapterName() string {
+	value := nativeAdapterName.Load()
+	if value == nil {
+		return ""
+	}
+	return value.(string)
+}
