@@ -26,7 +26,7 @@ struct ChannelSession {
  AppServiceConnection connection{nullptr};
  winrt::Windows::Networking::Sockets::DatagramSocket transport{nullptr};
  hstring generation;
- std::atomic<bool> closed{};
+ std::atomic<bool> closed{}, dataReady{};
  std::mutex delivery;
  void Stop()noexcept{
   if(closed.exchange(true))return;
@@ -74,8 +74,14 @@ void ConnectNativeChannel(VpnChannel const& channel){
   // Платформе нужен socket transport; IP-пакеты передаются только через AppService.
   // Encapsulate оставляет входные buffers платформе и ничего не отправляет в socket.
   channel.AssociateTransport(state->transport,nullptr);
-  ConfigureNativeChannel(channel,config,state->transport);
+  {
+   std::lock_guard lock(state->delivery);
+   if(state->closed)throw hresult_canceled();
+   ConfigureNativeChannel(channel,config,state->transport);
+  }
+  if(state->closed)throw hresult_canceled();
   Check(Send(state->connection,Request(L"native-started",state->generation)));
+  state->dataReady=true;
   bool ready=false;
   for(unsigned attempt=0;attempt<200 && !state->closed;attempt++){
    auto status=Send(state->connection,Request(L"native-ready",state->generation));
@@ -99,6 +105,7 @@ void DisconnectNativeChannel(VpnChannel const& channel){
 }
 void EncapsulateNative(VpnChannel const&,VpnPacketBufferList const& packets){
  auto state=Current();if(!state || state->closed)throw hresult_error(HRESULT_FROM_WIN32(ERROR_NOT_CONNECTED));
+ if(!state->dataReady)return; // Ранние DNS/NCSI-пакеты не должны опередить ACK потока.
  try{
   for(auto const& packet:packets){
    auto buffer=packet.Buffer();auto size=buffer.Length();

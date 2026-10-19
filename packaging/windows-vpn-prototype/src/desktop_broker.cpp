@@ -49,7 +49,7 @@ struct NativeBrokerState {
  std::mutex writeMutex;
  std::thread reader;
  hstring generation;
- std::atomic<bool> closing{};
+ std::atomic<bool> closing{},started{};
  AppServiceConnection connection{nullptr};
  void Stop()noexcept{if(!closing.exchange(true))SetEvent(complete.value);}
  ~NativeBrokerState(){
@@ -106,6 +106,7 @@ int RunNativeBroker(){
    }else{
     if(!request.HasKey(L"sessionId") || unbox_value<hstring>(request.Lookup(L"sessionId"))!=state->generation || state->closing)throw hresult_access_denied();
     if(operation==L"native-started"){
+     if(state->started.exchange(true))throw hresult_invalid_argument();
      std::string ack="ASREADY1"+to_string(state->generation);WriteExact(state->pipe.value,ack.data(),static_cast<DWORD>(ack.size()));
      if(state->reader.joinable())throw hresult_invalid_argument();
      state->reader=std::thread([state]{
@@ -122,6 +123,7 @@ int RunNativeBroker(){
       }
      });
     }else if(operation==L"native-packet-out"){
+     if(!state->started)throw hresult_error(HRESULT_FROM_WIN32(ERROR_NOT_READY));
      auto packet=ReadPacketPayload(request);uint32_t length=packet.size();
      std::lock_guard lock(state->writeMutex);WriteExact(state->pipe.value,&length,4);WriteExact(state->pipe.value,packet.data(),length);
     }else if(operation==L"native-ready"){
