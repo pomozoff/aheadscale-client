@@ -44,6 +44,7 @@ void ConfigureNativeChannel(VpnChannel const& channel,winrt::Windows::Data::Json
   if(item.GetString()!=L"aheadscale.internal")throw hresult_invalid_argument();
   domains.DomainNameList().Append(VpnDomainNameInfo(item.GetString(),VpnDomainNameType::Suffix,dns,nullptr));
  }
- channel.StartWithMainTransport(v4.GetView(),v6.GetView(),nullptr,routes,domains,1280,1280,false,transport);
+ try{channel.StartWithMainTransport(v4.GetView(),v6.GetView(),nullptr,routes,domains,1280,1280,false,transport);}
+ catch(hresult_error const& error){throw hresult_error(error.code(),L"StartWithMainTransport: "+error.message());}
 }
 }

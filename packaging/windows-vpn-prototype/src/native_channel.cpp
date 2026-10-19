@@ -77,6 +77,10 @@ void ConnectNativeChannel(VpnChannel const& channel){
   // Платформе нужен socket transport; IP-пакеты передаются только через AppService.
   // Encapsulate оставляет входные buffers платформе и ничего не отправляет в socket.
   step=L"associate-transport";channel.AssociateTransport(state->transport,nullptr);
+  // Connect UDP задаёт endpoint для Windows VPN; payload в этот socket не пишется.
+  // Реальный IP-поток по-прежнему идёт через авторизованный AppService.
+  step=L"connect-transport";
+  state->transport.ConnectAsync(winrt::Windows::Networking::HostName(L"aheadscale.ru"),L"443").get();
   {
    std::lock_guard lock(state->delivery);
    if(state->closed)throw hresult_canceled();
