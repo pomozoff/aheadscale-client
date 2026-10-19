@@ -26,11 +26,13 @@ struct ChannelSession {
  AppServiceConnection connection{nullptr};
  winrt::Windows::Networking::Sockets::DatagramSocket transport{nullptr};
  hstring generation;
- std::atomic<bool> closed{}, dataReady{};
+ std::atomic<bool> closed{}, dataReady{}, channelStarted{};
  std::mutex delivery;
  void Stop()noexcept{
-  if(closed.exchange(true))return;
-  std::lock_guard guard(delivery);
+  bool first=!closed.exchange(true);
+  bool wasStarted=channelStarted.exchange(false);
+  if(!first && !wasStarted)return;
+  // WinRT может синхронно вызвать Disconnect: не держим delivery при Stop/Start.
   try{channel.Stop();}catch(...){}
  }
 };
@@ -81,12 +83,12 @@ void ConnectNativeChannel(VpnChannel const& channel){
   // Реальный IP-поток по-прежнему идёт через авторизованный AppService.
   step=L"connect-transport";
   state->transport.ConnectAsync(winrt::Windows::Networking::HostName(L"aheadscale.ru"),L"443").get();
-  {
-   std::lock_guard lock(state->delivery);
-   if(state->closed)throw hresult_canceled();
-   step=L"start-channel";ConfigureNativeChannel(channel,config,state->transport);
-  }
   if(state->closed)throw hresult_canceled();
+  step=L"start-channel";
+  auto entering=ProcessContext();entering.SetNamedValue(L"event",JsonValue::CreateStringValue(L"native-channel-start-enter"));LogProbe(L"native-channel-stage.json",entering);
+  ConfigureNativeChannel(channel,config,state->transport);
+  state->channelStarted=true;
+  if(state->closed){state->Stop();throw hresult_canceled();}
   step=L"acknowledge-channel";
   auto startedRecord=ProcessContext();startedRecord.SetNamedValue(L"event",JsonValue::CreateStringValue(L"native-channel-start-returned"));LogProbe(L"native-channel.json",startedRecord);
   Check(Send(state->connection,Request(L"native-started",state->generation)));
