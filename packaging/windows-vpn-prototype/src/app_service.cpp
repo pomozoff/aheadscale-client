@@ -1,5 +1,6 @@
 #include "app_service.h"
 #include "ipc_probe.h"
+#include "packet_bridge.h"
 #include <winrt/Windows.ApplicationModel.h>
 #include <winrt/Windows.ApplicationModel.AppService.h>
 #include <winrt/Windows.ApplicationModel.Core.h>
@@ -22,7 +23,7 @@ ValueSet Reply(DWORD code) {
     return response;
 }
 hstring Operation(ValueSet const& message) {
-    if (message.Size() != 1 || !message.HasKey(L"operation")) return {};
+    if (message.Size() > 2 || !message.HasKey(L"operation")) return {};
     return unbox_value<hstring>(message.Lookup(L"operation"));
 }
 void Record(wchar_t const* file, JsonObject record, wchar_t const* event) {
@@ -73,7 +74,13 @@ bool TryRunAppService(Windows::ApplicationModel::Background::IBackgroundTaskInst
         auto deferral = args.GetDeferral();
         try {
             auto code = ERROR_ACCESS_DENIED;
-            if (Operation(args.Request().Message()) == L"register-broker") {
+            auto message = args.Request().Message();
+            if (Operation(message) == L"packet-echo") {
+                args.Request().SendResponseAsync(EchoPacket(message)).get();
+                deferral.Complete();
+                return;
+            }
+            if (message.Size() == 1 && Operation(message) == L"register-broker") {
                 Core::CoreApplication::Properties().Insert(ActiveConnectionKey, session->connection);
                 code = ERROR_SUCCESS;
                 auto record = ProcessContext();
@@ -108,9 +115,14 @@ DWORD ProbeBroker(JsonObject* diagnostic) {
     if (diagnostic) diagnostic->SetNamedValue(L"probeStep", JsonValue::CreateStringValue(L"app-service-daemon-status"));
     auto response = connection.SendMessageAsync(request).get();
     if (response.Status() != AppServiceResponseStatus::Success || !response.Message().HasKey(L"win32")) return ERROR_CONNECTION_ABORTED;
-    return unbox_value<uint32_t>(response.Message().Lookup(L"win32"));
+    auto result = unbox_value<uint32_t>(response.Message().Lookup(L"win32"));
+    if (result == ERROR_SUCCESS && response.Message().HasKey(L"packetProbe") && unbox_value<bool>(response.Message().Lookup(L"packetProbe"))) {
+        VerifyPacketRoundTrip(connection);
+        if (diagnostic) diagnostic->SetNamedValue(L"packetRoundTrip", JsonValue::CreateBooleanValue(true));
+    }
+    return result;
 }
-int RunBroker() {
+int RunBroker(bool packetProbe) {
     auto package = Package::Current();
     if (FamilyName() != PrototypeFamily || package.Id().Name() != PackageName || package.Id().Publisher() != Publisher)
         throw hresult_access_denied(L"Неверная идентичность посредника");
@@ -122,8 +134,18 @@ int RunBroker() {
         auto deferral = args.GetDeferral();
         DWORD result = ERROR_ACCESS_DENIED;
         try {
-            if (Operation(args.Request().Message()) == L"daemon-status") result = ProbeDaemonStatus();
-            args.Request().SendResponseAsync(Reply(result)).get();
+            auto message = args.Request().Message();
+            bool packetEcho = Operation(message) == L"packet-echo";
+            if (packetEcho) {
+                args.Request().SendResponseAsync(EchoPacket(message)).get();
+                result = ERROR_SUCCESS;
+                record.SetNamedValue(L"pluginPacketRoundTrip", JsonValue::CreateBooleanValue(true));
+            } else {
+                if (message.Size() == 1 && Operation(message) == L"daemon-status") result = ProbeDaemonStatus();
+                auto response = Reply(result);
+                response.Insert(L"packetProbe", box_value(packetProbe));
+                args.Request().SendResponseAsync(response).get();
+            }
             record.SetNamedValue(L"win32", JsonValue::CreateNumberValue(result));
             record.SetNamedValue(L"event", JsonValue::CreateStringValue(L"app-service-daemon-result"));
             std::cout << to_string(record.Stringify()) << std::endl;
@@ -132,7 +154,7 @@ int RunBroker() {
             std::cout << to_string(record.Stringify()) << std::endl;
         }
         deferral.Complete();
-        SetEvent(complete.value);
+        if (!packetProbe || result != ERROR_SUCCESS || record.HasKey(L"pluginPacketRoundTrip")) SetEvent(complete.value);
     });
     auto status = connection.OpenAsync().get();
     record.SetNamedValue(L"openStatus", JsonValue::CreateNumberValue(static_cast<int>(status)));
@@ -144,6 +166,10 @@ int RunBroker() {
     auto response = connection.SendMessageAsync(request).get();
     if (response.Status() != AppServiceResponseStatus::Success ||
         !response.Message().HasKey(L"win32") || unbox_value<uint32_t>(response.Message().Lookup(L"win32")) != 0) return 1;
+    if (packetProbe) {
+        VerifyPacketRoundTrip(connection);
+        record.SetNamedValue(L"providerPacketRoundTrip", JsonValue::CreateBooleanValue(true));
+    }
     record.SetNamedValue(L"event", JsonValue::CreateStringValue(L"app-service-broker-ready"));
     std::cout << to_string(record.Stringify()) << std::endl;
     DWORD wait = WaitForSingleObject(complete.value, 90000);

@@ -3,6 +3,13 @@ Set-StrictMode -Version Latest
 $receipt=Join-Path $env:LOCALAPPDATA 'AheadscaleVpnPrototype\install.json'
 $record=Get-Content $receipt -Raw | ConvertFrom-Json
 if($record.publisher -ne 'CN=Aheadscale VPN Prototype' -or $record.packageFamilyName -notlike 'Aheadscale.VpnPrototype_*'){throw 'Неизвестный владелец установки'}
+if($record.PSObject.Properties.Name -contains 'negativePackageFullName') {
+ $negative=Get-AppxPackage -Name Aheadscale.VpnNegativeProbe
+ if($negative) {
+  if($negative.PackageFullName -ne $record.negativePackageFullName -or $negative.Publisher -ne $record.publisher){throw 'Отрицательный пакет не соответствует квитанции'}
+  Remove-AppxPackage -Package $negative.PackageFullName
+ }
+}
 $installed=Get-AppxPackage -Name Aheadscale.VpnPrototype
 if($installed) {
  if($installed.PackageFamilyName -ne $record.packageFamilyName -or $installed.PackageFullName -ne $record.packageFullName){throw 'Установлен другой опытный пакет'}

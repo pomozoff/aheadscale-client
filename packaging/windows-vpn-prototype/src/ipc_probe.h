@@ -23,6 +23,6 @@ std::wstring CurrentUserSid();
 winrt::Windows::Data::Json::JsonObject ProcessContext();
 void LogProbe(wchar_t const* name, winrt::Windows::Data::Json::JsonObject const& record);
 DWORD ProbeBroker(winrt::Windows::Data::Json::JsonObject* diagnostic = nullptr);
-int RunBroker();
+int RunBroker(bool packetProbe = false);
 DWORD ProbeDaemonStatus();
 }
