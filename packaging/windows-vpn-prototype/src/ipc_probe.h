@@ -5,6 +5,10 @@
 namespace aheadscale {
 inline constexpr wchar_t PackageName[] = L"Aheadscale.VpnPrototype";
 inline constexpr wchar_t Publisher[] = L"CN=Aheadscale VPN Prototype";
+// Политика только фиксированного опытного пакета; это публичная идентичность приложения,
+// не идентификатор пользователя и не секрет. Подтверждена токеном собственного Windows VPN-хоста.
+inline constexpr wchar_t PrototypeFamily[] = L"Aheadscale.VpnPrototype_9kyyx27wet2q6";
+inline constexpr wchar_t PrototypeContainerSid[] = L"S-1-15-2-105624533-398837595-3937488834-2670283292-4040557573-1898541279-994783815";
 inline constexpr DWORD ProbeMagic = 0x41535031;
 struct Handle {
     HANDLE value{INVALID_HANDLE_VALUE};

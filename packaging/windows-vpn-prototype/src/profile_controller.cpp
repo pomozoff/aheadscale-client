@@ -38,7 +38,8 @@ int wmain(int argc, wchar_t** argv) {
             if (!existing) {
                 VpnPlugInProfile profile;
                 profile.ProfileName(aheadscale::ProfileName());
-                profile.RequireVpnClientAppUI(true);
+                // Проверяем системное управление без требования отдельного клиентского UI.
+                profile.RequireVpnClientAppUI(false);
                 profile.VpnPluginPackageFamilyName(family);
                 profile.ServerUris().Append(Windows::Foundation::Uri(L"https://aheadscale.ru"));
                 profile.CustomConfiguration(L"<AheadscalePrototype version=\"1\"/>");

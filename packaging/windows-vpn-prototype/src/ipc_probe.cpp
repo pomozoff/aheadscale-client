@@ -140,17 +140,17 @@ DWORD ProbeBroker() {
 int RunBroker() {
     std::cout << "{\"event\":\"broker-entered\"}" << std::endl;
     auto family = FamilyName();
-    if (family.empty() || Windows::ApplicationModel::Package::Current().Id().Name() != PackageName)
+    if (family != PrototypeFamily || Windows::ApplicationModel::Package::Current().Id().Name() != PackageName ||
+        Windows::ApplicationModel::Package::Current().Id().Publisher() != Publisher)
         throw hresult_access_denied(L"Посредник должен запускаться из опытного пакета");
     auto user = CurrentUserSid();
     auto record = ProcessContext();
     record.SetNamedValue(L"event", JsonValue::CreateStringValue(L"broker-context"));
     std::cout << to_string(record.Stringify()) << std::endl;
-    PSID packageSid{};
-    check_hresult(DeriveAppContainerSidFromAppContainerName(family.c_str(), &packageSid));
-    auto packageSidText = SidText(packageSid);
-    FreeSid(packageSid);
-    record.SetNamedValue(L"event", JsonValue::CreateStringValue(L"broker-derived-sid"));
+    // Собственная строгая политика пакета: все три значения (PFN, пользователь,
+    // AppContainer SID из токена клиента) должны совпасть. Другой пакет отклоняется.
+    auto packageSidText = std::wstring(PrototypeContainerSid);
+    record.SetNamedValue(L"event", JsonValue::CreateStringValue(L"broker-pinned-policy"));
     record.SetNamedValue(L"expectedAppContainerSid", JsonValue::CreateStringValue(packageSidText));
     std::cout << to_string(record.Stringify()) << std::endl;
     auto sddl = L"D:P(A;;GA;;;" + user + L")(A;;GRGW;;;" + packageSidText + L")";
