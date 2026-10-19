@@ -149,8 +149,9 @@ int RunBroker() {
     SECURITY_ATTRIBUTES attributes{sizeof(attributes), descriptor, FALSE};
     Handle pipe(CreateNamedPipeW(PipePath().c_str(), PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED | FILE_FLAG_FIRST_PIPE_INSTANCE,
         PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS, 1, 128, 128, 0, &attributes));
+    DWORD pipeError = pipe.value == INVALID_HANDLE_VALUE ? GetLastError() : ERROR_SUCCESS;
     LocalFree(descriptor);
-    check_bool(pipe.value != INVALID_HANDLE_VALUE);
+    check_win32(pipeError);
     Handle event(CreateEventW(nullptr, TRUE, FALSE, nullptr));
     check_bool(event.value != nullptr);
     OVERLAPPED operation{};

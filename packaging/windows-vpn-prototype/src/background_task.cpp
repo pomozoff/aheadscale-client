@@ -33,7 +33,7 @@ struct TaskFactory : implements<TaskFactory, Windows::Foundation::IActivationFac
     Windows::Foundation::IInspectable ActivateInstance() { return make<BackgroundTask>(); }
 };
 }
-HRESULT __stdcall DllGetActivationFactory(void* classId, void** factory) noexcept {
+extern "C" HRESULT __stdcall DllGetActivationFactory(void* classId, void** factory) noexcept {
     try {
         *factory = nullptr;
         hstring name; copy_from_abi(name, classId);
@@ -42,4 +42,4 @@ HRESULT __stdcall DllGetActivationFactory(void* classId, void** factory) noexcep
         return S_OK;
     } catch (...) { return to_hresult(); }
 }
-HRESULT __stdcall DllCanUnloadNow() noexcept { return get_module_lock() ? S_FALSE : S_OK; }
+extern "C" HRESULT __stdcall DllCanUnloadNow() noexcept { return get_module_lock() ? S_FALSE : S_OK; }
