@@ -1,3 +1,4 @@
+#include <windows.h>
 #include "packet_bridge.h"
 #include <winrt/Windows.Foundation.h>
 #include <algorithm>

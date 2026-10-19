@@ -37,14 +37,20 @@ struct ServiceSession {
     event_token requestToken{}, closeToken{}, cancelToken{};
     hstring callerFamily;
     std::atomic<bool> closed{};
-    void Close() {
+    void Close() noexcept {
         if (closed.exchange(true)) return;
-        connection.RequestReceived(requestToken);
-        connection.ServiceClosed(closeToken);
-        task.Canceled(cancelToken);
-        deferral.Complete();
-        // Закрытая ссылка в Properties не считается готовой: SendMessageAsync обязан пройти.
-        // Старый сеанс не удаляет связь нового сеанса при позднем ServiceClosed.
+        // Каждый шаг выполняется независимо: ошибка отписки не удерживает deferral.
+        try { connection.RequestReceived(requestToken); } catch (...) {}
+        try { connection.ServiceClosed(closeToken); } catch (...) {}
+        try { task.Canceled(cancelToken); } catch (...) {}
+        try {
+            auto properties = Core::CoreApplication::Properties();
+            if (properties.HasKey(ActiveConnectionKey) &&
+                get_abi(properties.Lookup(ActiveConnectionKey).as<AppServiceConnection>()) == get_abi(connection))
+                properties.Remove(ActiveConnectionKey);
+        } catch (...) {}
+        try { connection.Close(); } catch (...) {}
+        try { deferral.Complete(); } catch (...) {}
     }
 };
 AppServiceConnection NewConnection() {
@@ -92,6 +98,10 @@ bool TryRunAppService(Windows::ApplicationModel::Background::IBackgroundTaskInst
             auto record = ProcessContext();
             record.SetNamedValue(L"hresult", JsonValue::CreateNumberValue(static_cast<int32_t>(error.code())));
             Record(L"app-service.json", record, L"request-failed");
+            try { args.Request().SendResponseAsync(Reply(ERROR_INVALID_DATA)).get(); } catch (...) {}
+            deferral.Complete();
+            session->Close();
+            return;
         }
         deferral.Complete();
     });
@@ -127,11 +137,16 @@ int RunBroker(bool packetProbe) {
     if (FamilyName() != PrototypeFamily || package.Id().Name() != PackageName || package.Id().Publisher() != Publisher)
         throw hresult_access_denied(L"Неверная идентичность посредника");
     auto connection = NewConnection();
-    Handle complete(CreateEventW(nullptr, TRUE, FALSE, nullptr));
-    check_bool(complete.value != nullptr);
+    struct BrokerState {
+        Handle complete{CreateEventW(nullptr, TRUE, FALSE, nullptr)};
+        std::atomic<bool> failed{};
+    };
+    auto state = std::make_shared<BrokerState>();
+    check_bool(state->complete.value != nullptr);
     auto record = ProcessContext();
-    connection.RequestReceived([&](auto const&, AppServiceRequestReceivedEventArgs const& args) {
+    auto requestToken = connection.RequestReceived([state, packetProbe](auto const&, AppServiceRequestReceivedEventArgs const& args) {
         auto deferral = args.GetDeferral();
+        auto record = ProcessContext();
         DWORD result = ERROR_ACCESS_DENIED;
         try {
             auto message = args.Request().Message();
@@ -152,10 +167,25 @@ int RunBroker(bool packetProbe) {
         } catch (hresult_error const& error) {
             record.SetNamedValue(L"hresult", JsonValue::CreateNumberValue(static_cast<int32_t>(error.code())));
             std::cout << to_string(record.Stringify()) << std::endl;
+            state->failed = true;
+            try { args.Request().SendResponseAsync(Reply(ERROR_INVALID_DATA)).get(); } catch (...) {}
         }
         deferral.Complete();
-        if (!packetProbe || result != ERROR_SUCCESS || record.HasKey(L"pluginPacketRoundTrip")) SetEvent(complete.value);
+        if (!packetProbe || result != ERROR_SUCCESS || record.HasKey(L"pluginPacketRoundTrip")) SetEvent(state->complete.value);
     });
+    auto closeToken = connection.ServiceClosed([state](auto const&, auto const&) {
+        state->failed = true;
+        SetEvent(state->complete.value);
+    });
+    struct Cleanup {
+        AppServiceConnection connection;
+        event_token request, closed;
+        ~Cleanup() {
+            try { connection.RequestReceived(request); } catch (...) {}
+            try { connection.ServiceClosed(closed); } catch (...) {}
+            try { connection.Close(); } catch (...) {}
+        }
+    } cleanup{connection, requestToken, closeToken};
     auto status = connection.OpenAsync().get();
     record.SetNamedValue(L"openStatus", JsonValue::CreateNumberValue(static_cast<int>(status)));
     record.SetNamedValue(L"event", JsonValue::CreateStringValue(L"app-service-broker-open"));
@@ -172,10 +202,9 @@ int RunBroker(bool packetProbe) {
     }
     record.SetNamedValue(L"event", JsonValue::CreateStringValue(L"app-service-broker-ready"));
     std::cout << to_string(record.Stringify()) << std::endl;
-    DWORD wait = WaitForSingleObject(complete.value, 90000);
-    connection.Close();
+    DWORD wait = WaitForSingleObject(state->complete.value, 90000);
     if (wait != WAIT_OBJECT_0) throw hresult_error(HRESULT_FROM_WIN32(ERROR_TIMEOUT), L"Плагин не запросил состояние службы");
-    return 0;
+    return state->failed ? 1 : 0;
 }
 int ProbeAppServiceCaller() {
     auto connection = NewConnection();
