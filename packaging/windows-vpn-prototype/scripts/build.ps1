@@ -21,7 +21,7 @@ New-Item -ItemType Directory -Force $stage,$dist,(Join-Path $stage 'Assets') | O
 if($LASTEXITCODE){throw 'Ошибка CMake configure'}
 & cmake --build $build --config Release --parallel 2
 if($LASTEXITCODE){throw 'Ошибка компиляции C++/WinRT'}
-Copy-Item (Join-Path $build 'Release\AheadscaleVpnPlugin.dll'),(Join-Path $build 'Release\AheadscaleVpnController.exe') $stage
+Copy-Item (Join-Path $build 'Release\AheadscaleVpnPlugin.dll'),(Join-Path $build 'Release\AheadscaleVpnController.exe'),(Join-Path $build 'Release\AheadscaleVpnHost.exe') $stage
 (Get-Content (Join-Path $root 'Package.appxmanifest') -Raw).Replace('@VERSION@',$Version) | Set-Content (Join-Path $stage 'AppxManifest.xml') -Encoding utf8
 Add-Type -AssemblyName System.Drawing
 $original=[Drawing.Image]::FromFile((Join-Path $repo 'packaging\aheadscale\icon.png'))

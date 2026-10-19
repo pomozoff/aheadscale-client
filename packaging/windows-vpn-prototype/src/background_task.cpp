@@ -33,12 +33,15 @@ struct TaskFactory : implements<TaskFactory, Windows::Foundation::IActivationFac
     Windows::Foundation::IInspectable ActivateInstance() { return make<BackgroundTask>(); }
 };
 }
+winrt::Windows::Foundation::IActivationFactory CreateBackgroundTaskFactory() {
+    return winrt::make<aheadscale::TaskFactory>();
+}
 extern "C" HRESULT __stdcall DllGetActivationFactory(void* classId, void** factory) noexcept {
     try {
         *factory = nullptr;
         hstring name; copy_from_abi(name, classId);
         if (name != L"Aheadscale.VpnPrototype.BackgroundTask") return CLASS_E_CLASSNOTAVAILABLE;
-        *factory = detach_abi(make<aheadscale::TaskFactory>());
+        *factory = detach_abi(CreateBackgroundTaskFactory());
         return S_OK;
     } catch (...) { return to_hresult(); }
 }
