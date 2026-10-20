@@ -1,10 +1,12 @@
 package iface
 
-import (
-	"github.com/netbirdio/netbird/client/iface/device"
-)
+import "fmt"
 
-// GetInterfaceGUIDString returns an interface GUID. This is useful on Windows only
+// GetInterfaceGUIDString returns the GUID supplied by the active Windows backend.
 func (w *WGIface) GetInterfaceGUIDString() (string, error) {
-	return w.tun.(*device.TunDevice).GetInterfaceGUIDString()
+	provider, ok := w.tun.(interface{ GetInterfaceGUIDString() (string, error) })
+	if !ok {
+		return "", fmt.Errorf("Windows interface %T does not provide a GUID", w.tun)
+	}
+	return provider.GetInterfaceGUIDString()
 }
