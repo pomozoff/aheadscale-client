@@ -33,10 +33,13 @@ struct ChannelSession {
  std::mutex delivery;
  std::condition_variable deliveryReady;
  std::deque<std::vector<uint8_t>> received;
+ std::mutex transmit;
+ std::condition_variable transmitReady;
+ std::deque<std::vector<uint8_t>> outgoing;
  void Stop(wchar_t const* reason=L"unspecified")noexcept{
-  bool first;{std::lock_guard lock(delivery);first=!closed.exchange(true);}
+  bool first;{std::scoped_lock lock(delivery,transmit);first=!closed.exchange(true);}
   bool wasStarted=channelStarted.exchange(false);
-  deliveryReady.notify_all();
+  deliveryReady.notify_all();transmitReady.notify_all();
   if(!first && !wasStarted)return;
   try{auto record=ProcessContext();record.SetNamedValue(L"reason",JsonValue::CreateStringValue(reason));record.SetNamedValue(L"wasStarted",JsonValue::CreateBooleanValue(wasStarted));LogProbe(L"native-channel-stop.json",record);}catch(...){}
   // WinRT может синхронно вызвать Disconnect: не держим delivery при Stop/Start.
@@ -60,6 +63,27 @@ ValueSet Send(AppServiceConnection const& connection,ValueSet const& request){
 void Check(ValueSet const& reply){auto code=unbox_value<uint32_t>(reply.Lookup(L"win32"));if(code)throw hresult_error(HRESULT_FROM_WIN32(code));}
 uint8_t* Bytes(winrt::Windows::Storage::Streams::IBuffer const& buffer){
  uint8_t* bytes{};check_hresult(buffer.as<::Windows::Storage::Streams::IBufferByteAccess>()->Buffer(&bytes));return bytes;
+}
+void StartPacketSending(std::shared_ptr<ChannelSession> const& state){
+ std::thread([state]{
+  try{
+   init_apartment(apartment_type::multi_threaded);
+   for(;;){
+    std::vector<uint8_t> packet;
+    {
+     std::unique_lock lock(state->transmit);
+     state->transmitReady.wait(lock,[&]{return state->closed || !state->outgoing.empty();});
+     if(state->closed)return;
+     packet=std::move(state->outgoing.front());state->outgoing.pop_front();
+    }
+    auto request=Request(L"native-packet-out",state->generation);
+    request.Insert(L"packet",PropertyValue::CreateUInt8Array(packet));
+    Check(Send(state->connection,request));
+   }
+  }catch(hresult_error const& error){
+   if(!state->closed){auto record=ProcessContext();record.SetNamedValue(L"hresult",JsonValue::CreateNumberValue(static_cast<int32_t>(error.code())));record.SetNamedValue(L"message",JsonValue::CreateStringValue(error.message()));LogProbe(L"native-send-error.json",record);state->Stop(L"send-failed");}
+  }catch(...){state->Stop(L"send-exception");}
+ }).detach();
 }
 void StartPacketDelivery(std::shared_ptr<ChannelSession> const& state){
  // AppService подтверждает получение копии, а Windows VPN API вызывается
@@ -122,7 +146,7 @@ void ConnectNativeChannel(VpnChannel const& channel){
   ConfigureNativeChannel(channel,config,state->transport);
   state->channelStarted=true;
   if(state->closed){state->Stop(L"cancelled-during-start");throw hresult_canceled();}
-  step=L"start-packet-delivery";StartPacketDelivery(state);
+  step=L"start-packet-delivery";StartPacketDelivery(state);StartPacketSending(state);
   step=L"acknowledge-channel";
   auto startedRecord=ProcessContext();startedRecord.SetNamedValue(L"event",JsonValue::CreateStringValue(L"native-channel-start-returned"));LogProbe(L"native-channel.json",startedRecord);
   Check(Send(state->connection,Request(L"native-started",state->generation)));
@@ -165,9 +189,13 @@ void EncapsulateNative(VpnChannel const&,VpnPacketBufferList const& packets){
    step=L"buffer-length";auto size=buffer.Length();
    if(!size || size>1280)throw hresult_invalid_argument();
    step=L"buffer-byte-access";auto bytes=Bytes(buffer);
-   auto request=Request(L"native-packet-out",state->generation);
-   step=L"packet-message";request.Insert(L"packet",PropertyValue::CreateUInt8Array(array_view<uint8_t const>(bytes,bytes+size)));
-   step=L"send-packet";Check(Send(state->connection,request));
+   step=L"queue-packet";
+   {
+    std::lock_guard lock(state->transmit);
+    if(state->closed)throw hresult_canceled();
+    if(state->outgoing.size()<256)state->outgoing.emplace_back(bytes,bytes+size);
+   }
+   state->transmitReady.notify_one();
   }
  }catch(hresult_error const& error){
   auto record=ProcessContext();record.SetNamedValue(L"step",JsonValue::CreateStringValue(step));record.SetNamedValue(L"hresult",JsonValue::CreateNumberValue(static_cast<int32_t>(error.code())));record.SetNamedValue(L"message",JsonValue::CreateStringValue(error.message()));LogProbe(L"native-encapsulate-error.json",record);
