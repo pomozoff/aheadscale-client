@@ -37,7 +37,13 @@ Remove-Item $standardCheck
 # Отдельный GUI для проверки системного профиля; установленная .8 не заменяется.
 $ui=Join-Path $dist 'AheadscaleNativeUI.exe'
 $env:GOARCH='amd64'
-& go -C (Join-Path $repo 'client\ui') run github.com/wailsapp/wails/v3/cmd/wails3 generate bindings -clean=true -ts
+$env:GOBIN=Join-Path $root 'out\tools'
+New-Item -ItemType Directory -Force $env:GOBIN|Out-Null
+& go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.3
+if($LASTEXITCODE){throw 'Не установлен зафиксированный генератор Wails'}
+$wails=Join-Path $env:GOBIN 'wails3.exe'
+Push-Location (Join-Path $repo 'client\ui')
+try { & $wails generate bindings -clean=true -ts } finally { Pop-Location }
 if($LASTEXITCODE){throw 'Не созданы bindings опытного GUI'}
 $env:VITE_AHEADSCALE_MANAGEMENT_URL='https://aheadscale.ru'
 & pnpm --dir (Join-Path $repo 'client\ui\frontend') install --frozen-lockfile
@@ -45,7 +51,7 @@ if($LASTEXITCODE){throw 'Не установлены зафиксированн�
 & pnpm --dir (Join-Path $repo 'client\ui\frontend') build
 if($LASTEXITCODE){throw 'Не собран frontend опытного GUI'}
 $syso=Join-Path $repo 'client\ui\wails_windows_arm64.syso'
-& go -C $repo run github.com/wailsapp/wails/v3/cmd/wails3 generate syso -arch arm64 -icon (Join-Path $repo 'packaging\aheadscale\icon.ico') -manifest (Join-Path $repo 'client\ui\build\windows\wails.exe.manifest') -info (Join-Path $repo 'client\ui\build\windows\info.json') -out $syso
+& $wails generate syso -arch arm64 -icon (Join-Path $repo 'packaging\aheadscale\icon.ico') -manifest (Join-Path $repo 'client\ui\build\windows\wails.exe.manifest') -info (Join-Path $repo 'client\ui\build\windows\info.json') -out $syso
 if($LASTEXITCODE){throw 'Не созданы ресурсы Windows GUI'}
 $env:GOARCH='arm64'
 & go -C $repo build -trimpath -tags 'production,windowsvpnprototype' -ldflags ($flags+' -H windowsgui') -o $ui ./client/ui
