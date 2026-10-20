@@ -109,3 +109,47 @@ type nativeProfileDaemon struct {
 func (d *nativeProfileDaemon) GetActiveProfile(context.Context, *proto.GetActiveProfileRequest, ...grpc.CallOption) (*proto.GetActiveProfileResponse, error) {
 	return d.active, nil
 }
+
+// Windows может уже считать профиль отключённым до готовности канала,
+// пока движок ещё выполняет Up. Disconnect обязан остановить оба состояния.
+func TestNativeConnectionDisconnectStopsPartialEngine(t *testing.T) {
+	for _, failedProfile := range []bool{false, true} {
+		name := "profile_already_off"
+		if failedProfile {
+			name = "profile_command_failed"
+		}
+		t.Run(name, func(t *testing.T) {
+			var enginePending atomic.Bool
+			enginePending.Store(true)
+			profileErr := errors.New("profile disconnect failed")
+			daemon := &nativeDownDaemon{pending: &enginePending}
+			controller := newNativeVPNController(stubConn{client: daemon}, func(context.Context, bool) error {
+				if failedProfile {
+					return profileErr
+				}
+				return nil
+			})
+			connection := &Connection{nativeVPN: controller}
+			err := connection.Down(context.Background())
+			if failedProfile && !errors.Is(err, profileErr) {
+				t.Fatalf("потеряна ошибка системной команды: %v", err)
+			}
+			if !failedProfile && err != nil {
+				t.Fatal(err)
+			}
+			if enginePending.Load() {
+				t.Fatal("профиль выключен, но движок продолжает подключение")
+			}
+		})
+	}
+}
+
+type nativeDownDaemon struct {
+	proto.DaemonServiceClient
+	pending *atomic.Bool
+}
+
+func (d *nativeDownDaemon) Down(context.Context, *proto.DownRequest, ...grpc.CallOption) (*proto.DownResponse, error) {
+	d.pending.Store(false)
+	return &proto.DownResponse{}, nil
+}

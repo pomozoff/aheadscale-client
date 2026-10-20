@@ -53,11 +53,14 @@ export const MainConnectionStatusSwitch = () => {
 
     type Action = "connect" | "logging-in" | "disconnect" | null;
     const [action, setAction] = useState<Action>(null);
+    // Поздний результат отменённого запроса не меняет новое намерение пользователя.
+    const intentGeneration = useRef(0);
 
     const loginGuard = useRef(false);
     const driveLogin = useCallback(() => {
         if (loginGuard.current) return;
         loginGuard.current = true;
+        intentGeneration.current += 1;
         setAction("logging-in");
         void startConnection(() => {
             loginGuard.current = false;
@@ -90,16 +93,20 @@ export const MainConnectionStatusSwitch = () => {
     }, [daemonState, action]);
 
     const connect = async () => {
+        const generation = ++intentGeneration.current;
         setAction("connect");
         try {
             await Connection.Up({
                 profileName: activeProfileId,
                 username,
             });
+            if (generation !== intentGeneration.current) return;
             await refresh();
         } catch (e) {
+            if (generation !== intentGeneration.current) return;
             setAction(null);
             await refresh();
+            if (generation !== intentGeneration.current) return;
             await errorDialog({
                 Title: t("connect.error.connectTitle"),
                 Message: errorMessage(e),
@@ -108,13 +115,17 @@ export const MainConnectionStatusSwitch = () => {
     };
 
     const disconnect = async () => {
+        const generation = ++intentGeneration.current;
         setAction("disconnect");
         try {
             await Connection.Down();
+            if (generation !== intentGeneration.current) return;
             await refresh();
         } catch (e) {
+            if (generation !== intentGeneration.current) return;
             setAction(null);
             await refresh();
+            if (generation !== intentGeneration.current) return;
             await errorDialog({
                 Title: t("connect.error.disconnectTitle"),
                 Message: errorMessage(e),
@@ -194,6 +205,7 @@ export const MainConnectionStatusSwitch = () => {
     }, [isTransitioning]);
 
     const forceCancel = async () => {
+        const generation = ++intentGeneration.current;
         if (action === "logging-in") {
             Events.Emit(EVENT_BROWSER_LOGIN_CANCEL).catch((err: unknown) =>
                 console.error("emit browser-login cancel failed", err),
@@ -205,10 +217,13 @@ export const MainConnectionStatusSwitch = () => {
         setAction("disconnect");
         try {
             await Connection.Down();
+            if (generation !== intentGeneration.current) return;
             await refresh();
         } catch (e) {
+            if (generation !== intentGeneration.current) return;
             setAction(null);
             await refresh();
+            if (generation !== intentGeneration.current) return;
             await errorDialog({
                 Title: t("connect.error.disconnectTitle"),
                 Message: errorMessage(e),

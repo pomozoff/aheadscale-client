@@ -12,12 +12,10 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sys/windows"
-
-	"github.com/netbirdio/netbird/client/internal/windowsvpn"
 )
 
-func newPlatformVPNController() nativeVPNController {
-	return windowsvpn.NewSessionController(runSystemVPN)
+func newPlatformVPNController(conn DaemonConn) nativeVPNController {
+	return newNativeVPNController(conn, runSystemVPN)
 }
 
 func runSystemVPN(ctx context.Context, connected bool) error {

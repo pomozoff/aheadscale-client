@@ -2,4 +2,4 @@
 
 package services
 
-func newPlatformVPNController() nativeVPNController { return nil }
+func newPlatformVPNController(_ DaemonConn) nativeVPNController { return nil }

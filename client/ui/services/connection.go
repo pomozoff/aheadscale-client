@@ -72,7 +72,7 @@ type Connection struct {
 // NewConnection wires up a Connection. translator or prefs may be nil, in which
 // case classifyDaemonError falls back to the bare error key.
 func NewConnection(conn DaemonConn, translator ErrorTranslator, prefs LanguagePreference) *Connection {
-	return &Connection{conn: conn, classifier: errorClassifier{translator: translator, prefs: prefs}, nativeVPN: newPlatformVPNController()}
+	return &Connection{conn: conn, classifier: errorClassifier{translator: translator, prefs: prefs}, nativeVPN: newPlatformVPNController(conn)}
 }
 
 func (s *Connection) Login(ctx context.Context, p LoginParams) (LoginResult, error) {
