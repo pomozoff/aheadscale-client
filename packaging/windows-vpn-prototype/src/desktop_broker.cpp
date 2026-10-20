@@ -205,6 +205,9 @@ int RunNativeBroker(){
  ValueSet registration;registration.Insert(L"operation",box_value(hstring(L"register-native-broker")));Send(state->connection,registration);
  WaitForSingleObject(state->complete.value,INFINITE);
  {std::lock_guard control(state->controlMutex);}
+ // Сначала останавливаем старый CLI up: его повтор Login иначе может
+ // пережить Down и заново изменить состояние уже отключённой службы.
+ if(state->up.value!=INVALID_HANDLE_VALUE && WaitForSingleObject(state->up.value,0)!=WAIT_OBJECT_0){TerminateProcess(state->up.value,ERROR_CANCELLED);if(WaitForSingleObject(state->up.value,5000)!=WAIT_OBJECT_0)throw hresult_error(HRESULT_FROM_WIN32(ERROR_TIMEOUT));}
  if(state->reader.joinable())state->reader.join();
  if(state->writer.joinable())state->writer.join();
  if(state->acceptor.joinable())state->acceptor.join();
@@ -221,7 +224,6 @@ int RunNativeBroker(){
  try{Handle down(StartCLI(L"down"));WaitCLI(down.value,30000);}catch(hresult_error const& error){
   auto record=ProcessContext();record.SetNamedValue(L"hresult",JsonValue::CreateNumberValue(static_cast<int32_t>(error.code())));LogProbe(L"native-cleanup-error.json",record);result=1;
  }
- if(state->up.value!=INVALID_HANDLE_VALUE && WaitForSingleObject(state->up.value,5000)!=WAIT_OBJECT_0){TerminateProcess(state->up.value,ERROR_CANCELLED);WaitForSingleObject(state->up.value,5000);}
  return result;
 }
 }

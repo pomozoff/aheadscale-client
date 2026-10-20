@@ -689,14 +689,11 @@ func (s *Server) Login(callerCtx context.Context, msg *proto.LoginRequest) (*pro
 		return &proto.LoginResponse{}, nil
 	}
 
-	defer func() {
-		status, err := state.Status()
-		if err != nil || (status != internal.StatusNeedsLogin && status != internal.StatusLoginFailed) {
-			state.Set(internal.StatusIdle)
-		}
-	}()
+	var preparedCtx context.Context
+	defer func() { s.finishLogin(preparedCtx) }()
 
 	ctx, activeProf, err := s.authorizeAndPrepareLogin(callerCtx, msg, activeProf)
+	preparedCtx = ctx
 	if err != nil {
 		// The RPC boundary is where this gets recorded: nothing logs handler
 		// errors for us, and a caller that retries would otherwise leave no
@@ -739,11 +736,15 @@ func (s *Server) Login(callerCtx context.Context, msg *proto.LoginRequest) (*pro
 	// needsLogin=true rather than an error.
 	needsLogin, err := s.isLoginRequired(ctx)
 	if err != nil {
-		state.Set(internal.StatusLoginFailed)
+		if stateErr := s.setLoginStateIfCurrent(ctx, internal.StatusLoginFailed); stateErr != nil {
+			return nil, stateErr
+		}
 		return nil, err
 	}
 	if !needsLogin {
-		state.Set(internal.StatusIdle)
+		if err := s.setLoginStateIfCurrent(ctx, internal.StatusIdle); err != nil {
+			return nil, err
+		}
 		return &proto.LoginResponse{}, nil
 	}
 
@@ -754,10 +755,14 @@ func (s *Server) Login(callerCtx context.Context, msg *proto.LoginRequest) (*pro
 	// Setup-key path: we are about to dial Management with the key, so the
 	// Connecting paint is meaningful here — unlike the SSO branch above,
 	// which returns NeedsLogin and parks on the browser leg.
-	state.Set(internal.StatusConnecting)
+	if err := s.setLoginStateIfCurrent(ctx, internal.StatusConnecting); err != nil {
+		return nil, err
+	}
 
 	if loginStatus, err := s.attemptLogin(ctx, msg.SetupKey, ""); err != nil {
-		state.Set(loginStatus)
+		if stateErr := s.setLoginStateIfCurrent(ctx, loginStatus); stateErr != nil {
+			return nil, stateErr
+		}
 		return nil, err
 	}
 
@@ -767,7 +772,6 @@ func (s *Server) Login(callerCtx context.Context, msg *proto.LoginRequest) (*pro
 // beginSSOLogin starts the browser leg of a login that carries no setup key and
 // returns the response that parks the caller on it.
 func (s *Server) beginSSOLogin(ctx context.Context, config *profilemanager.Config, msg *proto.LoginRequest) (*proto.LoginResponse, error) {
-	state := internal.CtxGetState(s.rootCtx)
 
 	hint := ""
 	if msg.Hint != nil {
@@ -775,12 +779,16 @@ func (s *Server) beginSSOLogin(ctx context.Context, config *profilemanager.Confi
 	}
 	oAuthFlow, err := auth.NewOAuthFlow(ctx, config, msg.IsUnixDesktopClient, false, hint)
 	if err != nil {
-		state.Set(internal.StatusLoginFailed)
+		if stateErr := s.setLoginStateIfCurrent(ctx, internal.StatusLoginFailed); stateErr != nil {
+			return nil, stateErr
+		}
 		return nil, err
 	}
 
 	if resp := s.pendingOAuthFlowResponse(ctx, oAuthFlow); resp != nil {
-		state.Set(internal.StatusNeedsLogin)
+		if err := s.setLoginStateIfCurrent(ctx, internal.StatusNeedsLogin); err != nil {
+			return nil, err
+		}
 		return resp, nil
 	}
 
@@ -791,12 +799,18 @@ func (s *Server) beginSSOLogin(ctx context.Context, config *profilemanager.Confi
 	}
 
 	s.mutex.Lock()
+	if err := ctx.Err(); err != nil {
+		s.mutex.Unlock()
+		return nil, err
+	}
 	s.oauthAuthFlow.flow = oAuthFlow
 	s.oauthAuthFlow.info = authInfo
 	s.oauthAuthFlow.expiresAt = time.Now().Add(time.Duration(authInfo.ExpiresIn) * time.Second)
 	s.mutex.Unlock()
 
-	state.Set(internal.StatusNeedsLogin)
+	if err := s.setLoginStateIfCurrent(ctx, internal.StatusNeedsLogin); err != nil {
+		return nil, err
+	}
 
 	return &proto.LoginResponse{
 		NeedsSSOLogin:           true,
