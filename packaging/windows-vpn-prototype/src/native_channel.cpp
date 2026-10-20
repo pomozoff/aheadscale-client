@@ -118,18 +118,26 @@ void DisconnectNativeChannel(VpnChannel const& channel){
 }
 void EncapsulateNative(VpnChannel const&,VpnPacketBufferList const& packets){
  auto state=Current();if(!state || state->closed)throw hresult_error(HRESULT_FROM_WIN32(ERROR_NOT_CONNECTED));
- if(!state->dataReady)return; // Ранние DNS/NCSI-пакеты не должны опередить ACK потока.
+ if(!state->dataReady)return;
+ hstring step=L"list-size";
  try{
-  for(auto const& packet:packets){
-   auto buffer=packet.Buffer();auto size=buffer.Length();
+  auto count=packets.Size();
+  auto probe=ProcessContext();probe.SetNamedValue(L"iterable",JsonValue::CreateBooleanValue(static_cast<bool>(packets.try_as<IIterable<VpnPacketBuffer>>())));LogProbe(L"native-packet-list.json",probe);
+  // Используем операции самого VPN API. Каждый взятый buffer возвращается в
+  // исходный список: после копирования Windows освобождает его обычным путём.
+  for(uint32_t index=0;index<count;index++){
+   step=L"remove-packet";auto packet=packets.RemoveAtBegin();
+   step=L"return-packet";packets.Append(packet);
+   step=L"packet-buffer";auto buffer=packet.Buffer();
+   step=L"buffer-length";auto size=buffer.Length();
    if(!size || size>1280)throw hresult_invalid_argument();
+   step=L"buffer-byte-access";auto bytes=Bytes(buffer);
    auto request=Request(L"native-packet-out",state->generation);
-   request.Insert(L"packet",PropertyValue::CreateUInt8Array(array_view<uint8_t const>(Bytes(buffer),Bytes(buffer)+size)));
-   Check(Send(state->connection,request));
+   step=L"packet-message";request.Insert(L"packet",PropertyValue::CreateUInt8Array(array_view<uint8_t const>(bytes,bytes+size)));
+   step=L"send-packet";Check(Send(state->connection,request));
   }
-  // Входной список не изменяется: Windows возвращает все его buffers в pool.
  }catch(hresult_error const& error){
-  auto record=ProcessContext();record.SetNamedValue(L"hresult",JsonValue::CreateNumberValue(static_cast<int32_t>(error.code())));record.SetNamedValue(L"message",JsonValue::CreateStringValue(error.message()));LogProbe(L"native-encapsulate-error.json",record);
+  auto record=ProcessContext();record.SetNamedValue(L"step",JsonValue::CreateStringValue(step));record.SetNamedValue(L"hresult",JsonValue::CreateNumberValue(static_cast<int32_t>(error.code())));record.SetNamedValue(L"message",JsonValue::CreateStringValue(error.message()));LogProbe(L"native-encapsulate-error.json",record);
   state->Stop(L"encapsulate-failed");throw;
  }catch(...){state->Stop(L"encapsulate-exception");throw;}
 }
