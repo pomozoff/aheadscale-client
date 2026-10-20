@@ -6,3 +6,5 @@ bool TryRunAppService(winrt::Windows::ApplicationModel::Background::IBackgroundT
 int ProbeAppServiceCaller();
 winrt::Windows::ApplicationModel::AppService::AppServiceConnection ActiveBroker(bool nativeOnly=false);
 }
+
+namespace aheadscale { void ClearActiveBroker(winrt::Windows::ApplicationModel::AppService::AppServiceConnection const&); }

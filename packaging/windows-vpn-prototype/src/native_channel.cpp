@@ -1,7 +1,7 @@
 #include "native_channel.h"
 #include "app_service.h"
 #include "ipc_probe.h"
-#include "packet_bridge.h"
+#include "packet_transport.h"
 #include <winrt/Windows.ApplicationModel.h>
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Storage.Streams.h>
@@ -24,16 +24,13 @@ using namespace winrt::Windows::Networking::Vpn;
 using namespace winrt::Windows::Data::Json;
 namespace aheadscale {
 namespace {
-
-// [DEBUG-vpn34] Только этапы и коды; содержимое пакетов не записывается.
-void DebugTrace(wchar_t const* file,wchar_t const* event,uint32_t code=0,hstring const& operation={})noexcept{
- try{auto record=ProcessContext();record.SetNamedValue(L"event",JsonValue::CreateStringValue(hstring(std::wstring(L"[DEBUG-vpn34] ")+event)));record.SetNamedValue(L"tickMs",JsonValue::CreateNumberValue(static_cast<double>(GetTickCount64())));record.SetNamedValue(L"threadId",JsonValue::CreateNumberValue(GetCurrentThreadId()));record.SetNamedValue(L"code",JsonValue::CreateNumberValue(code));if(!operation.empty())record.SetNamedValue(L"operation",JsonValue::CreateStringValue(operation));LogProbe(file,record);}catch(...){}
-}
 struct ChannelSession {
  VpnChannel channel{nullptr};
  AppServiceConnection connection{nullptr};
  winrt::Windows::Networking::Sockets::DatagramSocket transport{nullptr};
  hstring generation;
+ Handle cancel{CreateEventW(nullptr,TRUE,FALSE,nullptr)};
+ std::shared_ptr<PacketTransport> packets;
  std::atomic<bool> closed{}, dataReady{}, channelStarted{};
  std::mutex delivery;
  std::condition_variable deliveryReady;
@@ -42,13 +39,16 @@ struct ChannelSession {
  std::condition_variable transmitReady;
  std::deque<std::vector<uint8_t>> outgoing;
  void Stop(wchar_t const* reason=L"unspecified")noexcept{
-  bool first;{std::scoped_lock lock(delivery,transmit);first=!closed.exchange(true);}
+  std::shared_ptr<PacketTransport> data;
+  bool first;{std::scoped_lock lock(delivery,transmit);first=!closed.exchange(true);data=packets;}
   bool wasStarted=channelStarted.exchange(false);
+  SetEvent(cancel.value);if(data)data->Cancel();
   deliveryReady.notify_all();transmitReady.notify_all();
   if(!first && !wasStarted)return;
   try{auto record=ProcessContext();record.SetNamedValue(L"reason",JsonValue::CreateStringValue(reason));record.SetNamedValue(L"wasStarted",JsonValue::CreateBooleanValue(wasStarted));LogProbe(L"native-channel-stop.json",record);}catch(...){}
   // WinRT может синхронно вызвать Disconnect: не держим delivery при Stop/Start.
-  try{channel.Stop();DebugTrace(L"native-stop-return-detail.json",L"stop-returned");}catch(...){DebugTrace(L"native-stop-error-detail.json",L"stop-failed",static_cast<uint32_t>(to_hresult()));}
+  try{channel.Stop();}catch(...){}
+  try{ClearActiveBroker(connection);if(connection)connection.Close();}catch(...){}
  }
 };
 std::mutex sessionMutex;
@@ -60,9 +60,9 @@ ValueSet Request(wchar_t const* operation,hstring const& generation={}){
 }
 ValueSet Send(AppServiceConnection const& connection,ValueSet const& request){
  auto pending=connection.SendMessageAsync(request);
- if(pending.wait_for(std::chrono::seconds(20))!=AsyncStatus::Completed){DebugTrace(L"native-send-timeout-detail.json",L"send-timeout",static_cast<uint32_t>(pending.Status()),unbox_value<hstring>(request.Lookup(L"operation")));pending.Cancel();throw hresult_error(HRESULT_FROM_WIN32(ERROR_TIMEOUT));}
+ if(pending.wait_for(std::chrono::seconds(20))!=AsyncStatus::Completed){pending.Cancel();throw hresult_error(HRESULT_FROM_WIN32(ERROR_TIMEOUT));}
  auto response=pending.GetResults();
- if(response.Status()!=AppServiceResponseStatus::Success){DebugTrace(L"native-send-status-detail.json",L"send-failed",static_cast<uint32_t>(response.Status()),unbox_value<hstring>(request.Lookup(L"operation")));throw hresult_error(HRESULT_FROM_WIN32(ERROR_CONNECTION_ABORTED));}
+ if(response.Status()!=AppServiceResponseStatus::Success)throw hresult_error(HRESULT_FROM_WIN32(ERROR_CONNECTION_ABORTED));
  if(!response.Message().HasKey(L"win32"))throw hresult_invalid_argument();return response.Message();
 }
 void Check(ValueSet const& reply){auto code=unbox_value<uint32_t>(reply.Lookup(L"win32"));if(code)throw hresult_error(HRESULT_FROM_WIN32(code));}
@@ -81,9 +81,7 @@ void StartPacketSending(std::shared_ptr<ChannelSession> const& state){
      if(state->closed)return;
      packet=std::move(state->outgoing.front());state->outgoing.pop_front();
     }
-    auto request=Request(L"native-packet-out",state->generation);
-    request.Insert(L"packet",PropertyValue::CreateUInt8Array(packet));
-    Check(Send(state->connection,request));
+    state->packets->Write(packet,state->cancel.value);
    }
   }catch(hresult_error const& error){
    if(!state->closed){auto record=ProcessContext();record.SetNamedValue(L"hresult",JsonValue::CreateNumberValue(static_cast<int32_t>(error.code())));record.SetNamedValue(L"message",JsonValue::CreateStringValue(error.message()));LogProbe(L"native-send-error.json",record);state->Stop(L"send-failed");}
@@ -91,20 +89,13 @@ void StartPacketSending(std::shared_ptr<ChannelSession> const& state){
  }).detach();
 }
 void StartPacketDelivery(std::shared_ptr<ChannelSession> const& state){
- // AppService подтверждает получение копии, а Windows VPN API вызывается
- // отдельно. Иначе синхронный ответ DNS может ждать завершения Encapsulate,
- // который в этот момент ждёт ответ посредника по той же связи.
+ // Независимое чтение потока; API Windows не удерживает управляющий запрос.
  std::thread([state]{
   try{
    init_apartment(apartment_type::multi_threaded);
    for(;;){
-    std::vector<uint8_t> packet;
-    {
-     std::unique_lock lock(state->delivery);
-     state->deliveryReady.wait(lock,[&]{return state->closed || !state->received.empty();});
-     if(state->closed)return;
-     packet=std::move(state->received.front());state->received.pop_front();
-    }
+    auto packet=state->packets->Read(state->cancel.value);
+    if(state->closed)return;
     auto target=state->channel.GetVpnReceivePacketBuffer();auto buffer=target.Buffer();
     if(packet.size()>buffer.Capacity())throw hresult_invalid_argument();
     std::copy(packet.begin(),packet.end(),Bytes(buffer));buffer.Length(static_cast<uint32_t>(packet.size()));
@@ -136,13 +127,16 @@ void ConnectNativeChannel(VpnChannel const& channel){
   if(state->generation.size()!=32)throw hresult_invalid_argument();
   for(auto ch:state->generation)if(!((ch>=L'0' && ch<=L'9') || (ch>=L'a' && ch<=L'f')))throw hresult_invalid_argument();
   if(state->closed)throw hresult_canceled();
+  step=L"authenticate-packet-transport";
+  auto data=PacketTransport::Connect(reply.Lookup(L"packetTransport").as<ValueSet>(),state->cancel.value);
+  {std::lock_guard lock(state->delivery);if(state->closed)throw hresult_canceled();state->packets=data;}
   step=L"create-transport";
   state->transport=winrt::Windows::Networking::Sockets::DatagramSocket();
-  // Платформе нужен socket transport; IP-пакеты передаются только через AppService.
+  // Платформе нужен socket transport; IP-пакеты идут через отдельный pipe.
   // Encapsulate оставляет входные buffers платформе и ничего не отправляет в socket.
   step=L"associate-transport";channel.AssociateTransport(state->transport,nullptr);
   // Connect UDP задаёт endpoint для Windows VPN; payload в этот socket не пишется.
-  // Реальный IP-поток по-прежнему идёт через авторизованный AppService.
+  // AppService остаётся открытым и обслуживает только короткие команды.
   step=L"connect-transport";
   state->transport.ConnectAsync(winrt::Windows::Networking::HostName(L"aheadscale.ru"),L"443").get();
   if(state->closed)throw hresult_canceled();
@@ -176,6 +170,7 @@ void ConnectNativeChannel(VpnChannel const& channel){
 }
 void DisconnectNativeChannel(VpnChannel const& channel){
  auto state=Current();if(!state){channel.Stop();return;}
+ ClearActiveBroker(state->connection);
  state->Stop(L"disconnect-request");try{Send(state->connection,Request(L"native-disconnect",state->generation));}catch(...){}
 }
 void EncapsulateNative(VpnChannel const&,VpnPacketBufferList const& packets){
@@ -207,26 +202,9 @@ void EncapsulateNative(VpnChannel const&,VpnPacketBufferList const& packets){
   state->Stop(L"encapsulate-failed");throw;
  }catch(...){state->Stop(L"encapsulate-exception");throw;}
 }
-bool HandleNativeRequest(ValueSet const& message,ValueSet& reply){
- if(!message.HasKey(L"operation"))return false;
- auto operation=unbox_value<hstring>(message.Lookup(L"operation"));
- if(operation!=L"native-packet-in" && operation!=L"native-lost")return false;
- auto state=Current();
- if(!state || state->closed || !message.HasKey(L"sessionId") || unbox_value<hstring>(message.Lookup(L"sessionId"))!=state->generation)throw hresult_access_denied();
- if(operation==L"native-lost")state->Stop(L"packet-pipe-lost");
- else{
-  if(message.Size()!=3)throw hresult_invalid_argument();
-  auto packet=ReadPacketPayload(message);
-  if(packet.size()>1280)throw hresult_invalid_argument();
-  {
-   std::lock_guard guard(state->delivery);
-   if(state->closed)throw hresult_error(HRESULT_FROM_WIN32(ERROR_NOT_CONNECTED));
-   if(state->received.size()>=256)throw hresult_error(HRESULT_FROM_WIN32(ERROR_NOT_ENOUGH_QUOTA));
-   state->received.emplace_back(packet.begin(),packet.end());
-  }
-  state->deliveryReady.notify_one();
- }
- reply.Insert(L"win32",box_value(uint32_t{ERROR_SUCCESS}));return true;
+bool HandleNativeRequest(ValueSet const&,ValueSet&){
+ // Пакеты по AppService больше не принимаются, включая старый fallback.
+ return false;
 }
 void NativeConnectionLost(AppServiceConnection const& connection){
  auto state=Current();if(state && get_abi(state->connection)==get_abi(connection))state->Stop(L"appservice-lost");

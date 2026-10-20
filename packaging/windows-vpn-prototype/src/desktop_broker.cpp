@@ -1,6 +1,6 @@
 #include "native_channel.h"
 #include "ipc_probe.h"
-#include "packet_bridge.h"
+#include "packet_transport.h"
 #include <winrt/Windows.ApplicationModel.h>
 #include <winrt/Windows.Foundation.h>
 #include <aclapi.h>
@@ -12,6 +12,8 @@
 #include <memory>
 #include <vector>
 #include <chrono>
+#include <winsvc.h>
+#include <winrt/Windows.Storage.h>
 using namespace winrt;
 using namespace winrt::Windows::ApplicationModel;
 using namespace winrt::Windows::ApplicationModel::AppService;
@@ -20,11 +22,6 @@ using namespace winrt::Windows::Foundation::Collections;
 using namespace winrt::Windows::Data::Json;
 namespace aheadscale {
 namespace {
-
-// [DEBUG-vpn34] Только этапы и коды; содержимое пакетов не записывается.
-void DebugTrace(wchar_t const* file,wchar_t const* event,uint32_t code=0,hstring const& operation={})noexcept{
- try{auto record=ProcessContext();record.SetNamedValue(L"event",JsonValue::CreateStringValue(hstring(std::wstring(L"[DEBUG-vpn34] ")+event)));record.SetNamedValue(L"tickMs",JsonValue::CreateNumberValue(static_cast<double>(GetTickCount64())));record.SetNamedValue(L"threadId",JsonValue::CreateNumberValue(GetCurrentThreadId()));record.SetNamedValue(L"code",JsonValue::CreateNumberValue(code));if(!operation.empty())record.SetNamedValue(L"operation",JsonValue::CreateStringValue(operation));LogProbe(file,record);}catch(...){}
-}
 constexpr wchar_t PacketPipe[]=L"\\\\.\\pipe\\ProtectedPrefix\\Administrators\\aheadscale-vpn-prototype";
 ValueSet Reply(uint32_t code){ValueSet r;r.Insert(L"win32",box_value(code));return r;}
 DWORD Transfer(HANDLE pipe,void* buffer,DWORD length,HANDLE stop,bool writing,DWORD timeout){
@@ -59,28 +56,49 @@ std::vector<uint8_t> ReadPacket(HANDLE pipe,uint32_t maximum,HANDLE stop,DWORD t
  if(!length || length>maximum)throw hresult_invalid_argument(L"Неверный размер кадра");
  std::vector<uint8_t> packet(length);ReadExact(pipe,packet.data(),length,stop,timeout);return packet;
 }
+void RequireNativeService(){
+ struct ServiceHandle{SC_HANDLE value;~ServiceHandle(){if(value)CloseServiceHandle(value);}};
+ ServiceHandle manager{OpenSCManagerW(nullptr,nullptr,SC_MANAGER_CONNECT)};check_bool(manager.value!=nullptr);
+ ServiceHandle service{OpenServiceW(manager.value,L"Aheadscale",SERVICE_QUERY_CONFIG|SERVICE_QUERY_STATUS)};check_bool(service.value!=nullptr);
+ DWORD length{};QueryServiceConfigW(service.value,nullptr,0,&length);
+ if(GetLastError()!=ERROR_INSUFFICIENT_BUFFER || !length || length>65536)throw hresult_access_denied();
+ std::vector<uint8_t> memory(length);auto config=reinterpret_cast<QUERY_SERVICE_CONFIGW*>(memory.data());
+ check_bool(QueryServiceConfigW(service.value,config,length,&length));
+ std::wstring expected=L"\""+std::wstring(Package::Current().InstalledLocation().Path())+L"\\AheadscaleNativeDaemon.exe\" ";
+ std::wstring actual=config->lpBinaryPathName;
+ if(actual.size()<expected.size() || _wcsnicmp(actual.c_str(),expected.c_str(),expected.size()))throw hresult_access_denied(L"Не выбрана опытная служба Aheadscale");
+ SERVICE_STATUS_PROCESS status{};check_bool(QueryServiceStatusEx(service.value,SC_STATUS_PROCESS_INFO,reinterpret_cast<BYTE*>(&status),sizeof(status),&length));
+ if(status.dwCurrentState!=SERVICE_RUNNING)throw hresult_error(HRESULT_FROM_WIN32(ERROR_SERVICE_NOT_ACTIVE));
+}
+void WaitCLI(HANDLE process,DWORD timeout){
+ if(WaitForSingleObject(process,timeout)!=WAIT_OBJECT_0){TerminateProcess(process,ERROR_TIMEOUT);WaitForSingleObject(process,5000);throw hresult_error(HRESULT_FROM_WIN32(ERROR_TIMEOUT));}
+ DWORD result{};check_bool(GetExitCodeProcess(process,&result));
+ if(result)throw hresult_error(HRESULT_FROM_WIN32(ERROR_GEN_FAILURE),L"Команда опытной службы не завершилась успешно");
+}
 HANDLE StartCLI(wchar_t const* operation){
+ RequireNativeService();
  std::wstring executable=L"C:\\Program Files\\Aheadscale\\aheadscale.exe";
  std::wstring command=L"\""+executable+L"\" "+operation;
  STARTUPINFOW startup{sizeof(startup)};PROCESS_INFORMATION process{};
  check_bool(CreateProcessW(executable.c_str(),command.data(),nullptr,nullptr,FALSE,CREATE_NO_WINDOW,nullptr,nullptr,&startup,&process));
- DebugTrace(std::wstring(operation)==L"up"?L"native-cli-up-detail.json":L"native-cli-down-detail.json",L"cli-started",process.dwProcessId,operation);
  CloseHandle(process.hThread);return process.hProcess;
 }
 struct NativeBrokerState {
  Handle complete{CreateEventW(nullptr,TRUE,FALSE,nullptr)};
  Handle pipe;
  Handle up;
- std::mutex writeMutex;
- std::thread reader;
+ std::mutex writeMutex,controlMutex;
+ std::thread reader,writer,acceptor;
+ std::shared_ptr<PacketTransport> packets=PacketTransport::Listen();
+ Handle packetReady{CreateEventW(nullptr,TRUE,FALSE,nullptr)};
  hstring generation;
  hstring step=L"idle";
  std::atomic<bool> closing{},started{};
  AppServiceConnection connection{nullptr};
- void Stop()noexcept{if(!closing.exchange(true)){SetEvent(complete.value);if(pipe.value!=INVALID_HANDLE_VALUE)CancelIoEx(pipe.value,nullptr);}}
+ void Stop()noexcept{if(!closing.exchange(true)){SetEvent(complete.value);packets->Cancel();if(pipe.value!=INVALID_HANDLE_VALUE)CancelIoEx(pipe.value,nullptr);}}
  ~NativeBrokerState(){
   Stop();
-  if(reader.joinable()){CancelIoEx(pipe.value,nullptr);reader.join();}
+  if(reader.joinable())reader.join();if(writer.joinable())writer.join();if(acceptor.joinable())acceptor.join();
  }
  void Open(){
   step=L"start-engine";up.value=StartCLI(L"up");
@@ -114,12 +132,20 @@ ValueSet Send(AppServiceConnection const& connection,ValueSet const& request){
 int RunNativeBroker(){
  auto package=Package::Current();
  if(FamilyName()!=PrototypeFamily || package.Id().Name()!=PackageName || package.Id().Publisher()!=Publisher)throw hresult_access_denied();
+ auto mutexName=L"Local\\Aheadscale.VpnPrototype.NativeBroker."+CurrentUserSid();
+ Handle mutex(CreateMutexW(nullptr,FALSE,mutexName.c_str()));check_bool(mutex.value!=nullptr);
+ auto acquired=WaitForSingleObject(mutex.value,30000);
+ if(acquired!=WAIT_OBJECT_0 && acquired!=WAIT_ABANDONED)throw hresult_error(HRESULT_FROM_WIN32(ERROR_BUSY));
+ struct MutexLease{HANDLE value;~MutexLease(){ReleaseMutex(value);}} lease{mutex.value};
+ RequireNativeService();
  auto state=std::make_shared<NativeBrokerState>();
  state->connection=AppServiceConnection();
  state->connection.AppServiceName(L"Aheadscale.VpnPrototype.Broker");state->connection.PackageFamilyName(PrototypeFamily);
  auto token=state->connection.RequestReceived([state](auto const&,AppServiceRequestReceivedEventArgs const& args){
   auto deferral=args.GetDeferral();
+  std::lock_guard control(state->controlMutex);
   try{
+   if(state->closing)throw hresult_canceled();
    auto request=args.Request().Message();
    if(!request.HasKey(L"operation") || request.Size()>3)throw hresult_invalid_argument();
    auto operation=unbox_value<hstring>(request.Lookup(L"operation"));auto reply=Reply(ERROR_SUCCESS);
@@ -131,42 +157,38 @@ int RunNativeBroker(){
     auto config=JsonObject::Parse(text);state->generation=config.GetNamedString(L"sessionId");
     if(state->generation.size()!=32)throw hresult_invalid_argument();
     reply.Insert(L"configuration",box_value(text));
+    reply.Insert(L"packetTransport",state->packets->Offer());
+    state->acceptor=std::thread([state]{try{state->packets->Accept(state->complete.value);SetEvent(state->packetReady.value);}catch(...){state->Stop();}});
    }else{
     if(!request.HasKey(L"sessionId") || unbox_value<hstring>(request.Lookup(L"sessionId"))!=state->generation || state->closing)throw hresult_access_denied();
     if(operation==L"native-started"){
      if(state->started.exchange(true))throw hresult_invalid_argument();
+     HANDLE ready[]{state->packetReady.value,state->complete.value};if(WaitForMultipleObjects(2,ready,FALSE,10000)!=WAIT_OBJECT_0)throw hresult_error(HRESULT_FROM_WIN32(ERROR_NOT_CONNECTED));
      std::string ack="ASREADY1"+to_string(state->generation);WriteExact(state->pipe.value,ack.data(),static_cast<DWORD>(ack.size()),state->complete.value);
      if(state->reader.joinable())throw hresult_invalid_argument();
      state->reader=std::thread([state]{
       init_apartment(apartment_type::multi_threaded);
       try{
-       unsigned tracedReads=0;
        while(!state->closing){
-        if(tracedReads++<8)DebugTrace(L"native-pipe-read-detail.json",L"read-started");
         auto packet=ReadPacket(state->pipe.value,65535,state->complete.value);
-        if(tracedReads<=8)DebugTrace(L"native-pipe-read-detail.json",L"read-finished");
-        ValueSet message;message.Insert(L"operation",box_value(hstring(L"native-packet-in")));message.Insert(L"sessionId",box_value(state->generation));message.Insert(L"packet",PropertyValue::CreateUInt8Array(packet));
-        Send(state->connection,message);
+        state->packets->Write(packet,state->complete.value);
        }
-      }catch(...){
-       DebugTrace(L"native-pipe-read-error-detail.json",L"reader-failed",static_cast<uint32_t>(to_hresult()));
-       if(!state->closing){try{ValueSet message;message.Insert(L"operation",box_value(hstring(L"native-lost")));message.Insert(L"sessionId",box_value(state->generation));Send(state->connection,message);}catch(...){} }
-       state->Stop();
-      }
+      }catch(...){state->Stop();}
      });
-    }else if(operation==L"native-packet-out"){
-     static std::atomic<unsigned> tracedWrites{};auto traced=++tracedWrites<=8;
-     if(traced)DebugTrace(L"native-pipe-write-enter-detail.json",L"write-entered");
-     if(!state->started)throw hresult_error(HRESULT_FROM_WIN32(ERROR_NOT_READY));
-     auto packet=ReadPacketPayload(request);uint32_t length=packet.size();
-     std::lock_guard lock(state->writeMutex);WriteExact(state->pipe.value,&length,4,state->complete.value);WriteExact(state->pipe.value,packet.data(),length,state->complete.value);
-     if(traced)DebugTrace(L"native-pipe-write-finish-detail.json",L"write-finished");
+     state->writer=std::thread([state]{
+      try{
+       while(!state->closing){
+        auto packet=state->packets->Read(state->complete.value);uint32_t length=static_cast<uint32_t>(packet.size());
+        WriteExact(state->pipe.value,&length,4,state->complete.value);WriteExact(state->pipe.value,packet.data(),length,state->complete.value);
+       }
+      }catch(...){state->Stop();}
+     });
     }else if(operation==L"native-ready"){
      DWORD exit{};
      if(WaitForSingleObject(state->up.value,0)!=WAIT_OBJECT_0)reply=Reply(ERROR_IO_PENDING);
      else{check_bool(GetExitCodeProcess(state->up.value,&exit));reply=Reply(exit?ERROR_LOGON_FAILURE:ERROR_SUCCESS);}
     }else if(operation==L"native-disconnect"){
-     Handle down(StartCLI(L"down"));state->Stop();
+     state->Stop();
     }else throw hresult_invalid_argument();
    }
    args.Request().SendResponseAsync(reply).get();
@@ -177,14 +199,23 @@ int RunNativeBroker(){
   }
   deferral.Complete();
  });
- auto closed=state->connection.ServiceClosed([state](auto const&,auto const& args){DebugTrace(L"broker-closed-detail.json",L"service-closed",static_cast<uint32_t>(args.Status()));state->Stop();});
+ auto closed=state->connection.ServiceClosed([state](auto const&,auto const&){state->Stop();});
  auto open=state->connection.OpenAsync().get();if(open!=AppServiceConnectionStatus::Success)return 1;
  ValueSet registration;registration.Insert(L"operation",box_value(hstring(L"register-native-broker")));Send(state->connection,registration);
  WaitForSingleObject(state->complete.value,INFINITE);
  state->connection.RequestReceived(token);state->connection.ServiceClosed(closed);
- if(state->reader.joinable()){CancelIoEx(state->pipe.value,nullptr);state->reader.join();}
+ {std::lock_guard control(state->controlMutex);}
+ if(state->reader.joinable())state->reader.join();
+ if(state->writer.joinable())state->writer.join();
+ if(state->acceptor.joinable())state->acceptor.join();
  state->connection.Close();
- Handle down(StartCLI(L"down"));
- return 0;
+ // Завершаем Down до освобождения mutex: старый сеанс не отключит новый.
+ if(state->pipe.value!=INVALID_HANDLE_VALUE){CloseHandle(state->pipe.value);state->pipe.value=INVALID_HANDLE_VALUE;}
+ int result=0;
+ try{Handle down(StartCLI(L"down"));WaitCLI(down.value,30000);}catch(hresult_error const& error){
+  auto record=ProcessContext();record.SetNamedValue(L"hresult",JsonValue::CreateNumberValue(static_cast<int32_t>(error.code())));LogProbe(L"native-cleanup-error.json",record);result=1;
+ }
+ if(state->up.value!=INVALID_HANDLE_VALUE && WaitForSingleObject(state->up.value,5000)!=WAIT_OBJECT_0){TerminateProcess(state->up.value,ERROR_CANCELLED);WaitForSingleObject(state->up.value,5000);}
+ return result;
 }
 }

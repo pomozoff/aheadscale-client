@@ -1,4 +1,3 @@
-#include "pipe_spike.h"
 #include "app_service.h"
 #include "ipc_probe.h"
 #include "packet_bridge.h"
@@ -18,11 +17,6 @@ using namespace Windows::Foundation::Collections;
 using namespace Windows::Data::Json;
 namespace aheadscale {
 namespace {
-
-// [DEBUG-vpn34] Только этапы и коды; содержимое пакетов не записывается.
-void DebugTrace(wchar_t const* file,wchar_t const* event,uint32_t code=0,hstring const& operation={})noexcept{
- try{auto record=ProcessContext();record.SetNamedValue(L"event",JsonValue::CreateStringValue(hstring(std::wstring(L"[DEBUG-vpn34] ")+event)));record.SetNamedValue(L"tickMs",JsonValue::CreateNumberValue(static_cast<double>(GetTickCount64())));record.SetNamedValue(L"threadId",JsonValue::CreateNumberValue(GetCurrentThreadId()));record.SetNamedValue(L"code",JsonValue::CreateNumberValue(code));if(!operation.empty())record.SetNamedValue(L"operation",JsonValue::CreateStringValue(operation));LogProbe(file,record);}catch(...){}
-}
 constexpr wchar_t ServiceName[] = L"Aheadscale.VpnPrototype.Broker";
 constexpr wchar_t NativeRoleKey[]=L"Aheadscale.VpnPrototype.NativeBroker";
 constexpr wchar_t ActiveConnectionKey[] = L"Aheadscale.VpnPrototype.AuthenticatedDesktop";
@@ -92,7 +86,6 @@ bool TryRunAppService(Windows::ApplicationModel::Background::IBackgroundTaskInst
             auto code = ERROR_ACCESS_DENIED;
             auto message = args.Request().Message();
             ValueSet nativeReply;
-            if(HandlePipeSpikeOffer(message,nativeReply)){args.Request().SendResponseAsync(nativeReply).get();deferral.Complete();return;}
             if(HandleNativeRequest(message,nativeReply)){
                 args.Request().SendResponseAsync(nativeReply).get();deferral.Complete();return;
             }
@@ -122,16 +115,21 @@ bool TryRunAppService(Windows::ApplicationModel::Background::IBackgroundTaskInst
         deferral.Complete();
     });
     std::weak_ptr<ServiceSession> weak(session);
-    session->closeToken = session->connection.ServiceClosed([weak](auto const&, auto const& args) {
-        DebugTrace(L"appservice-closed-detail.json",L"service-closed",static_cast<uint32_t>(args.Status()));
+    session->closeToken = session->connection.ServiceClosed([weak](auto const&, auto const&) {
         if (auto session = weak.lock()) session->Close();
     });
-    session->cancelToken = task.Canceled([weak](auto const&, auto const& reason) {
-        DebugTrace(L"appservice-canceled-detail.json",L"task-canceled",static_cast<uint32_t>(reason));
+    session->cancelToken = task.Canceled([weak](auto const&, auto const&) {
         if (auto session = weak.lock()) session->Close();
     });
     Record(L"app-service.json", record, L"trusted-service-opened");
     return true;
+}
+void ClearActiveBroker(AppServiceConnection const& connection){
+ auto properties=Core::CoreApplication::Properties();
+ if(properties.HasKey(ActiveConnectionKey) && get_abi(properties.Lookup(ActiveConnectionKey).as<AppServiceConnection>())==get_abi(connection)){
+  properties.Remove(ActiveConnectionKey);
+  if(properties.HasKey(NativeRoleKey))properties.Remove(NativeRoleKey);
+ }
 }
 AppServiceConnection ActiveBroker(bool nativeOnly){
  auto properties=Core::CoreApplication::Properties();

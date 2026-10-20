@@ -1,4 +1,3 @@
-#include "pipe_spike.h"
 #include "ipc_probe.h"
 #include "app_service.h"
 #include <winrt/Windows.ApplicationModel.h>
@@ -82,14 +81,12 @@ try {
 int wmain(int argc,wchar_t** argv) {
     init_apartment(apartment_type::multi_threaded);
     try {
-        if(argc==3 && std::wstring(argv[1])==L"pipe-spike-negative")return aheadscale::RunPipeSpikeNegative(argv[2]);
         if(argc!=2)throw hresult_invalid_argument(L"add | status | connect | disconnect | remove | broker | broker-packet-probe | probe-service");
         std::wstring command(argv[1]);
         if(command==L"probe-service")return aheadscale::ProbeAppServiceCaller();
         auto package=Windows::ApplicationModel::Package::Current();
         if(aheadscale::FamilyName()!=aheadscale::PrototypeFamily || package.Id().Name()!=aheadscale::PackageName || package.Id().Publisher()!=aheadscale::Publisher)
             throw hresult_access_denied(L"Неверная идентичность опытного пакета");
-        if(command==L"pipe-spike")return aheadscale::RunPipeSpikeServer();
         if(command==L"broker")return aheadscale::RunBroker();
         if(command==L"broker-packet-probe")return aheadscale::RunBroker(true);
         return aheadscale::SystemProfileCommand(command);
