@@ -20,6 +20,11 @@ using namespace winrt::Windows::Foundation::Collections;
 using namespace winrt::Windows::Data::Json;
 namespace aheadscale {
 namespace {
+
+// [DEBUG-vpn34] Только этапы и коды; содержимое пакетов не записывается.
+void DebugTrace(wchar_t const* file,wchar_t const* event,uint32_t code=0,hstring const& operation={})noexcept{
+ try{auto record=ProcessContext();record.SetNamedValue(L"event",JsonValue::CreateStringValue(hstring(std::wstring(L"[DEBUG-vpn34] ")+event)));record.SetNamedValue(L"tickMs",JsonValue::CreateNumberValue(static_cast<double>(GetTickCount64())));record.SetNamedValue(L"threadId",JsonValue::CreateNumberValue(GetCurrentThreadId()));record.SetNamedValue(L"code",JsonValue::CreateNumberValue(code));if(!operation.empty())record.SetNamedValue(L"operation",JsonValue::CreateStringValue(operation));LogProbe(file,record);}catch(...){}
+}
 constexpr wchar_t PacketPipe[]=L"\\\\.\\pipe\\ProtectedPrefix\\Administrators\\aheadscale-vpn-prototype";
 ValueSet Reply(uint32_t code){ValueSet r;r.Insert(L"win32",box_value(code));return r;}
 DWORD Transfer(HANDLE pipe,void* buffer,DWORD length,HANDLE stop,bool writing,DWORD timeout){
@@ -59,6 +64,7 @@ HANDLE StartCLI(wchar_t const* operation){
  std::wstring command=L"\""+executable+L"\" "+operation;
  STARTUPINFOW startup{sizeof(startup)};PROCESS_INFORMATION process{};
  check_bool(CreateProcessW(executable.c_str(),command.data(),nullptr,nullptr,FALSE,CREATE_NO_WINDOW,nullptr,nullptr,&startup,&process));
+ DebugTrace(std::wstring(operation)==L"up"?L"native-cli-up-detail.json":L"native-cli-down-detail.json",L"cli-started",process.dwProcessId,operation);
  CloseHandle(process.hThread);return process.hProcess;
 }
 struct NativeBrokerState {
@@ -134,20 +140,27 @@ int RunNativeBroker(){
      state->reader=std::thread([state]{
       init_apartment(apartment_type::multi_threaded);
       try{
+       unsigned tracedReads=0;
        while(!state->closing){
+        if(tracedReads++<8)DebugTrace(L"native-pipe-read-detail.json",L"read-started");
         auto packet=ReadPacket(state->pipe.value,65535,state->complete.value);
+        if(tracedReads<=8)DebugTrace(L"native-pipe-read-detail.json",L"read-finished");
         ValueSet message;message.Insert(L"operation",box_value(hstring(L"native-packet-in")));message.Insert(L"sessionId",box_value(state->generation));message.Insert(L"packet",PropertyValue::CreateUInt8Array(packet));
         Send(state->connection,message);
        }
       }catch(...){
+       DebugTrace(L"native-pipe-read-error-detail.json",L"reader-failed",static_cast<uint32_t>(to_hresult()));
        if(!state->closing){try{ValueSet message;message.Insert(L"operation",box_value(hstring(L"native-lost")));message.Insert(L"sessionId",box_value(state->generation));Send(state->connection,message);}catch(...){} }
        state->Stop();
       }
      });
     }else if(operation==L"native-packet-out"){
+     static std::atomic<unsigned> tracedWrites{};auto traced=++tracedWrites<=8;
+     if(traced)DebugTrace(L"native-pipe-write-enter-detail.json",L"write-entered");
      if(!state->started)throw hresult_error(HRESULT_FROM_WIN32(ERROR_NOT_READY));
      auto packet=ReadPacketPayload(request);uint32_t length=packet.size();
      std::lock_guard lock(state->writeMutex);WriteExact(state->pipe.value,&length,4,state->complete.value);WriteExact(state->pipe.value,packet.data(),length,state->complete.value);
+     if(traced)DebugTrace(L"native-pipe-write-finish-detail.json",L"write-finished");
     }else if(operation==L"native-ready"){
      DWORD exit{};
      if(WaitForSingleObject(state->up.value,0)!=WAIT_OBJECT_0)reply=Reply(ERROR_IO_PENDING);
@@ -164,7 +177,7 @@ int RunNativeBroker(){
   }
   deferral.Complete();
  });
- auto closed=state->connection.ServiceClosed([state](auto const&,auto const&){state->Stop();});
+ auto closed=state->connection.ServiceClosed([state](auto const&,auto const& args){DebugTrace(L"broker-closed-detail.json",L"service-closed",static_cast<uint32_t>(args.Status()));state->Stop();});
  auto open=state->connection.OpenAsync().get();if(open!=AppServiceConnectionStatus::Success)return 1;
  ValueSet registration;registration.Insert(L"operation",box_value(hstring(L"register-native-broker")));Send(state->connection,registration);
  WaitForSingleObject(state->complete.value,INFINITE);

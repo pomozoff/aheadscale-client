@@ -17,6 +17,11 @@ using namespace Windows::Foundation::Collections;
 using namespace Windows::Data::Json;
 namespace aheadscale {
 namespace {
+
+// [DEBUG-vpn34] Только этапы и коды; содержимое пакетов не записывается.
+void DebugTrace(wchar_t const* file,wchar_t const* event,uint32_t code=0,hstring const& operation={})noexcept{
+ try{auto record=ProcessContext();record.SetNamedValue(L"event",JsonValue::CreateStringValue(hstring(std::wstring(L"[DEBUG-vpn34] ")+event)));record.SetNamedValue(L"tickMs",JsonValue::CreateNumberValue(static_cast<double>(GetTickCount64())));record.SetNamedValue(L"threadId",JsonValue::CreateNumberValue(GetCurrentThreadId()));record.SetNamedValue(L"code",JsonValue::CreateNumberValue(code));if(!operation.empty())record.SetNamedValue(L"operation",JsonValue::CreateStringValue(operation));LogProbe(file,record);}catch(...){}
+}
 constexpr wchar_t ServiceName[] = L"Aheadscale.VpnPrototype.Broker";
 constexpr wchar_t NativeRoleKey[]=L"Aheadscale.VpnPrototype.NativeBroker";
 constexpr wchar_t ActiveConnectionKey[] = L"Aheadscale.VpnPrototype.AuthenticatedDesktop";
@@ -115,10 +120,12 @@ bool TryRunAppService(Windows::ApplicationModel::Background::IBackgroundTaskInst
         deferral.Complete();
     });
     std::weak_ptr<ServiceSession> weak(session);
-    session->closeToken = session->connection.ServiceClosed([weak](auto const&, auto const&) {
+    session->closeToken = session->connection.ServiceClosed([weak](auto const&, auto const& args) {
+        DebugTrace(L"appservice-closed-detail.json",L"service-closed",static_cast<uint32_t>(args.Status()));
         if (auto session = weak.lock()) session->Close();
     });
-    session->cancelToken = task.Canceled([weak](auto const&, auto const&) {
+    session->cancelToken = task.Canceled([weak](auto const&, auto const& reason) {
+        DebugTrace(L"appservice-canceled-detail.json",L"task-canceled",static_cast<uint32_t>(reason));
         if (auto session = weak.lock()) session->Close();
     });
     Record(L"app-service.json", record, L"trusted-service-opened");

@@ -24,6 +24,11 @@ using namespace winrt::Windows::Networking::Vpn;
 using namespace winrt::Windows::Data::Json;
 namespace aheadscale {
 namespace {
+
+// [DEBUG-vpn34] Только этапы и коды; содержимое пакетов не записывается.
+void DebugTrace(wchar_t const* file,wchar_t const* event,uint32_t code=0,hstring const& operation={})noexcept{
+ try{auto record=ProcessContext();record.SetNamedValue(L"event",JsonValue::CreateStringValue(hstring(std::wstring(L"[DEBUG-vpn34] ")+event)));record.SetNamedValue(L"tickMs",JsonValue::CreateNumberValue(static_cast<double>(GetTickCount64())));record.SetNamedValue(L"threadId",JsonValue::CreateNumberValue(GetCurrentThreadId()));record.SetNamedValue(L"code",JsonValue::CreateNumberValue(code));if(!operation.empty())record.SetNamedValue(L"operation",JsonValue::CreateStringValue(operation));LogProbe(file,record);}catch(...){}
+}
 struct ChannelSession {
  VpnChannel channel{nullptr};
  AppServiceConnection connection{nullptr};
@@ -43,7 +48,7 @@ struct ChannelSession {
   if(!first && !wasStarted)return;
   try{auto record=ProcessContext();record.SetNamedValue(L"reason",JsonValue::CreateStringValue(reason));record.SetNamedValue(L"wasStarted",JsonValue::CreateBooleanValue(wasStarted));LogProbe(L"native-channel-stop.json",record);}catch(...){}
   // WinRT может синхронно вызвать Disconnect: не держим delivery при Stop/Start.
-  try{channel.Stop();}catch(...){}
+  try{channel.Stop();DebugTrace(L"native-stop-return-detail.json",L"stop-returned");}catch(...){DebugTrace(L"native-stop-error-detail.json",L"stop-failed",static_cast<uint32_t>(to_hresult()));}
  }
 };
 std::mutex sessionMutex;
@@ -55,9 +60,9 @@ ValueSet Request(wchar_t const* operation,hstring const& generation={}){
 }
 ValueSet Send(AppServiceConnection const& connection,ValueSet const& request){
  auto pending=connection.SendMessageAsync(request);
- if(pending.wait_for(std::chrono::seconds(20))!=AsyncStatus::Completed){pending.Cancel();throw hresult_error(HRESULT_FROM_WIN32(ERROR_TIMEOUT));}
+ if(pending.wait_for(std::chrono::seconds(20))!=AsyncStatus::Completed){DebugTrace(L"native-send-timeout-detail.json",L"send-timeout",static_cast<uint32_t>(pending.Status()),unbox_value<hstring>(request.Lookup(L"operation")));pending.Cancel();throw hresult_error(HRESULT_FROM_WIN32(ERROR_TIMEOUT));}
  auto response=pending.GetResults();
- if(response.Status()!=AppServiceResponseStatus::Success)throw hresult_error(HRESULT_FROM_WIN32(ERROR_CONNECTION_ABORTED));
+ if(response.Status()!=AppServiceResponseStatus::Success){DebugTrace(L"native-send-status-detail.json",L"send-failed",static_cast<uint32_t>(response.Status()),unbox_value<hstring>(request.Lookup(L"operation")));throw hresult_error(HRESULT_FROM_WIN32(ERROR_CONNECTION_ABORTED));}
  if(!response.Message().HasKey(L"win32"))throw hresult_invalid_argument();return response.Message();
 }
 void Check(ValueSet const& reply){auto code=unbox_value<uint32_t>(reply.Lookup(L"win32"));if(code)throw hresult_error(HRESULT_FROM_WIN32(code));}
