@@ -34,7 +34,7 @@ struct ChannelSession {
  std::condition_variable deliveryReady;
  std::deque<std::vector<uint8_t>> received;
  void Stop(wchar_t const* reason=L"unspecified")noexcept{
-  bool first=!closed.exchange(true);
+  bool first;{std::lock_guard lock(delivery);first=!closed.exchange(true);}
   bool wasStarted=channelStarted.exchange(false);
   deliveryReady.notify_all();
   if(!first && !wasStarted)return;

@@ -42,7 +42,11 @@ func (t *VpnTunDevice) Create() (WGConfigurer, error) {
 	if err != nil {
 		return nil, err
 	}
-	conf := windowsvpn.SessionConfiguration{Address: t.address.Prefix(), MTU: 1280, Routes: []netip.Prefix{t.address.Prefix().Masked()}, DNSDomains: []string{"aheadscale.internal"}, DNSServers: []netip.Addr{dnsAddress}}
+	domains, err := windowsvpn.NativeDNSDomains(t.address.Prefix())
+	if err != nil {
+		return nil, err
+	}
+	conf := windowsvpn.SessionConfiguration{Address: t.address.Prefix(), MTU: 1280, Routes: []netip.Prefix{t.address.Prefix().Masked()}, DNSDomains: domains, DNSServers: []netip.Addr{dnsAddress}}
 	conn, err := windowsvpn.AcceptSession(t.ctx, conf)
 	if err != nil {
 		return nil, err
@@ -130,3 +134,6 @@ func (t *VpnTunDevice) GetInterfaceGUIDString() (string, error) {
 	}
 	return guid.String(), nil
 }
+
+// PlatformOwnsInterface keeps Windows VPN responsible for its adapter lifetime.
+func (t *VpnTunDevice) PlatformOwnsInterface() bool { return true }

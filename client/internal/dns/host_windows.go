@@ -20,6 +20,7 @@ import (
 
 	nberrors "github.com/netbirdio/netbird/client/errors"
 	"github.com/netbirdio/netbird/client/internal/statemanager"
+	"github.com/netbirdio/netbird/client/internal/windowsvpn"
 	"github.com/netbirdio/netbird/client/internal/winregistry"
 )
 
@@ -112,6 +113,7 @@ const (
 )
 
 type registryConfigurator struct {
+	nativeNetwork   netip.Prefix
 	native          bool
 	guid            string
 	routingAll      bool
@@ -143,6 +145,7 @@ func newHostManager(wgInterface WGIface) (*registryConfigurator, error) {
 	configurator.origNameservers = origNameservers
 
 	if configurator.native {
+		configurator.nativeNetwork = wgInterface.Address().Prefix()
 		return configurator, nil
 	}
 
@@ -317,8 +320,12 @@ func (r *registryConfigurator) applyDNSConfig(config HostDNSConfig, stateManager
 		if config.ServerPort != 53 {
 			return fmt.Errorf("Windows VPN prototype requires DNS port 53")
 		}
+		domains, err := windowsvpn.NativeDNSDomains(r.nativeNetwork)
+		if err != nil {
+			return err
+		}
 		for _, domain := range config.Domains {
-			if !domain.Disabled && strings.TrimSuffix(domain.Domain, ".") != "aheadscale.internal" {
+			if !domain.Disabled && !slices.Contains(domains, strings.TrimSuffix(domain.Domain, ".")) {
 				return fmt.Errorf("Windows VPN prototype does not support additional DNS domain %q", domain.Domain)
 			}
 		}

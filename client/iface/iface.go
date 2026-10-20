@@ -232,6 +232,10 @@ func (w *WGIface) Close() error {
 		result = multierror.Append(result, fmt.Errorf("failed to close wireguard interface %s: %w", w.Name(), err))
 	}
 
+	if owner, ok := tun.(interface{ PlatformOwnsInterface() bool }); ok && owner.PlatformOwnsInterface() {
+		return errors.FormatErrorOrNil(result)
+	}
+
 	if nbnetstack.IsEnabled() {
 		return errors.FormatErrorOrNil(result)
 	}
