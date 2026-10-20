@@ -11,6 +11,7 @@ import (
 	"github.com/netbirdio/netbird/client/iface/wgaddr"
 	"github.com/netbirdio/netbird/client/internal/windowsvpn"
 	nbnet "github.com/netbirdio/netbird/client/net"
+ log "github.com/sirupsen/logrus"
 	"golang.org/x/sys/windows"
 	"golang.zx2c4.com/wireguard/device"
 	"golang.zx2c4.com/wireguard/tun/netstack"
@@ -73,7 +74,10 @@ func (t *VpnTunDevice) Create() (WGConfigurer, error) {
 	}
 	windowsvpn.SetAdapterName(t.name)
 	t.filteredDevice = newDeviceFilter(raw)
-	t.device = device.NewDevice(t.filteredDevice, t.iceBind, device.NewLogger(wgLogLevel(), "[aheadscale-native] "))
+	t.device = device.NewDevice(t.filteredDevice, t.iceBind, &device.Logger{
+ Verbosef: func(format string, args ...any) { log.Debugf("native WireGuard: "+format, args...) },
+ Errorf: func(format string, args ...any) { log.Errorf("native WireGuard: "+format, args...) },
+ })
 	t.configurer = configurer.NewUSPConfigurerNoUAPI(t.device, t.name, t.iceBind.ActivityRecorder())
 	if err = t.configurer.ConfigureInterface(t.key, t.port); err != nil {
 		_ = t.Close()

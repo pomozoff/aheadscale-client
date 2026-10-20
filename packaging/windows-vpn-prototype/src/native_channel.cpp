@@ -28,10 +28,11 @@ struct ChannelSession {
  hstring generation;
  std::atomic<bool> closed{}, dataReady{}, channelStarted{};
  std::mutex delivery;
- void Stop()noexcept{
+ void Stop(wchar_t const* reason=L"unspecified")noexcept{
   bool first=!closed.exchange(true);
   bool wasStarted=channelStarted.exchange(false);
   if(!first && !wasStarted)return;
+  try{auto record=ProcessContext();record.SetNamedValue(L"reason",JsonValue::CreateStringValue(reason));record.SetNamedValue(L"wasStarted",JsonValue::CreateBooleanValue(wasStarted));LogProbe(L"native-channel-stop.json",record);}catch(...){}
   // WinRT может синхронно вызвать Disconnect: не держим delivery при Stop/Start.
   try{channel.Stop();}catch(...){}
  }
@@ -88,7 +89,7 @@ void ConnectNativeChannel(VpnChannel const& channel){
   auto entering=ProcessContext();entering.SetNamedValue(L"event",JsonValue::CreateStringValue(L"native-channel-start-enter"));LogProbe(L"native-channel-stage.json",entering);
   ConfigureNativeChannel(channel,config,state->transport);
   state->channelStarted=true;
-  if(state->closed){state->Stop();throw hresult_canceled();}
+  if(state->closed){state->Stop(L"cancelled-during-start");throw hresult_canceled();}
   step=L"acknowledge-channel";
   auto startedRecord=ProcessContext();startedRecord.SetNamedValue(L"event",JsonValue::CreateStringValue(L"native-channel-start-returned"));LogProbe(L"native-channel.json",startedRecord);
   Check(Send(state->connection,Request(L"native-started",state->generation)));
@@ -106,14 +107,14 @@ void ConnectNativeChannel(VpnChannel const& channel){
  }catch(hresult_error const& error){
   // Диагностика предшествует Stop: Windows может завершить host после закрытия канала.
   auto record=ProcessContext();record.SetNamedValue(L"event",JsonValue::CreateStringValue(L"native-channel-failed"));record.SetNamedValue(L"step",JsonValue::CreateStringValue(step));record.SetNamedValue(L"hresult",JsonValue::CreateNumberValue(static_cast<int32_t>(error.code())));record.SetNamedValue(L"message",JsonValue::CreateStringValue(error.message()));LogProbe(L"native-channel.json",record);
-  state->Stop();
+  state->Stop(L"connect-failed");
   if(state->connection){try{Send(state->connection,Request(L"native-disconnect",state->generation));}catch(...){}}
   channel.SetErrorMessage(L"Aheadscale: не удалось запустить системный VPN. Проверьте вход и службу Aheadscale.");throw;
  }
 }
 void DisconnectNativeChannel(VpnChannel const& channel){
  auto state=Current();if(!state){channel.Stop();return;}
- state->Stop();try{Send(state->connection,Request(L"native-disconnect",state->generation));}catch(...){}
+ state->Stop(L"disconnect-request");try{Send(state->connection,Request(L"native-disconnect",state->generation));}catch(...){}
 }
 void EncapsulateNative(VpnChannel const&,VpnPacketBufferList const& packets){
  auto state=Current();if(!state || state->closed)throw hresult_error(HRESULT_FROM_WIN32(ERROR_NOT_CONNECTED));
@@ -127,7 +128,10 @@ void EncapsulateNative(VpnChannel const&,VpnPacketBufferList const& packets){
    Check(Send(state->connection,request));
   }
   // Входной список не изменяется: Windows возвращает все его buffers в pool.
- }catch(...){state->Stop();throw;}
+ }catch(hresult_error const& error){
+  auto record=ProcessContext();record.SetNamedValue(L"hresult",JsonValue::CreateNumberValue(static_cast<int32_t>(error.code())));record.SetNamedValue(L"message",JsonValue::CreateStringValue(error.message()));LogProbe(L"native-encapsulate-error.json",record);
+  state->Stop(L"encapsulate-failed");throw;
+ }catch(...){state->Stop(L"encapsulate-exception");throw;}
 }
 bool HandleNativeRequest(ValueSet const& message,ValueSet& reply){
  if(!message.HasKey(L"operation"))return false;
@@ -135,7 +139,7 @@ bool HandleNativeRequest(ValueSet const& message,ValueSet& reply){
  if(operation!=L"native-packet-in" && operation!=L"native-lost")return false;
  auto state=Current();
  if(!state || state->closed || !message.HasKey(L"sessionId") || unbox_value<hstring>(message.Lookup(L"sessionId"))!=state->generation)throw hresult_access_denied();
- if(operation==L"native-lost")state->Stop();
+ if(operation==L"native-lost")state->Stop(L"packet-pipe-lost");
  else{
   if(message.Size()!=3)throw hresult_invalid_argument();
   auto packet=ReadPacketPayload(message);
@@ -150,6 +154,6 @@ bool HandleNativeRequest(ValueSet const& message,ValueSet& reply){
  reply.Insert(L"win32",box_value(uint32_t{ERROR_SUCCESS}));return true;
 }
 void NativeConnectionLost(AppServiceConnection const& connection){
- auto state=Current();if(state && get_abi(state->connection)==get_abi(connection))state->Stop();
+ auto state=Current();if(state && get_abi(state->connection)==get_abi(connection))state->Stop(L"appservice-lost");
 }
 }
