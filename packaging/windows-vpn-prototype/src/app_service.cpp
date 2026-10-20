@@ -1,3 +1,4 @@
+#include "pipe_spike.h"
 #include "app_service.h"
 #include "ipc_probe.h"
 #include "packet_bridge.h"
@@ -91,6 +92,7 @@ bool TryRunAppService(Windows::ApplicationModel::Background::IBackgroundTaskInst
             auto code = ERROR_ACCESS_DENIED;
             auto message = args.Request().Message();
             ValueSet nativeReply;
+            if(HandlePipeSpikeOffer(message,nativeReply)){args.Request().SendResponseAsync(nativeReply).get();deferral.Complete();return;}
             if(HandleNativeRequest(message,nativeReply)){
                 args.Request().SendResponseAsync(nativeReply).get();deferral.Complete();return;
             }

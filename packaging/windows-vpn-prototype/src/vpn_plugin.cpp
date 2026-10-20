@@ -1,3 +1,4 @@
+#include "pipe_spike.h"
 #include "vpn_plugin.h"
 #include "ipc_probe.h"
 #include "native_channel.h"
@@ -7,6 +8,7 @@ using namespace Windows::Networking::Vpn;
 using namespace Windows::Data::Json;
 namespace aheadscale {
 void VpnPlugin::Connect(VpnChannel const& channel) {
+    if(ConnectPipeSpike(channel))return;
     // Двоичная проба остаётся воспроизводимой; обычный Connect запускает движок.
     if(ActiveBroker() && !ActiveBroker(true)) {
         auto record=ProcessContext();auto result=ProbeBroker(&record);
@@ -18,12 +20,13 @@ void VpnPlugin::Connect(VpnChannel const& channel) {
     ConnectNativeChannel(channel);
 }
 void VpnPlugin::Disconnect(VpnChannel const& channel) {
+    if(DisconnectPipeSpike(channel))return;
     auto record = ProcessContext();
     record.SetNamedValue(L"event", JsonValue::CreateStringValue(L"disconnect-invoked"));
     LogProbe(L"vpn-disconnect.json", record);
     DisconnectNativeChannel(channel);
 }
 void VpnPlugin::GetKeepAlivePayload(VpnChannel const&, VpnPacketBuffer& packet) { packet = nullptr; }
-void VpnPlugin::Encapsulate(VpnChannel const& channel, VpnPacketBufferList const& packets, VpnPacketBufferList const&) { EncapsulateNative(channel,packets); }
+void VpnPlugin::Encapsulate(VpnChannel const& channel, VpnPacketBufferList const& packets, VpnPacketBufferList const&) { if(!PipeSpikeActive())EncapsulateNative(channel,packets); }
 void VpnPlugin::Decapsulate(VpnChannel const&, VpnPacketBuffer const&, VpnPacketBufferList const&, VpnPacketBufferList const&) {}
 }
