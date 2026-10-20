@@ -86,7 +86,7 @@ std::mutex stateMutex;std::shared_ptr<SpikeState> active;
 bool HandlePipeSpikeOffer(ValueSet const& message,ValueSet& reply){
  if(!message.HasKey(L"operation")||unbox_value<hstring>(message.Lookup(L"operation"))!=L"pipe-spike-offer")return false;
  if(message.Size()!=4)throw hresult_invalid_argument();
- auto tail=unbox_value<hstring>(message.Lookup(L"pipeName"));(void)Canonical(std::wstring(tail));
+ auto tail=unbox_value<hstring>(message.Lookup(L"pipeName"));std::wstring_view name(tail);if(!name.starts_with(TailPrefix)||!IsHex(name.substr(std::size(TailPrefix)-1),32))throw hresult_invalid_argument();
  if(!IsHex(std::wstring_view(unbox_value<hstring>(message.Lookup(L"nonce"))),64)||!unbox_value<uint32_t>(message.Lookup(L"serverPid")))throw hresult_invalid_argument();
  Windows::ApplicationModel::Core::CoreApplication::Properties().Insert(OfferKey,message);
  reply.Insert(L"win32",box_value(uint32_t{0}));Mark(L"pipe-spike-offer.json",L"offer-received");return true;
@@ -119,7 +119,7 @@ int RunPipeSpikeServer(){
  if(FamilyName()!=PrototypeFamily||ProcessContext().GetNamedBoolean(L"isAppContainer"))throw hresult_access_denied();
  std::array<uint8_t,48> random{};check_win32(BCryptGenRandom(nullptr,random.data(),static_cast<ULONG>(random.size()),BCRYPT_USE_SYSTEM_PREFERRED_RNG)<0?ERROR_GEN_FAILURE:0);
  auto tail=std::wstring(TailPrefix)+Hex(random.data(),16),path=Canonical(tail),owner=CurrentUserSid();
- auto sddl=L"O:"+owner+L"D:P(A;;GA;;;"+owner+L")(A;;0x00120083;;;"+PrototypeContainerSid+L")";PSECURITY_DESCRIPTOR descriptor{};check_bool(ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl.c_str(),SDDL_REVISION_1,&descriptor,nullptr));SECURITY_ATTRIBUTES sa{sizeof(sa),descriptor,FALSE};
+ auto sddl=L"O:"+owner+L"D:P(A;;GA;;;"+owner+L")(A;;0x00120083;;;"+PrototypeContainerSid+L")S:(ML;;NW;;;LW)";PSECURITY_DESCRIPTOR descriptor{};check_bool(ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl.c_str(),SDDL_REVISION_1,&descriptor,nullptr));SECURITY_ATTRIBUTES sa{sizeof(sa),descriptor,FALSE};
  Handle pipe(CreateNamedPipeW(path.c_str(),PIPE_ACCESS_DUPLEX|FILE_FLAG_OVERLAPPED|FILE_FLAG_FIRST_PIPE_INSTANCE,PIPE_TYPE_BYTE|PIPE_READMODE_BYTE|PIPE_WAIT|PIPE_REJECT_REMOTE_CLIENTS,1,65536,65536,0,&sa));LocalFree(descriptor);check_bool(pipe.value!=INVALID_HANDLE_VALUE);Handle stop(CreateEventW(nullptr,TRUE,FALSE,nullptr));
  AppServiceConnection connection;connection.AppServiceName(L"Aheadscale.VpnPrototype.Broker");connection.PackageFamilyName(PrototypeFamily);if(connection.OpenAsync().get()!=AppServiceConnectionStatus::Success)throw hresult_error(E_FAIL,L"Не открылся управляющий канал");
  ValueSet offer;offer.Insert(L"operation",box_value(hstring(L"pipe-spike-offer")));offer.Insert(L"pipeName",box_value(hstring(tail)));offer.Insert(L"nonce",box_value(hstring(Hex(random.data()+16,32))));offer.Insert(L"serverPid",box_value(static_cast<uint32_t>(GetCurrentProcessId())));auto response=connection.SendMessageAsync(offer).get();if(response.Status()!=AppServiceResponseStatus::Success||unbox_value<uint32_t>(response.Message().Lookup(L"win32")))throw hresult_access_denied();
