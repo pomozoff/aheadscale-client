@@ -12,6 +12,9 @@
 #include <memory>
 #include <thread>
 #include <chrono>
+#include <condition_variable>
+#include <deque>
+#include <vector>
 using namespace winrt;
 using namespace winrt::Windows::ApplicationModel;
 using namespace winrt::Windows::ApplicationModel::AppService;
@@ -28,9 +31,12 @@ struct ChannelSession {
  hstring generation;
  std::atomic<bool> closed{}, dataReady{}, channelStarted{};
  std::mutex delivery;
+ std::condition_variable deliveryReady;
+ std::deque<std::vector<uint8_t>> received;
  void Stop(wchar_t const* reason=L"unspecified")noexcept{
   bool first=!closed.exchange(true);
   bool wasStarted=channelStarted.exchange(false);
+  deliveryReady.notify_all();
   if(!first && !wasStarted)return;
   try{auto record=ProcessContext();record.SetNamedValue(L"reason",JsonValue::CreateStringValue(reason));record.SetNamedValue(L"wasStarted",JsonValue::CreateBooleanValue(wasStarted));LogProbe(L"native-channel-stop.json",record);}catch(...){}
   // WinRT может синхронно вызвать Disconnect: не держим delivery при Stop/Start.
@@ -55,6 +61,32 @@ void Check(ValueSet const& reply){auto code=unbox_value<uint32_t>(reply.Lookup(L
 uint8_t* Bytes(winrt::Windows::Storage::Streams::IBuffer const& buffer){
  uint8_t* bytes{};check_hresult(buffer.as<::Windows::Storage::Streams::IBufferByteAccess>()->Buffer(&bytes));return bytes;
 }
+void StartPacketDelivery(std::shared_ptr<ChannelSession> const& state){
+ // AppService подтверждает получение копии, а Windows VPN API вызывается
+ // отдельно. Иначе синхронный ответ DNS может ждать завершения Encapsulate,
+ // который в этот момент ждёт ответ посредника по той же связи.
+ std::thread([state]{
+  try{
+   init_apartment(apartment_type::multi_threaded);
+   for(;;){
+    std::vector<uint8_t> packet;
+    {
+     std::unique_lock lock(state->delivery);
+     state->deliveryReady.wait(lock,[&]{return state->closed || !state->received.empty();});
+     if(state->closed)return;
+     packet=std::move(state->received.front());state->received.pop_front();
+    }
+    auto target=state->channel.GetVpnReceivePacketBuffer();auto buffer=target.Buffer();
+    if(packet.size()>buffer.Capacity())throw hresult_invalid_argument();
+    std::copy(packet.begin(),packet.end(),Bytes(buffer));buffer.Length(static_cast<uint32_t>(packet.size()));
+    state->channel.AppendVpnReceivePacketBuffer(target);state->channel.FlushVpnReceivePacketBuffers();
+   }
+  }catch(hresult_error const& error){
+   if(!state->closed){auto record=ProcessContext();record.SetNamedValue(L"hresult",JsonValue::CreateNumberValue(static_cast<int32_t>(error.code())));record.SetNamedValue(L"message",JsonValue::CreateStringValue(error.message()));LogProbe(L"native-receive-error.json",record);state->Stop(L"receive-failed");}
+  }catch(...){state->Stop(L"receive-exception");}
+ }).detach();
+}
+
 }
 void ConnectNativeChannel(VpnChannel const& channel){
  auto state=std::make_shared<ChannelSession>();state->channel=channel;
@@ -90,6 +122,7 @@ void ConnectNativeChannel(VpnChannel const& channel){
   ConfigureNativeChannel(channel,config,state->transport);
   state->channelStarted=true;
   if(state->closed){state->Stop(L"cancelled-during-start");throw hresult_canceled();}
+  step=L"start-packet-delivery";StartPacketDelivery(state);
   step=L"acknowledge-channel";
   auto startedRecord=ProcessContext();startedRecord.SetNamedValue(L"event",JsonValue::CreateStringValue(L"native-channel-start-returned"));LogProbe(L"native-channel.json",startedRecord);
   Check(Send(state->connection,Request(L"native-started",state->generation)));
@@ -152,12 +185,13 @@ bool HandleNativeRequest(ValueSet const& message,ValueSet& reply){
   if(message.Size()!=3)throw hresult_invalid_argument();
   auto packet=ReadPacketPayload(message);
   if(packet.size()>1280)throw hresult_invalid_argument();
-  std::lock_guard guard(state->delivery);
-  if(state->closed)throw hresult_error(HRESULT_FROM_WIN32(ERROR_NOT_CONNECTED));
-  auto target=state->channel.GetVpnReceivePacketBuffer();auto buffer=target.Buffer();
-  if(packet.size()>buffer.Capacity())throw hresult_invalid_argument();
-  std::copy(packet.begin(),packet.end(),Bytes(buffer));buffer.Length(packet.size());
-  state->channel.AppendVpnReceivePacketBuffer(target);state->channel.FlushVpnReceivePacketBuffers();
+  {
+   std::lock_guard guard(state->delivery);
+   if(state->closed)throw hresult_error(HRESULT_FROM_WIN32(ERROR_NOT_CONNECTED));
+   if(state->received.size()>=256)throw hresult_error(HRESULT_FROM_WIN32(ERROR_NOT_ENOUGH_QUOTA));
+   state->received.emplace_back(packet.begin(),packet.end());
+  }
+  state->deliveryReady.notify_one();
  }
  reply.Insert(L"win32",box_value(uint32_t{ERROR_SUCCESS}));return true;
 }
