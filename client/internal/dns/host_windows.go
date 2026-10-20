@@ -319,7 +319,7 @@ func (r *registryConfigurator) applyDNSConfig(config HostDNSConfig, stateManager
 		}
 		for _, domain := range config.Domains {
 			if !domain.Disabled && strings.TrimSuffix(domain.Domain, ".") != "aheadscale.internal" {
-				return fmt.Errorf("Windows VPN prototype does not support additional DNS domains")
+				return fmt.Errorf("Windows VPN prototype does not support additional DNS domain %q", domain.Domain)
 			}
 		}
 		return nil // Адреса DNS и правила имён принадлежат VpnChannel.

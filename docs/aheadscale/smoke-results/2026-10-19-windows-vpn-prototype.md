@@ -76,3 +76,14 @@ Windows 11 ARM64 VM; второе устройство — Ubuntu ARM64. Windows
 Сборка `488af7be108bb614ed693536478926aca72a30c0`, CI `39386954141`: PASS. На реальной ВМ `native-encapsulate-error.json` зафиксировал `E_NOINTERFACE` (`0x80004002`), а первая причина остановки — `encapsulate-failed`. Журнал WireGuard подтвердил: bind открыт и состояние Up достигнуто, затем чтение TUN завершилось EOF, устройство закрыто; последующий Up проигнорирован для закрытого устройства. Ошибка ICEBind — вторичный эффект, повторная инициализация bind не исправляет первичный отказ.
 
 Следующий опыт 27 проверяет гипотезу об интерфейсе перечисления `VpnPacketBufferList`: вместо range-for используются собственные RemoveAtBegin/Append; каждый взятый buffer возвращается исходному списку для штатной очистки Windows. Записываются поддержка IIterable и точная операция в обработчике. Поддержка буферов и передача реального трафика пока не подтверждены. Поведение очистки оставшихся buffers описано в [Microsoft IVpnPlugIn.Encapsulate](https://learn.microsoft.com/en-us/uwp/api/windows.networking.vpn.ivpnplugin.encapsulate?view=winrt-26100).
+
+
+### 20 октября: пакеты 27–28, достигнут запуск движка
+
+Пакет 27 (`fa55ce623627f323b1216208b25b1166c8c58be5`, CI `39387680067`) подтвердил отсутствие IIterable у фактического VpnPacketBufferList. RemoveAtBegin/Append устраняет первый E_NOINTERFACE. Следующий отказ: iface_guid_windows.go жёстко приводил backend к TunDevice; паника при инициализации DNS перезапускала службу. Регрессионный TestWindowsVPNGUIDBeforeChannelReturnsError воспроизвёл эту панику на настоящей Windows ARM64. После делегирования получения GUID активному backend этот тест и проверка выбора native backend прошли.
+
+Пакет 28 (`fcbc28d61ff14339c2b53b39aabdb7aac545387e`, CI `39388495776`) собран успешно. Системный IPv4-адаптер и маршрут существуют, движок получает список устройств. Передача останавливается на send-packet с timeout; локальный pipe клиента открыт синхронно и одновременно используется для блокирующего чтения и записи. Опыт 29 меняет только модель I/O: FILE_FLAG_OVERLAPPED, отдельные событие и OVERLAPPED для каждой операции; отмена дожидается завершения перед освобождением памяти. [Контракт Microsoft для одновременных pipe I/O](https://learn.microsoft.com/en-us/windows/win32/ipc/synchronous-and-overlapped-input-and-output). HTTP пока FAIL, готовность mesh не подтверждена.
+
+Дополнительно исправлен временный HTTP fixture Ubuntu: имя http.py скрывало стандартный пакет Python http. Сервис запускается с -I; собственный запрос Ubuntu вернул HTTP 200 и маркер с peer=100.88.19.208. Это проверка самого fixture, а не межмашинного VPN.
+
+DNS в Windows пока не включён в параметрах VpnChannel. В applyDNSConfig получен отказ additional DNS domains — состав доменов требует отдельной проверки после рабочего IP-обмена.
