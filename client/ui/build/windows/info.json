@@ -1,15 +1,14 @@
 {
 	"fixed": {
-		"file_version": "0.0.1"
+		"file_version": "0.80.0.8"
 	},
 	"info": {
 		"0000": {
-			"ProductVersion": "0.0.1",
-			"CompanyName": "NetBird",
-			"FileDescription": "NetBird desktop client",
-			"LegalCopyright": "NetBird GmbH",
-			"ProductName": "NetBird",
-			"Comments": "This is a comment"
+			"ProductVersion": "0.80.0-aheadscale.8",
+			"CompanyName": "Aheadscale",
+			"FileDescription": "Aheadscale desktop client",
+			"LegalCopyright": "NetBird Authors and Aheadscale contributors",
+			"ProductName": "Aheadscale"
 		}
 	}
 }

@@ -67,9 +67,18 @@ try {
     startup.StartupInfo.dwFlags=STARTF_USESTDHANDLES;
     startup.StartupInfo.hStdInput=null.value;startup.StartupInfo.hStdOutput=write.value;startup.StartupInfo.hStdError=write.value;
     startup.lpAttributeList=attributes;
+    // Отмена GUI-команды не оставляет PowerShell/rasdial, которые могли бы
+    // включить VPN после более нового Disconnect. Desktop package breakaway
+    // и управление потомками через Job Object — независимые механизмы.
+    Handle job(CreateJobObjectW(nullptr,nullptr));check_bool(job.value!=nullptr);
+    JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits{};
+    limits.BasicLimitInformation.LimitFlags=JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+    check_bool(SetInformationJobObject(job.value,JobObjectExtendedLimitInformation,&limits,sizeof(limits)));
     PROCESS_INFORMATION process{};
-    check_bool(CreateProcessW(executable.c_str(),command.data(),nullptr,nullptr,TRUE,EXTENDED_STARTUPINFO_PRESENT|CREATE_NO_WINDOW,nullptr,nullptr,&startup.StartupInfo,&process));
+    check_bool(CreateProcessW(executable.c_str(),command.data(),nullptr,nullptr,TRUE,EXTENDED_STARTUPINFO_PRESENT|CREATE_NO_WINDOW|CREATE_SUSPENDED,nullptr,nullptr,&startup.StartupInfo,&process));
     Handle child(process.hProcess),thread(process.hThread);
+    if(!AssignProcessToJobObject(job.value,child.value)){auto error=GetLastError();TerminateProcess(child.value,error);WaitForSingleObject(child.value,5000);throw hresult_error(HRESULT_FROM_WIN32(error));}
+    check_bool(ResumeThread(thread.value)!=static_cast<DWORD>(-1));
     CloseHandle(write.value);write.value=INVALID_HANDLE_VALUE;
     if(WaitForSingleObject(child.value,60000)!=WAIT_OBJECT_0){TerminateProcess(child.value,ERROR_TIMEOUT);throw hresult_error(HRESULT_FROM_WIN32(ERROR_TIMEOUT));}
     std::array<char,4096> result{};DWORD count{};

@@ -34,6 +34,24 @@ $standardCheck=Join-Path $root 'out\standard-check.exe'
 if($LASTEXITCODE){throw 'Нарушена компиляция обычного Windows daemon'}
 Remove-Item $standardCheck
 
+# Отдельный GUI для проверки системного профиля; установленная .8 не заменяется.
+$ui=Join-Path $dist 'AheadscaleNativeUI.exe'
+$env:GOARCH='amd64'
+& go -C (Join-Path $repo 'client\ui') run github.com/wailsapp/wails/v3/cmd/wails3 generate bindings -clean=true -ts
+if($LASTEXITCODE){throw 'Не созданы bindings опытного GUI'}
+$env:VITE_AHEADSCALE_MANAGEMENT_URL='https://aheadscale.ru'
+& pnpm --dir (Join-Path $repo 'client\ui\frontend') install --frozen-lockfile
+if($LASTEXITCODE){throw 'Не установлены зафиксированные зависимости GUI'}
+& pnpm --dir (Join-Path $repo 'client\ui\frontend') build
+if($LASTEXITCODE){throw 'Не собран frontend опытного GUI'}
+$syso=Join-Path $repo 'client\ui\wails_windows_arm64.syso'
+& go -C $repo run github.com/wailsapp/wails/v3/cmd/wails3 generate syso -arch arm64 -icon (Join-Path $repo 'packaging\aheadscale\icon.ico') -manifest (Join-Path $repo 'client\ui\build\windows\wails.exe.manifest') -info (Join-Path $repo 'client\ui\build\windows\info.json') -out $syso
+if($LASTEXITCODE){throw 'Не созданы ресурсы Windows GUI'}
+$env:GOARCH='arm64'
+& go -C $repo build -trimpath -tags 'production,windowsvpnprototype' -ldflags ($flags+' -H windowsgui') -o $ui ./client/ui
+if($LASTEXITCODE){throw 'Не собран опытный Windows GUI'}
+Remove-Item $syso
+
 (Get-Content (Join-Path $root 'Package.appxmanifest') -Raw).Replace('@VERSION@',$Version) | Set-Content (Join-Path $stage 'AppxManifest.xml') -Encoding utf8
 Add-Type -AssemblyName System.Drawing
 $original=[Drawing.Image]::FromFile((Join-Path $repo 'packaging\aheadscale\icon.png'))
@@ -62,8 +80,10 @@ try {
  if($LASTEXITCODE){throw 'Не удалось подписать опытный MSIX'}
  & (Join-Path $tools 'signtool.exe') sign /fd SHA256 /sha1 $cert.Thumbprint $negativePackage
  if($LASTEXITCODE){throw 'Не подписан отрицательный пакет'}
+ & (Join-Path $tools 'signtool.exe') sign /fd SHA256 /sha1 $cert.Thumbprint $ui
+ if($LASTEXITCODE){throw 'Не подписан опытный GUI'}
  Export-Certificate -Cert $cert -FilePath (Join-Path $dist 'Aheadscale.VpnPrototype.cer') | Out-Null
- $manifest=[ordered]@{name='Aheadscale.VpnPrototype';publisher=$cert.Subject;version=$Version;architecture=$Architecture;sdk=$SdkVersion;go='1.26.7';nativeDaemonSha256=(Get-FileHash (Join-Path $stage 'AheadscaleNativeDaemon.exe') -Algorithm SHA256).Hash;certificateThumbprint=$cert.Thumbprint;packageFile=(Split-Path $package -Leaf);sha256=(Get-FileHash $package -Algorithm SHA256).Hash;negativePackageFile=(Split-Path $negativePackage -Leaf);negativeSha256=(Get-FileHash $negativePackage -Algorithm SHA256).Hash;sourceCommit=(& git -C $repo rev-parse HEAD)}
+ $manifest=[ordered]@{name='Aheadscale.VpnPrototype';publisher=$cert.Subject;version=$Version;architecture=$Architecture;nativeUIFile=(Split-Path $ui -Leaf);nativeUISha256=(Get-FileHash $ui -Algorithm SHA256).Hash;sdk=$SdkVersion;go='1.26.7';nativeDaemonSha256=(Get-FileHash (Join-Path $stage 'AheadscaleNativeDaemon.exe') -Algorithm SHA256).Hash;certificateThumbprint=$cert.Thumbprint;packageFile=(Split-Path $package -Leaf);sha256=(Get-FileHash $package -Algorithm SHA256).Hash;negativePackageFile=(Split-Path $negativePackage -Leaf);negativeSha256=(Get-FileHash $negativePackage -Algorithm SHA256).Hash;sourceCommit=(& git -C $repo rev-parse HEAD)}
  $manifest | ConvertTo-Json | Set-Content (Join-Path $dist 'build-manifest.json') -Encoding utf8
  Copy-Item (Join-Path $PSScriptRoot 'install-test.ps1'),(Join-Path $PSScriptRoot 'remove-test.ps1') $dist
  Get-ChildItem $dist | Select-Object Name,Length

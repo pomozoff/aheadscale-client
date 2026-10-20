@@ -17,6 +17,14 @@ jobs:
           go-version: '1.26.7'
           cache: true
           cache-dependency-path: go.sum
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24.19.0'
+      - name: Подготовить зафиксированный pnpm
+        shell: pwsh
+        run: |
+          npm install --global pnpm@11.4.0
+          if ($LASTEXITCODE -or (pnpm --version) -ne '11.4.0') { throw 'Неверная версия pnpm' }
       - name: Собрать и подписать отдельный опытный ARM64-пакет
         shell: pwsh
         run: ./packaging/windows-vpn-prototype/scripts/build.ps1 -Architecture arm64 -SdkVersion 10.0.26100.0 -Version '0.1.${{ github.run_number }}.${{ github.run_attempt }}'
