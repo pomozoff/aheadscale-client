@@ -128,9 +128,9 @@ int RunPipeSpikeServer(){
   Handle event(CreateEventW(nullptr,TRUE,FALSE,nullptr));OVERLAPPED op{};op.hEvent=event.value;auto connected=ConnectNamedPipe(pipe.value,&op);auto error=connected?ERROR_SUCCESS:GetLastError();
   if(error==ERROR_IO_PENDING){if(WaitForSingleObject(event.value,60000)!=WAIT_OBJECT_0){CancelIoEx(pipe.value,&op);DWORD ignored{};GetOverlappedResult(pipe.value,&op,&ignored,TRUE);throw hresult_error(HRESULT_FROM_WIN32(ERROR_TIMEOUT));}DWORD ignored{};check_bool(GetOverlappedResult(pipe.value,&op,&ignored,FALSE));}else if(error!=ERROR_SUCCESS&&error!=ERROR_PIPE_CONNECTED)throw hresult_error(HRESULT_FROM_WIN32(error));
   if(!Authorize(pipe.value,owner)){uint32_t denied=ERROR_ACCESS_DENIED;try{Exact(pipe.value,&denied,4,stop.value,true);}catch(...){}DisconnectNamedPipe(pipe.value);continue;}
-  uint32_t ack{};Exact(pipe.value,&ack,4,stop.value,true);Exact(pipe.value,random.data()+16,32,stop.value,true);connection.Close();Mark(L"pipe-spike-bootstrap-closed.json",L"closed-before-stream");
+  uint32_t ack{};Exact(pipe.value,&ack,4,stop.value,true);Exact(pipe.value,random.data()+16,32,stop.value,true);Mark(L"pipe-spike-bootstrap-open.json",L"control-idle-during-stream");
   auto stats=Exchange(pipe.value,stop.value,2);auto start=GetTickCount64();bool closed=false;try{uint32_t unused{};Exact(pipe.value,&unused,4,stop.value,false);}catch(hresult_error const& e){closed=e.code()==HRESULT_FROM_WIN32(ERROR_BROKEN_PIPE)||e.code()==HRESULT_FROM_WIN32(ERROR_PIPE_NOT_CONNECTED);}
-  if(!closed||GetTickCount64()-start>3000)throw hresult_error(E_FAIL,L"Закрытие peer не завершило чтение");SaveStats(L"pipe-spike-server-result.json",stats,false,true);return 0;
+  if(!closed||GetTickCount64()-start>3000)throw hresult_error(E_FAIL,L"Закрытие peer не завершило чтение");SaveStats(L"pipe-spike-server-result.json",stats,false,true);connection.Close();Mark(L"pipe-spike-bootstrap-closed.json",L"closed-after-stream");return 0;
  }
  throw hresult_access_denied(L"Не подключился разрешённый клиент");
 }
