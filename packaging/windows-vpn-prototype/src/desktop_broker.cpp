@@ -1,4 +1,5 @@
 #include "native_channel.h"
+#include "session_controller.h"
 #include "ipc_probe.h"
 #include "packet_transport.h"
 #include <winrt/Windows.ApplicationModel.h>
@@ -95,7 +96,7 @@ struct NativeBrokerState {
  hstring step=L"idle";
  std::atomic<bool> closing{},started{};
  AppServiceConnection connection{nullptr};
- void Stop()noexcept{if(!closing.exchange(true)){SetEvent(complete.value);packets->Cancel();if(pipe.value!=INVALID_HANDLE_VALUE)CancelIoEx(pipe.value,nullptr);}}
+ void Stop()noexcept{if(!closing.exchange(true)){SetEvent(complete.value);packets->Cancel();}}
  ~NativeBrokerState(){
   Stop();
   if(reader.joinable())reader.join();if(writer.joinable())writer.join();if(acceptor.joinable())acceptor.join();
@@ -203,11 +204,16 @@ int RunNativeBroker(){
  auto open=state->connection.OpenAsync().get();if(open!=AppServiceConnectionStatus::Success)return 1;
  ValueSet registration;registration.Insert(L"operation",box_value(hstring(L"register-native-broker")));Send(state->connection,registration);
  WaitForSingleObject(state->complete.value,INFINITE);
- state->connection.RequestReceived(token);state->connection.ServiceClosed(closed);
  {std::lock_guard control(state->controlMutex);}
  if(state->reader.joinable())state->reader.join();
  if(state->writer.joinable())state->writer.join();
  if(state->acceptor.joinable())state->acceptor.join();
+ // Закрытие движка — намеренное отключение всего VPN. Один channel.Stop()
+ // Windows может считать потерей транспорта и автоматически повторить Connect.
+ // RAS получает явный Disconnect до закрытия управляющего соединения/Down.
+ auto disconnected=SystemProfileCommand(L"disconnect");
+ auto stopped=ProcessContext();stopped.SetNamedValue(L"profileDisconnectExit",JsonValue::CreateNumberValue(disconnected));LogProbe(L"native-profile-stop.json",stopped);
+ state->connection.RequestReceived(token);state->connection.ServiceClosed(closed);
  state->connection.Close();
  // Завершаем Down до освобождения mutex: старый сеанс не отключит новый.
  if(state->pipe.value!=INVALID_HANDLE_VALUE){CloseHandle(state->pipe.value);state->pipe.value=INVALID_HANDLE_VALUE;}
