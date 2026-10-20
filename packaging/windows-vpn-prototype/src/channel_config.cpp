@@ -54,8 +54,9 @@ void ConfigureNativeChannel(VpnChannel const& channel,winrt::Windows::Data::Json
   names.Append(VpnDomainNameInfo(item.GetString(),VpnDomainNameType::Suffix,dns,nullptr));
  }
  // AssociateTransport уже выполнил назначение transport. Этот API использует его.
- mark(L"call-start-existing-transports");
- try{channel.StartExistingTransports(v4.GetView(),v6.GetView(),nullptr,routes,domains,1280,1280,false);}
+ // Минимальный IPv4-опыт: сначала IP-трафик, затем отдельно DNS и IPv6-параметры.
+ mark(L"call-start-existing-transports-ipv4-only");
+ try{channel.StartExistingTransports(v4.GetView(),nullptr,nullptr,routes,nullptr,1280,1280,false);}
  catch(hresult_error const& error){throw hresult_error(error.code(),L"StartExistingTransports: "+error.message());}
  mark(L"start-returned");
 }
