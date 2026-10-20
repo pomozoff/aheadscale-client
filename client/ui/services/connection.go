@@ -163,7 +163,15 @@ func (s *Connection) Up(ctx context.Context, p UpParams) error {
 			if err != nil {
 				return s.classifyDaemonError(err)
 			}
-			if (p.ProfileName != "" && p.ProfileName != active.GetId() && p.ProfileName != active.GetProfileName()) || (p.Username != "" && p.Username != active.GetUsername()) {
+			ownerMatches := p.Username == "" || p.Username == active.GetUsername()
+			// Общий default-профиль службы хранится без имени владельца.
+			// GUI передаёт пользователя ОС; разрешаем только текущего пользователя,
+			// сохраняя отказ другой учётке и другому активному профилю.
+			if !ownerMatches && active.GetId() == profilemanager.DefaultProfileName && active.GetUsername() == "" {
+				current, err := user.Current()
+				ownerMatches = err == nil && p.Username == current.Username
+			}
+			if (p.ProfileName != "" && p.ProfileName != active.GetId() && p.ProfileName != active.GetProfileName()) || !ownerMatches {
 				return fmt.Errorf("опытный системный VPN поддерживает только текущий профиль Aheadscale")
 			}
 		}
