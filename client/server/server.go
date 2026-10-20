@@ -320,6 +320,13 @@ func (s *Server) Start() error {
 		return nil
 	}
 
+	// В опытном Windows VPN движок запускается посредником после запроса
+	// системного профиля. До этого служба должна отвечать GUI, а не ждать TUN.
+	if !connectOnServiceStart() {
+		state.Set(internal.StatusIdle)
+		return nil
+	}
+
 	s.clientRunning = true
 	s.clientRunningChan = make(chan struct{})
 	s.clientGiveUpChan = make(chan struct{})
