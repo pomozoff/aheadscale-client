@@ -15,6 +15,8 @@ import (
 	"github.com/godbus/dbus/v5"
 	"github.com/hashicorp/go-version"
 	log "github.com/sirupsen/logrus"
+	"golang.zx2c4.com/wireguard/wgctrl"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 
 	"github.com/netbirdio/netbird/client/internal/statemanager"
 	nbversion "github.com/netbirdio/netbird/version"
@@ -79,6 +81,14 @@ type networkManagerConfigVersion uint64
 
 // networkManagerConfigBehavior maps to a (u) dbus input for GetAppliedConnection and Reapply methods
 type networkManagerConfigBehavior uint32
+
+func (s networkManagerConnSettings) preserveWireGuardTransport(device *wgtypes.Device) {
+	if s["wireguard"] == nil {
+		s["wireguard"] = make(map[string]dbus.Variant)
+	}
+	s["wireguard"]["listen-port"] = dbus.MakeVariant(uint32(device.ListenPort))
+	s["wireguard"]["fwmark"] = dbus.MakeVariant(uint32(device.FirewallMark))
+}
 
 // cleanDeprecatedSettings cleans deprecated settings that still returned by
 // the GetAppliedConnection methods but can't be reApplied
@@ -421,6 +431,20 @@ func (n *networkManagerDbusConfigurator) getAppliedConnectionSettings() (network
 }
 
 func (n *networkManagerDbusConfigurator) reApplyConnectionSettings(connSettings networkManagerConnSettings, configVersion networkManagerConfigVersion) error {
+	// Reapply also configures WireGuard; its external snapshot can predate the transport setup.
+	if connSettings["connection"]["type"].Value() == "wireguard" {
+		client, err := wgctrl.New()
+		if err != nil {
+			return fmt.Errorf("open WireGuard transport before DNS reapply: %w", err)
+		}
+		defer client.Close()
+		device, err := client.Device(n.ifaceName)
+		if err != nil {
+			return fmt.Errorf("read WireGuard transport for %s before DNS reapply: %w", n.ifaceName, err)
+		}
+		connSettings.preserveWireGuardTransport(device)
+	}
+
 	obj, closeConn, err := getDbusObject(networkManagerDest, n.dbusLinkObject)
 	if err != nil {
 		return fmt.Errorf("attempting to retrieve the applied connection settings, err: %w", err)
