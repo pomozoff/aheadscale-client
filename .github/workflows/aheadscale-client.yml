@@ -7,11 +7,11 @@ on:
   workflow_dispatch:
     inputs:
       targets:
-        description: Platforms to build (arm64 skips existing x64/macOS installers)
+        description: Платформы сборки (macos-arm64 — только macOS ARM64)
         type: choice
         required: true
         default: current
-        options: [current, arm64]
+        options: [current, arm64, macos-arm64]
 permissions:
   contents: read
 concurrency:
@@ -56,7 +56,8 @@ jobs:
       fail-fast: false
       matrix:
         include: >-
-          ${{ fromJSON(inputs.targets == 'arm64' &&
+          ${{ fromJSON(inputs.targets == 'macos-arm64' &&
+          '[{"platform":"darwin","arch":"arm64","runner":"macos-26"}]' || inputs.targets == 'arm64' &&
           '[{"platform":"linux","arch":"arm64","runner":"ubuntu-24.04-arm"},
           {"platform":"windows","arch":"arm64","runner":"ubuntu-24.04"}]' ||
           '[{"platform":"linux","arch":"amd64","runner":"ubuntu-24.04"},
