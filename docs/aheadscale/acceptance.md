@@ -1,129 +1,43 @@
-# Aheadscale acceptance
+# Критерии приёмки Aheadscale
 
-Do not mark an OS installation or network scenario passed from compilation alone.
+Актуальная матрица ОС/архитектур, UI, CLI, сеть и регрессии — в [едином тест-плане](smoke-test-plan.md). Результаты — в [индексе отчётов](smoke-results/README.md). Прежние таблицы Pending заменены разделением плана и фактических доказательств.
 
-| Check | Linux amd64 | Windows amd64 | macOS arm64 |
-| --- | --- | --- | --- |
-| Configuration/IPC unit tests | See CI | Cross-build only | Build only |
-| CLI and desktop compilation | CI | CI | CI |
-| Native installer contents and syntax | CI | NSIS compile | pkgbuild/payload listing |
-| Windows adapter identity on native runner | N/A | Passed in CI | N/A |
-| Service package installation/removal on CI runner | Passed | Pending | Pending |
-| Clean-machine install, normal-user UI, system permission flow | Pending | Pending | Pending |
-| Browser sign-in and automatic connection | Pending | Pending | Pending |
-| Reboot/reconnect retains registration and account | Pending | Pending | Pending |
-| All own devices including offline, search/copy name/IP | Pending | Pending | Pending |
-| Private DNS and useful SSH/HTTP connection | Pending | Pending | Pending |
-| In-place upgrade preserves keys and device identity | Pending | Pending | Pending |
-| Uninstall preserves other NetBird/Tailscale installations | Pending | Pending | Pending |
-| Publisher signature/notarization | Repository signature pending | Pending certificate | Pending Developer ID/notarization |
+## Уровни готовности
 
-CI evidence: [preview run 39022500060](https://github.com/pomozoff/aheadscale-client/actions/runs/39022500060), source `b9f43a05d0cd8d4f71b5650fc53037ad6f539e7f`. The three selected platform jobs passed and their artifacts remain available; the overall run was canceled for macOS Intel, which remains deferred. Windows/Linux arm64 are added in a separate selected run.
+1. **Артефакт CI:** компилируется, имеет нужную архитектуру и SHA256; ещё не подтверждает чистую установку.
+2. **Базовый smoke платформы:** S01–S08 и T01/T02 для точного desktop-пакета. Для CLI — C01–C08 без неприменимых GUI-частей; неработающий headless-вход нельзя исключать как N/A.
+3. **Кандидат стабильного выпуска:** полный применимый UI/CLI, reboot/update/remove, разные сети/Relay, регрессии и межплатформенные сценарии на зафиксированном комплекте.
+4. **Публичный выпуск:** дополнительно выполнены серверные и издательские условия ниже.
 
-## ARM64 extension
+BLOCKED/NOT_RUN и тестовые подписи не считаются PASS. На 23 октября 2026 единый стабильный кандидат по всей матрице **не подтверждён**.
 
-[Run 39057470367](https://github.com/pomozoff/aheadscale-client/actions/runs/39057470367),
-source `a89587893b2a48b7d052058fb8f43d219c88735b`, passed all four jobs.
-Only Windows/Linux arm64 installers were built in this run.
+## Условия публичного выпуска
 
-| Check | Linux arm64 | Windows arm64 |
+- Новая регистрация активирует изолированный аккаунт/сеть только после подтверждения email; одноразовые ссылки ограничены сроком, повторная регистрация и ошибки доставки обработаны. Сейчас серверную часть ещё нужно доработать.
+- Лимит пяти зарегистрированных устройств обеспечивается сервером атомарно, включая offline и гонку за последнее место; удаление освобождает слот.
+- REST, management, каталог, DNS и трафик изолированы между аккаунтами, включая одинаковый email-домен.
+- Каталог/IP/имена согласованы на Linux, Windows и macOS; системный резолвер и прикладной трафик работают без ручного DNS/сервера.
+- Установка, автозапуск, reboot, upgrade и uninstall проверены для каждой заявленной ОС/архитектуры; поддержка ограничена реально пройденными строками матрицы.
+- Системный VPN управляется в обе стороны там, где это обещано. macOS Network Extension отсутствует; Windows-прототип ещё требует итогового установщика.
+- Windows имеет подпись издателя; macOS — Developer ID и нотариализацию. Сейчас публичных сертификатов нет. Linux-пакеты/репозитории и обновления имеют собственную проверяемую подпись.
+- Обновления приходят из собственного доверенного канала Aheadscale/CDN, проверяют происхождение и сохраняют регистрацию. В preview upstream-обновления отключены; CDN-конфигурация клиента — следующий этап.
+- Удаление/обновление не меняет службы, файлы и регистрацию существующих NetBird/Tailscale; лицензии и notices сохранены.
+
+До этого пакеты предназначены для собственных испытаний и управляемых preview.
+
+## Происхождение первоначальных CI
+
+| Запуск | Исходники | Подтверждённый объём |
 | --- | --- | --- |
-| CLI and desktop compilation/package creation | Passed, native Ubuntu 24.04 arm64 | Passed, LLVM-MinGW cross-build |
-| Downloaded SHA256SUMS and actual payload architecture | Passed, ARM64 daemon/UI | Passed, ARM64 daemon/UI/Wintun |
-| Native UI service tests | Passed | Pending on ARM64 Windows |
-| Service package installation/start/removal | Passed on native ARM64 runner | Pending |
-| Clean VM UI, browser login, reboot, directory/DNS and useful traffic | Pending | Pending |
-| Publisher signature | Pending | Pending certificate |
+| [39022500060](https://github.com/pomozoff/aheadscale-client/actions/runs/39022500060) | `b9f43a05d0cd8d4f71b5650fc53037ad6f539e7f` | Выбранные Linux/Windows amd64 и macOS ARM64 задания; общий запуск отменён для отложенной macOS Intel. Не чистый OS smoke |
+| [39057470367](https://github.com/pomozoff/aheadscale-client/actions/runs/39057470367) | `a89587893b2a48b7d052058fb8f43d219c88735b` | Четыре задания Linux/Windows ARM64; упаковка/архитектура. Adapter job на x64 не доказывает выполнение на Windows ARM64 |
 
-The Windows adapter identity CI job runs on x64; it does not establish native
-Windows ARM64 execution. See the preview report for download links and VM OS
-requirements. Select `public` for Internet VMs, and the non-`_cli` Linux package
-for the graphical client.
+Поздние версии, SHA256 и ограничения — в исходных отчётах, включая Linux `.8`, Windows native 47 и macOS `.5`. Ранний CI не подтверждает новые бинарники.
 
-## Public service gates
+## Особенности preview
 
-- Server signup with verified email/password and idempotent creation of an isolated
-  personal account/network. No joining another account by matching email domain.
-- Atomic server-side five-registered-device limit; removing a device frees a slot.
-- Cross-account denial for REST, management, peer directory, DNS and traffic.
-- Names and addresses distributed automatically on all supported OSes, including
-  Windows/macOS DNS behavior; offline entries do not imply reachability.
-- Own signed updates and CDN provenance. No fallback to upstream packages/keys.
-- Real OS checks above, publisher signing and macOS notarization.
+Linux desktop использует systemd, GTK 4.14+ и WebKitGTK 6; отдельный CLI обходится без GUI. RPM проверялся на Fedora, DEB — на Ubuntu. Windows тестируется начиная с Windows 10 x64; Windows 7 исключена; на чистой машине может потребоваться WebView2. macOS preview подписан ad-hoc без Developer ID/нотаризации.
 
-Until all gates are recorded with evidence, artifacts are operator previews only.
+У Aheadscale собственные служба, каталоги/настройки, IPC и сетевые ресурсы. `AS_` не должны подхватывать чужой профиль через `NB_CONFIG`/`WT_CONFIG`. Фактические имена интерфейсов отличаются: Linux Aheadscale, macOS utun, опытный Windows — профиль прототипа; записывать их в отчёте.
 
-## Preview installer behavior
-
-Linux requires a systemd-based Ubuntu-compatible Debian environment. Desktop
-packages for amd64 and arm64 require GTK 4.14+ and WebKitGTK 6 (Ubuntu 24.04
-or a compatible newer system). Separate CLI packages remain available. Windows
-amd64 requires Windows 10 or newer; Windows 7 is unsupported. For arm64 VM
-testing on Apple Silicon use Windows 11 arm64. Windows packages preserve upstream WebView2 detection/bootstrapper behavior, which can
-require access to Microsoft on a machine without that runtime. Mac packages are
-ad-hoc signed for testing and are not Developer ID signed or notarized.
-
-macOS previews include `/Applications/Uninstall Aheadscale.command`: it requests
-admin permission, stops/removes only Aheadscale, and keeps registration keys and
-preferences. Linux package removal also keeps registration. Windows retains data
-unless the user explicitly selects its Aheadscale-only deletion option.
-
-## Resource separation
-
-Aheadscale uses its own service, configuration/state directories, UI preferences,
-IPC endpoints, `as0`/`utun120` interface, UDP 51830 default, firewall chains/table,
-routing table 7136, connection-tracking zone and packet-mark range. Existing
-NetBird/Tailscale files are not migrated. Concurrent overlapping VPN routes and
-DNS still require the real OS coexistence checks above.
-
-Preview diagnostics are generated locally; upstream support upload and update
-workers are disabled. The included BSD/third-party notices retain attribution.
-
-CLI flag environment settings use `AS_` (for example `AS_CONFIG`), and state
-uses `AS_STATE_DIR`. Legacy `NB_CONFIG`/`WT_CONFIG` variables cannot select a
-NetBird/Wiretrustee profile for Aheadscale.
-
-## Operator integration run (before any public release)
-
-Use disposable clean machines with a snapshot for each supported OS. Use the
-internal installers only against the private bootstrap, and public-endpoint
-installers only against the public test service. Never switch channels on a
-registered machine or reuse its account/device keys as a migration strategy.
-
-1. Install as a normal user with the OS elevation prompt. Open Aheadscale, use
-   its single sign-in button and complete browser authentication. Record that no
-   server URL was requested and the connection completes without returning to
-   the app. Repeat for a new email/password signup once the server supports it.
-2. Join Linux, Windows and macOS devices to account A. Compare their directories
-   with the server's account-A devices: name, private IP and offline entries
-   must agree. Search by name and IP, copy both values, stop one device and
-   verify its offline entry remains on the other two.
-3. For each OS, resolve the copied private FQDN with its application resolver:
-   Linux `getent ahostsv4`, macOS `dscacheutil -q host -a name`, Windows
-   `[System.Net.Dns]::GetHostAddresses()`. Compare with the directory IP, then
-   make a real SSH/HTTP connection to the other device. Repeat using its short
-   name, without a hosts-file edit or manual DNS configuration. Record the
-   actual private suffix supplied by the server rather than assuming one.
-4. Reboot each machine, change Wi-Fi/network and restart the app. Check automatic
-   reconnection, the same server device ID/key, and a useful connection by name.
-   Install a later Aheadscale preview over it and repeat; a successful compiler
-   or reinstall of the same version does not prove upgrade preservation.
-5. With five registered account-A devices (including offline), attempt a sixth.
-   It must be rejected by the server. Delete one, enroll another and check the
-   freed slot. Race two enrollments for the last slot: exactly one may succeed.
-6. Join a device to account B, including a user with the same email domain as A.
-   Check that neither directory/DNS/API nor SSH/HTTP traffic crosses accounts.
-   A UI-only filter is insufficient evidence of server isolation.
-7. Repeat install/upgrade/remove with real NetBird and Tailscale already present.
-   Check their services, registrations and useful connections before and after.
-   Removing Aheadscale must stop only its service and remove its binaries/OS
-   entries; retained Aheadscale keys must reconnect after reinstall. On Windows
-   separately test the explicit deletion-of-Aheadscale-data option.
-8. Record OS/build versions, source commit, installer SHA256, account/device test
-   IDs, outcomes and blockers. Keep credentials, private keys and raw diagnostic
-   bundles out of public evidence. Verify final publisher signatures on the
-   downloaded CDN bytes before changing any Pending status to Passed.
-
-These steps are not yet executed and are not replaced by the CI installation
-check. The server registration/isolation/quota gates and signing credentials
-are prerequisites for the complete run.
+Штатное удаление Linux/macOS сохраняет регистрацию для переустановки; macOS включает `/Applications/Uninstall Aheadscale.command`. В Windows отдельно проверить явное удаление данных. Перекрывающиеся маршруты/DNS двух VPN требуют реальной проверки U04.
