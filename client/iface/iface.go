@@ -1,6 +1,7 @@
 package iface
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/netip"
@@ -56,6 +57,7 @@ type wgProxyFactory interface {
 }
 
 type WGIFaceOpts struct {
+	Context      context.Context
 	IFaceName    string
 	Address      wgaddr.Address
 	WGPort       int
@@ -228,6 +230,10 @@ func (w *WGIface) Close() error {
 
 	if err := tun.Close(); err != nil {
 		result = multierror.Append(result, fmt.Errorf("failed to close wireguard interface %s: %w", w.Name(), err))
+	}
+
+	if owner, ok := tun.(interface{ PlatformOwnsInterface() bool }); ok && owner.PlatformOwnsInterface() {
+		return errors.FormatErrorOrNil(result)
 	}
 
 	if nbnetstack.IsEnabled() {

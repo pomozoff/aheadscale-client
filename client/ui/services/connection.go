@@ -66,12 +66,13 @@ type LogoutParams struct {
 type Connection struct {
 	conn       DaemonConn
 	classifier errorClassifier
+	nativeVPN  nativeVPNController
 }
 
 // NewConnection wires up a Connection. translator or prefs may be nil, in which
 // case classifyDaemonError falls back to the bare error key.
 func NewConnection(conn DaemonConn, translator ErrorTranslator, prefs LanguagePreference) *Connection {
-	return &Connection{conn: conn, classifier: errorClassifier{translator: translator, prefs: prefs}}
+	return &Connection{conn: conn, classifier: errorClassifier{translator: translator, prefs: prefs}, nativeVPN: newPlatformVPNController(conn)}
 }
 
 func (s *Connection) Login(ctx context.Context, p LoginParams) (LoginResult, error) {
@@ -150,6 +151,32 @@ func (s *Connection) Login(ctx context.Context, p LoginParams) (LoginResult, err
 }
 
 func (s *Connection) Up(ctx context.Context, p UpParams) error {
+	if s.nativeVPN != nil {
+		// Опытный пакет обслуживает только выбранную учётку; другой профиль
+		// нельзя незаметно подменить активным при передаче команды RAS.
+		if p.ProfileName != "" || p.Username != "" {
+			cli, err := s.conn.Client()
+			if err != nil {
+				return err
+			}
+			active, err := cli.GetActiveProfile(ctx, &proto.GetActiveProfileRequest{})
+			if err != nil {
+				return s.classifyDaemonError(err)
+			}
+			ownerMatches := p.Username == "" || p.Username == active.GetUsername()
+			// Общий default-профиль службы хранится без имени владельца.
+			// GUI передаёт пользователя ОС; разрешаем только текущего пользователя,
+			// сохраняя отказ другой учётке и другому активному профилю.
+			if !ownerMatches && active.GetId() == profilemanager.DefaultProfileName && active.GetUsername() == "" {
+				current, err := user.Current()
+				ownerMatches = err == nil && p.Username == current.Username
+			}
+			if (p.ProfileName != "" && p.ProfileName != active.GetId() && p.ProfileName != active.GetProfileName()) || !ownerMatches {
+				return fmt.Errorf("опытный системный VPN поддерживает только текущий профиль Aheadscale")
+			}
+		}
+		return s.nativeVPN.SetConnected(ctx, true)
+	}
 	cli, err := s.conn.Client()
 	if err != nil {
 		return err
@@ -191,6 +218,9 @@ func (s *Connection) WaitSSOLoginAndUp(ctx context.Context, wait WaitSSOParams, 
 }
 
 func (s *Connection) Down(ctx context.Context) error {
+	if s.nativeVPN != nil {
+		return s.nativeVPN.SetConnected(ctx, false)
+	}
 	cli, err := s.conn.Client()
 	if err != nil {
 		return err
@@ -287,4 +317,31 @@ func (s *Connection) waitSSOLogin(ctx context.Context, p WaitSSOParams) (string,
 // classifyDaemonError maps a gRPC error to a localised ClientError.
 func (s *Connection) classifyDaemonError(err error) *ClientError {
 	return s.classifier.classify(err)
+}
+
+// ResumeOnLaunch honors the saved startup preference without overriding a newer click.
+func (s *Connection) ResumeOnLaunch(ctx context.Context) error {
+	controller, ok := s.nativeVPN.(interface{ StartOnLaunch(context.Context) error })
+	if !ok {
+		return nil
+	}
+	cli, err := s.conn.Client()
+	if err != nil {
+		return err
+	}
+	active, err := cli.GetActiveProfile(ctx, &proto.GetActiveProfileRequest{})
+	if err != nil {
+		return err
+	}
+	config, err := cli.GetConfig(ctx, &proto.GetConfigRequest{
+		ProfileName: active.GetId(),
+		Username:    active.GetUsername(),
+	})
+	if err != nil {
+		return err
+	}
+	if config.GetDisableAutoConnect() {
+		return nil
+	}
+	return controller.StartOnLaunch(ctx)
 }

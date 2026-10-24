@@ -11,6 +11,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -204,6 +205,15 @@ func main() {
 	// Mint). ApplicationStarted fires after the startup loop, so the bus is up.
 	app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
 		daemonFeed.Watch(context.Background())
+		if prefStore.Get().OnboardingCompleted {
+			go func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+				defer cancel()
+				if err := connection.ResumeOnLaunch(ctx); err != nil {
+					logrus.WithError(err).Warn("resume system VPN on launch")
+				}
+			}()
+		}
 		// Probe daemon compatibility once the notifier bus is up; an outdated
 		// daemon may keep the main window from showing, so the OS toast is the
 		// only reliable signal the user gets.
