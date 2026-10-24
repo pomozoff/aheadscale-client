@@ -10,6 +10,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	"github.com/netbirdio/netbird/client/internal/debug"
 	"github.com/netbirdio/netbird/client/proto"
 	"github.com/netbirdio/netbird/version"
 )
@@ -61,8 +62,12 @@ func (s *Debug) Bundle(ctx context.Context, p DebugBundleParams) (DebugBundleRes
 	if err != nil {
 		return DebugBundleResult{}, err
 	}
+	path, err := debug.ExportBundle(resp.GetPath())
+	if err != nil {
+		return DebugBundleResult{}, err
+	}
 	return DebugBundleResult{
-		Path:                resp.GetPath(),
+		Path:                path,
 		UploadedKey:         resp.GetUploadedKey(),
 		UploadFailureReason: resp.GetUploadFailureReason(),
 	}, nil

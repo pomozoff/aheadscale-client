@@ -34,12 +34,54 @@ type Theme struct {
 	// started gates the main-thread dispatch in apply: Run installs the platform
 	// layer InvokeAsync needs, and the store subscription can fire before that.
 	started atomic.Bool
+	// windowReady maps window IDs to their WebView lifecycle, before native Run.
+	windowReady sync.Map
+}
+
+const (
+	themeWindowWaiting uint32 = iota
+	themeWindowReady
+	themeWindowClosed
+)
+
+type themeWindow interface {
+	ID() uint
+	OnWindowEvent(events.WindowEventType, func(*application.WindowEvent)) func()
+	SetBackgroundColour(application.RGBA) application.Window
+}
+
+func (t *Theme) watchWindow(w themeWindow, refresh func()) {
+	state := &atomic.Uint32{}
+	t.windowReady.Store(w.ID(), state)
+	w.OnWindowEvent(events.Common.WindowRuntimeReady, func(*application.WindowEvent) {
+		if state.CompareAndSwap(themeWindowWaiting, themeWindowReady) {
+			refresh()
+		}
+	})
+	w.OnWindowEvent(events.Common.WindowClosing, func(*application.WindowEvent) {
+		state.Store(themeWindowClosed)
+		t.windowReady.Delete(w.ID())
+	})
+}
+
+func (t *Theme) applyWindowBackground(w themeWindow, colour application.RGBA) bool {
+	state, ok := t.windowReady.Load(w.ID())
+	if !ok || state.(*atomic.Uint32).Load() != themeWindowReady {
+		return false
+	}
+	w.SetBackgroundColour(colour)
+	return true
 }
 
 // NewTheme wires the store subscription and OS theme-change listener. Call
 // before any window is created so creation-time colours are already themed.
 func NewTheme(app *application.App, store *preferences.Store) *Theme {
 	t := &Theme{app: app, store: store}
+	app.Window.OnCreate(func(window application.Window) {
+		if w, ok := window.(*application.WebviewWindow); ok {
+			t.watchWindow(w, t.apply)
+		}
+	})
 	pref := store.Get().Theme
 	setAppearance(pref, resolveDark(pref, app.Env.IsDarkMode()))
 
@@ -187,8 +229,11 @@ func (t *Theme) apply() {
 			if w == nil {
 				continue
 			}
-			w.SetBackgroundColour(colour)
-			setWindowAppearance(w.NativeWindow(), pref, dark)
+			hwnd := w.NativeWindow()
+			if hwnd == nil || !t.applyWindowBackground(w, colour) {
+				continue
+			}
+			setWindowAppearance(hwnd, pref, dark)
 		}
 	})
 }

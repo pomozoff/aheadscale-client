@@ -282,6 +282,9 @@ func newApplication(onSecondInstance func()) *application.App {
 		Name:        "Aheadscale",
 		Description: "Aheadscale desktop client",
 		Icon:        appIcon,
+		ErrorHandler: func(err error) {
+			logrus.WithError(err).Error("desktop application error")
+		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
 		},

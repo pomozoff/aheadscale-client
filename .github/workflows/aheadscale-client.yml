@@ -109,7 +109,7 @@ jobs:
                   with zipfile.ZipFile(target) as archive: archive.extractall(work)
               else: subprocess.run(['7z','x',str(target),'-o'+str(work)],check=True)
           for dll in work.rglob('*.dll'):
-              if ('Plugins' in dll.parts and 'x86-unicode' in dll.parts) or dll.name == 'ShellExecAsUser.dll':
+              if 'Plugins' in dll.parts and 'x86-unicode' in dll.parts:
                   subprocess.run(['sudo','cp',str(dll),'/usr/share/nsis/Plugins/x86-unicode/'],check=True)
           PY
           if [[ '${{ matrix.arch }}' == arm64 ]]; then

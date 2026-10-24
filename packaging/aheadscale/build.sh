@@ -20,7 +20,7 @@ out="$PWD/build/$platform-$arch-$channel"
 mkdir -p "$out"
 extension=''
 if [[ $platform == windows ]]; then extension=.exe; fi
-ldflags="-s -w -X github.com/netbirdio/netbird/version.version=0.80.0-aheadscale.5 -X github.com/netbirdio/netbird/client/internal/profilemanager.DefaultManagementURL=$origin -X github.com/netbirdio/netbird/client/internal/profilemanager.DefaultAdminURL=$origin -X github.com/netbirdio/netbird/client/internal/profilemanager.LockedServerOrigin=$origin"
+ldflags="-s -w -X github.com/netbirdio/netbird/version.version=0.80.0-aheadscale.10 -X github.com/netbirdio/netbird/client/internal/profilemanager.DefaultManagementURL=$origin -X github.com/netbirdio/netbird/client/internal/profilemanager.DefaultAdminURL=$origin -X github.com/netbirdio/netbird/client/internal/profilemanager.LockedServerOrigin=$origin"
 CGO_ENABLED=0 go build -trimpath -ldflags "$ldflags" -o "$out/aheadscale$extension" ./client
 export CGO_ENABLED=1
 export VITE_AHEADSCALE_MANAGEMENT_URL=$origin
@@ -31,7 +31,14 @@ pnpm --dir frontend build
 if [[ $platform == linux && $channel == internal ]]; then pnpm --dir frontend lint; pnpm --dir frontend typecheck; fi
 popd >/dev/null
 ui_ldflags=$ldflags
-if [[ $platform == windows ]]; then ui_ldflags="$ui_ldflags -H windowsgui"; fi
+if [[ $platform == windows ]]; then
+  ui_ldflags="$ui_ldflags -H windowsgui"
+  syso="$PWD/client/ui/wails_windows_${arch}.syso"
+  trap 'rm -f "$syso"' EXIT
+  wails3 generate syso -arch "$arch" -icon packaging/aheadscale/icon.ico \
+    -manifest client/ui/build/windows/wails.exe.manifest \
+    -info client/ui/build/windows/info.json -out "$syso"
+fi
 go build -trimpath -tags production -ldflags "$ui_ldflags" -o "$out/aheadscale-ui$extension" ./client/ui
 python3 packaging/aheadscale/package.py --platform "$platform" --arch "$arch" --channel "$channel"
 if [[ $platform == linux ]]; then
