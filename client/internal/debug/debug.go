@@ -381,7 +381,7 @@ func NewBundleGenerator(deps GeneratorDependencies, cfg BundleConfig) *BundleGen
 
 // Generate creates a debug bundle and returns the location.
 func (g *BundleGenerator) Generate() (resp string, err error) {
-	bundlePath, err := os.CreateTemp(g.tempDir, "netbird.debug.*.zip")
+	bundlePath, err := os.CreateTemp(g.tempDir, "aheadscale.debug.*.zip")
 	if err != nil {
 		return "", fmt.Errorf("create zip file: %w", err)
 	}
@@ -1495,9 +1495,7 @@ func anonymizePeerConfig(config *mgmProto.PeerConfig, anonymizer *anonymize.Anon
 		return
 	}
 
-	if addr, err := netip.ParseAddr(config.Address); err == nil {
-		config.Address = anonymizer.AnonymizeIP(addr).String()
-	}
+	config.Address = anonymizer.AnonymizeIPString(config.Address)
 
 	if len(config.GetAddressV6()) > 0 {
 		v6Prefix, err := netiputil.DecodePrefix(config.GetAddressV6())

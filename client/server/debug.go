@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"runtime/pprof"
 	"strings"
@@ -39,6 +40,16 @@ func (s *Server) DebugBundle(callerCtx context.Context, req *proto.DebugBundleRe
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		if err != nil {
+			return
+		}
+		if accessErr := debug.PrepareBundleForCaller(path, callerID, callerIdentified); accessErr != nil {
+			_ = os.Remove(path)
+			resp = nil
+			err = fmt.Errorf("release debug bundle to requester: %w", accessErr)
+		}
+	}()
 
 	if req.GetUploadURL() == "" {
 		return &proto.DebugBundleResponse{Path: path}, nil

@@ -185,7 +185,11 @@ func debugBundle(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return daemonCallError("bundle debug", err)
 	}
-	cmd.Printf("Local file:\n%s\n", resp.GetPath())
+	path, err := debug.ExportBundle(resp.GetPath())
+	if err != nil {
+		return err
+	}
+	cmd.Printf("Local file:\n%s\n", path)
 
 	if resp.GetUploadFailureReason() != "" {
 		return fmt.Errorf("upload failed: %s", resp.GetUploadFailureReason())
@@ -416,7 +420,11 @@ func runForDuration(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	cmd.Printf("Local file:\n%s\n", resp.GetPath())
+	path, err := debug.ExportBundle(resp.GetPath())
+	if err != nil {
+		return err
+	}
+	cmd.Printf("Local file:\n%s\n", path)
 
 	if resp.GetUploadFailureReason() != "" {
 		return fmt.Errorf("upload failed: %s", resp.GetUploadFailureReason())

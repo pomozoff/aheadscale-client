@@ -988,6 +988,7 @@ func anonymizePeerDetail(a *anonymize.Anonymizer, peer *PeerStateDetailOutput) {
 		peer.IceCandidateEndpoint.Remote = fmt.Sprintf("%s:%s", a.AnonymizeIPString(remoteIP), port)
 	}
 
+	peer.IP = a.AnonymizeIPString(peer.IP)
 	peer.IPv6 = a.AnonymizeIPString(peer.IPv6)
 	peer.RelayAddress = a.AnonymizeURI(peer.RelayAddress)
 

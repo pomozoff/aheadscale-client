@@ -1,9 +1,10 @@
 param(
- [ValidateSet('arm64')][string]$Architecture='arm64',
+ [ValidateSet('arm64','amd64')][string]$Architecture='arm64',
  [string]$SdkVersion='10.0.26100.0',
  [ValidatePattern('^\d+\.\d+\.\d+\.\d+$')][string]$Version='0.1.0.0'
 )
 $ErrorActionPreference='Stop'
+$packageArchitecture=if($Architecture -eq 'amd64'){'x64'}else{'arm64'}
 Set-StrictMode -Version Latest
 $root=Split-Path $PSScriptRoot -Parent
 $repo=Resolve-Path (Join-Path $root '..\..')
@@ -17,13 +18,13 @@ $build=Join-Path $root 'out\build'
 $stage=Join-Path $root 'out\stage'
 $dist=Join-Path $root 'out\dist'
 New-Item -ItemType Directory -Force $stage,$dist,(Join-Path $stage 'Assets') | Out-Null
-& cmake -S $root -B $build -G 'Visual Studio 17 2022' -A ARM64 -T v143 "-DCMAKE_SYSTEM_VERSION=$SdkVersion"
+& cmake -S $root -B $build -G 'Visual Studio 17 2022' -A $(if($Architecture -eq 'amd64'){'x64'}else{'ARM64'}) -T v143 "-DCMAKE_SYSTEM_VERSION=$SdkVersion"
 if($LASTEXITCODE){throw 'Ошибка CMake configure'}
 & cmake --build $build --config Release --parallel 2
 if($LASTEXITCODE){throw 'Ошибка компиляции C++/WinRT'}
 Copy-Item (Join-Path $build 'Release\AheadscaleVpnPlugin.dll'),(Join-Path $build 'Release\AheadscaleVpnController.exe'),(Join-Path $build 'Release\AheadscaleVpnHost.exe'),(Join-Path $build 'Release\AheadscaleVpnBroker.exe') $stage
 # Отдельный опытный daemon; штатный Wintun-клиент не заменяется сборкой.
-$env:GOTOOLCHAIN='go1.26.7';$env:GOOS='windows';$env:GOARCH='arm64';$env:CGO_ENABLED='0'
+$env:GOTOOLCHAIN='go1.26.7';$env:GOOS='windows';$env:GOARCH=$Architecture;$env:CGO_ENABLED='0'
 $goVersion=& go -C $repo version
 if($LASTEXITCODE -or $goVersion -notmatch '^go version go1\.26\.7 windows/amd64$'){throw 'Нужен Go 1.26.7 для Windows build runner'}
 $flags='-s -w -X github.com/netbirdio/netbird/version.version=0.80.0-aheadscale.vpn-prototype -X github.com/netbirdio/netbird/client/internal/profilemanager.DefaultManagementURL=https://aheadscale.ru -X github.com/netbirdio/netbird/client/internal/profilemanager.DefaultAdminURL=https://aheadscale.ru -X github.com/netbirdio/netbird/client/internal/profilemanager.LockedServerOrigin=https://aheadscale.ru'
@@ -50,15 +51,15 @@ $env:VITE_AHEADSCALE_MANAGEMENT_URL='https://aheadscale.ru'
 if($LASTEXITCODE){throw 'Не установлены зафиксированные зависимости GUI'}
 & pnpm --dir (Join-Path $repo 'client\ui\frontend') build
 if($LASTEXITCODE){throw 'Не собран frontend опытного GUI'}
-$syso=Join-Path $repo 'client\ui\wails_windows_arm64.syso'
-& $wails generate syso -arch arm64 -icon (Join-Path $repo 'packaging\aheadscale\icon.ico') -manifest (Join-Path $repo 'client\ui\build\windows\wails.exe.manifest') -info (Join-Path $repo 'client\ui\build\windows\info.json') -out $syso
+$syso=Join-Path $repo "client\ui\wails_windows_${Architecture}.syso"
+& $wails generate syso -arch $Architecture -icon (Join-Path $repo 'packaging\aheadscale\icon.ico') -manifest (Join-Path $repo 'client\ui\build\windows\wails.exe.manifest') -info (Join-Path $repo 'client\ui\build\windows\info.json') -out $syso
 if($LASTEXITCODE){throw 'Не созданы ресурсы Windows GUI'}
-$env:GOARCH='arm64'
+$env:GOARCH=$Architecture
 & go -C $repo build -trimpath -tags 'production,windowsvpnprototype' -ldflags ($flags+' -H windowsgui') -o $ui ./client/ui
 if($LASTEXITCODE){throw 'Не собран опытный Windows GUI'}
 Remove-Item $syso
 
-(Get-Content (Join-Path $root 'Package.appxmanifest') -Raw).Replace('@VERSION@',$Version) | Set-Content (Join-Path $stage 'AppxManifest.xml') -Encoding utf8
+(Get-Content (Join-Path $root 'Package.appxmanifest') -Raw).Replace('@VERSION@',$Version).Replace('@ARCHITECTURE@',$packageArchitecture) | Set-Content (Join-Path $stage 'AppxManifest.xml') -Encoding utf8
 Add-Type -AssemblyName System.Drawing
 $original=[Drawing.Image]::FromFile((Join-Path $repo 'packaging\aheadscale\icon.png'))
 try {
@@ -68,7 +69,7 @@ try {
   finally {$graphics.Dispose();$bitmap.Dispose()}
  }
 } finally {$original.Dispose()}
-$package=Join-Path $dist "Aheadscale.VpnPrototype_${Version}_arm64.msix"
+$package=Join-Path $dist "Aheadscale.VpnPrototype_${Version}_${Architecture}.msix"
 & (Join-Path $tools 'makeappx.exe') pack /d $stage /p $package /o
 if($LASTEXITCODE){throw 'Пакет MSIX не прошёл проверку MakeAppx'}
 # Второй пакет с другой идентичностью — только для реальной отрицательной проверки.
@@ -76,8 +77,8 @@ $negativeStage=Join-Path $root 'out\negative-stage'
 New-Item -ItemType Directory -Force $negativeStage | Out-Null
 Copy-Item (Join-Path $stage 'Assets') $negativeStage -Recurse
 Copy-Item (Join-Path $stage 'AheadscaleVpnController.exe') $negativeStage
-(Get-Content (Join-Path $root 'NegativeProbe.appxmanifest') -Raw).Replace('@VERSION@',$Version) | Set-Content (Join-Path $negativeStage 'AppxManifest.xml') -Encoding utf8
-$negativePackage=Join-Path $dist "Aheadscale.VpnNegativeProbe_${Version}_arm64.msix"
+(Get-Content (Join-Path $root 'NegativeProbe.appxmanifest') -Raw).Replace('@VERSION@',$Version).Replace('@ARCHITECTURE@',$packageArchitecture) | Set-Content (Join-Path $negativeStage 'AppxManifest.xml') -Encoding utf8
+$negativePackage=Join-Path $dist "Aheadscale.VpnNegativeProbe_${Version}_${Architecture}.msix"
 & (Join-Path $tools 'makeappx.exe') pack /d $negativeStage /p $negativePackage /o
 if($LASTEXITCODE){throw 'Не собран отрицательный пакет'}
 $cert=New-SelfSignedCertificate -Type CodeSigningCert -Subject 'CN=Aheadscale VPN Prototype' -CertStoreLocation Cert:\CurrentUser\My -KeyAlgorithm RSA -KeyLength 3072 -HashAlgorithm SHA256 -KeyExportPolicy NonExportable -NotAfter (Get-Date).AddDays(14)

@@ -165,6 +165,10 @@ func TestICEBind_HandlesConcurrentMixedTraffic(t *testing.T) {
 	dualStack := NewDualStackPacketConn(ipv4Local, ipv6Local)
 
 	const packetsPerFamily = 500
+	// Reserve burst capacity before concurrent senders can outrun scheduling
+	// of the readers; the OS default receive buffers can drop this fixture.
+	require.NoError(t, ipv4Peer.SetReadBuffer(packetsPerFamily*4096))
+	require.NoError(t, ipv6Peer.SetReadBuffer(packetsPerFamily*4096))
 
 	ipv4Received := make(chan string, packetsPerFamily)
 	ipv6Received := make(chan string, packetsPerFamily)

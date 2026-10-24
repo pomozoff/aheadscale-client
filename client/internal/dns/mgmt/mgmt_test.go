@@ -87,8 +87,8 @@ func TestResolver_ExtractDomainFromURL(t *testing.T) {
 	}{
 		{
 			name:        "HTTPS URL with port",
-			urlStr:      "https://api.netbird.io:443",
-			expectedDom: "api.aheadscale.io",
+			urlStr:      "https://api.example.com:443",
+			expectedDom: "api.example.com",
 			expectError: false,
 		},
 		{
@@ -99,8 +99,8 @@ func TestResolver_ExtractDomainFromURL(t *testing.T) {
 		},
 		{
 			name:        "URL with path",
-			urlStr:      "https://relay.netbird.io/status",
-			expectedDom: "relay.aheadscale.io",
+			urlStr:      "https://relay.example.com/status",
+			expectedDom: "relay.example.com",
 			expectError: false,
 		},
 		{

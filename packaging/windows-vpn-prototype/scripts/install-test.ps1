@@ -4,7 +4,7 @@ Set-StrictMode -Version Latest
 $manifest=Get-Content (Join-Path $PSScriptRoot 'build-manifest.json') -Raw | ConvertFrom-Json
 if($manifest.name -ne 'Aheadscale.VpnPrototype' -or $manifest.publisher -ne 'CN=Aheadscale VPN Prototype'){throw 'Неверная идентичность артефакта'}
 $package=Join-Path $PSScriptRoot $manifest.packageFile
-if((Split-Path $package -Leaf) -ne $manifest.packageFile -or $manifest.packageFile -notmatch '^Aheadscale\.VpnPrototype_[\d.]+_arm64\.msix$'){throw 'Неверное имя пакета'}
+if((Split-Path $package -Leaf) -ne $manifest.packageFile -or $manifest.packageFile -notmatch '^Aheadscale\.VpnPrototype_[\d.]+_(arm64|amd64)\.msix$'){throw 'Неверное имя пакета'}
 if((Get-FileHash $package -Algorithm SHA256).Hash -ne $manifest.sha256){throw 'SHA256 не совпал'}
 $cert=[Security.Cryptography.X509Certificates.X509Certificate2]::new((Join-Path $PSScriptRoot 'Aheadscale.VpnPrototype.cer'))
 if($cert.HasPrivateKey -or $cert.Subject -ne $manifest.publisher -or $cert.Thumbprint -ne $manifest.certificateThumbprint){throw 'Неверный публичный сертификат'}

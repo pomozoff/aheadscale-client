@@ -4,6 +4,12 @@ on:
     branches: [codex/windows-vpn-prototype]
     paths: ['packaging/windows-vpn-prototype/**', '.github/workflows/aheadscale-windows-vpn-prototype.yml']
   workflow_dispatch:
+    inputs:
+      architecture:
+        description: Архитектура тестового пакета
+        type: choice
+        options: [amd64, arm64]
+        default: amd64
 permissions:
   contents: read
 jobs:
@@ -25,12 +31,12 @@ jobs:
         run: |
           npm install --global pnpm@11.4.0
           if ($LASTEXITCODE -or (pnpm --version) -ne '11.4.0') { throw 'Неверная версия pnpm' }
-      - name: Собрать и подписать отдельный опытный ARM64-пакет
+      - name: Собрать и подписать отдельный опытный пакет
         shell: pwsh
-        run: ./packaging/windows-vpn-prototype/scripts/build.ps1 -Architecture arm64 -SdkVersion 10.0.26100.0 -Version '0.1.${{ github.run_number }}.${{ github.run_attempt }}'
+        run: ./packaging/windows-vpn-prototype/scripts/build.ps1 -Architecture ${{ inputs.architecture || 'amd64' }} -SdkVersion 10.0.26100.0 -Version '0.1.${{ github.run_number }}.${{ github.run_attempt }}'
       - name: Сохранить опытный пакет без закрытого ключа
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
-          name: aheadscale-windows-vpn-arm64-PROTOTYPE
+          name: aheadscale-windows-vpn-${{ inputs.architecture || 'amd64' }}-PROTOTYPE
           path: packaging/windows-vpn-prototype/out/dist/
           if-no-files-found: error
