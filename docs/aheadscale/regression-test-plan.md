@@ -1,8 +1,8 @@
 # Регрессионные проверки Aheadscale
 
-Связь найденных дефектов с [UI](ui-test-plan.md), [CLI](cli-test-plan.md) и [сетевыми сценариями](smoke-test-plan.md). Дата сверки: 23 октября 2026.
+Связь найденных дефектов с [UI](ui-test-plan.md), [CLI](cli-test-plan.md) и [сетевыми сценариями](smoke-test-plan.md). Дата сверки: 24 октября 2026.
 
-**В этой задаче автотесты не запускались:** изменяется документация. Наличие теста не означает PASS. `main` ниже — снимок `15b6c5e`; «рабочая копия» — незавершённая ветка `codex/aheadscale-client` в `aheadscale-client.worktrees/client-builds`. Её исходники не становятся частью main при переносе отчётов.
+**Первичная сверка 23 октября была документальной.** Проверки исправлений Windows от 24 октября описаны в [отдельном отчёте](smoke-results/2026-10-24-windows11-x64-fixes.md). Наличие теста не означает PASS. `main` ниже — снимок `15b6c5e`; «рабочая копия» — незавершённая ветка `codex/aheadscale-client` в `aheadscale-client.worktrees/client-builds`. Её исходники не становятся частью main при переносе отчётов.
 
 | ID | Дефект и повтор | Существующие тесты / доказательства и границы |
 | --- | --- | --- |
@@ -22,6 +22,8 @@
 | RG14 | Общий email-домен объединяет сети, чужие peers, шестое устройство: R06/R07/SR01/SR02 | main `management/server/aheadscale_registration_test.go`: `TestAheadscaleRegistrationIsolation`, `TestAheadscaleDeviceLimit`, `TestAheadscaleSocialAccountIsolation`. Не заменяют живые API/DNS/трафик и гонку регистрации |
 | RG15 | Upstream update, чужой канал/env/profile: C15/C16/C23/R03/U04 | main: `client/internal/updater/aheadscale_test.go`, `client/cmd/aheadscale_test.go`, `client/internal/profilemanager/aheadscale_test.go`, тесты `TestAheadscale*` |
 | RG16 | RPM неверной архитектуры/зависимостей, CLI требует GUI, удаление задевает другую VPN: S01/R03/R04/U04/C01/C13 | Fedora-отчёт подтверждает упаковку и часть runtime. Нужны чистые зависимости, отдельный CLI, удаление и сосуществование |
+| RG17 | GUI Windows закрывается без окна: S01/U01/R01; создание окна и переключение темы во время инициализации WebView2 | `client/ui/application_errors_test.go: TestApplicationErrorsReachClientLog`; `client/ui/services/theme_lifecycle_test.go`: окно до RuntimeReady, свежая тема при готовности, закрытое окно и поздний ready. Первый FAIL и runtime-повтор — в [отчёте исправлений](smoke-results/2026-10-24-windows11-x64-fixes.md) |
+| RG18 | ZIP остаётся в SystemTemp без доступа; strict сохраняет IPv4 соседа/адрес с маской: C11/U01 | `bundle_access_windows_test.go`: реальный Windows DACL, чужой SID, неподтверждённый caller, экспорт в Temp; `TestStrictBundleHidesPeerAddressPrefix`, `TestStrictStatusHidesPeerIPv4`. Проверять ZIP обычным пользователем, содержимое и отсутствие UAC при открытии |
 
 ## Запуск существующей автоматизации
 
