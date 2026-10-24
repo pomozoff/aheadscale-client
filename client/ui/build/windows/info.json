@@ -1,16 +1,16 @@
 {
 	"fixed": {
-		"file_version": "0.80.0.10",
-		"product_version": "0.80.0.10"
+		"file_version": "0.80.0.11",
+		"product_version": "0.80.0.11"
 	},
 	"info": {
 		"0409": {
-			"ProductVersion": "0.80.0-aheadscale.10",
+			"ProductVersion": "0.80.0-aheadscale.11",
 			"CompanyName": "Aheadscale",
 			"FileDescription": "Aheadscale desktop client",
 			"LegalCopyright": "Aheadscale contributors; includes NetBird, see LICENSE",
 			"ProductName": "Aheadscale",
-			"FileVersion": "0.80.0.10"
+			"FileVersion": "0.80.0.11"
 		}
 	}
 }

@@ -5,7 +5,7 @@ $record=Get-Content $receipt -Raw | ConvertFrom-Json
 if($record.publisher -ne 'CN=Aheadscale VPN Prototype' -or $record.packageFamilyName -notlike 'Aheadscale.VpnPrototype_*'){throw 'Неизвестный владелец установки'}
 function Get-OwnedFirewallRule([object]$record) {
  $expectedName='Aheadscale.VpnPrototype-WireGuard-'+[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
- if($record.firewallRuleName -ne $expectedName -or $record.packageFullName -notmatch '^Aheadscale\.VpnPrototype_[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+_arm64__9kyyx27wet2q6$'){throw 'Неизвестный владелец правила VPN'}
+ if($record.firewallRuleName -ne $expectedName -or $record.packageFullName -notmatch '^Aheadscale\.VpnPrototype_[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+_(arm64|x64)__9kyyx27wet2q6$'){throw 'Неизвестный владелец правила VPN'}
  $expectedProgram=Join-Path (Join-Path (Join-Path $env:ProgramFiles 'WindowsApps') $record.packageFullName) 'AheadscaleNativeDaemon.exe'
  if($record.nativeDaemonPath -ine $expectedProgram){throw 'Правило не относится к опытной службе'}
  $ownedRules=@(Get-NetFirewallRule -Name $expectedName -PolicyStore PersistentStore -ErrorAction SilentlyContinue)
@@ -31,14 +31,14 @@ if($installed) {
  $controller=Join-Path $env:LOCALAPPDATA 'Microsoft\WindowsApps\aheadscale-vpn-prototype.exe'
  # Операторский процесс вне MSIX удаляет системный профиль. Это работает и
  # при откате ранних контроллеров, видевших только приватную телефонную книгу.
- $profile=Get-VpnConnection -Name 'Aheadscale' -ErrorAction SilentlyContinue
- if($profile) {
-  if($profile.PlugInApplicationID -ne $record.packageFamilyName){throw 'Системный профиль принадлежит другому приложению'}
+ $profiles=@(foreach($name in @('Aheadscale','Aheadscale Prototype')){Get-VpnConnection -Name $name -ErrorAction SilentlyContinue})
+ foreach($profile in $profiles){if($profile.PlugInApplicationID -ne $record.packageFamilyName){throw 'Системный профиль принадлежит другому приложению'}}
+ foreach($profile in $profiles) {
   if($profile.ConnectionStatus -ne 'Disconnected') {
-   & "$env:WINDIR\System32\rasdial.exe" 'Aheadscale' /disconnect | Out-Null
+   & "$env:WINDIR\System32\rasdial.exe" $profile.Name /disconnect | Out-Null
    if($LASTEXITCODE){throw 'Не удалось отключить собственный системный профиль'}
   }
-  Remove-VpnConnection -Name 'Aheadscale' -Force
+  Remove-VpnConnection -Name $profile.Name -Force
  }
  & $controller remove
  if($LASTEXITCODE){throw 'Не удалось удалить принадлежащий пакету профиль; пакет оставлен для диагностики'}
