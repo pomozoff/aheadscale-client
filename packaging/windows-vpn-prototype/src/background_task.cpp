@@ -26,7 +26,7 @@ struct BackgroundTask : implements<BackgroundTask, IBackgroundTask> {
                 record.SetNamedValue(L"hresult", Windows::Data::Json::JsonValue::CreateNumberValue(static_cast<int32_t>(error.code())));
                 record.SetNamedValue(L"message", Windows::Data::Json::JsonValue::CreateStringValue(error.message()));
                 LogProbe(L"vpn-background.json", record);
-            } catch (...) { OutputDebugStringW(L"Aheadscale Prototype: запись диагностики недоступна\n"); }
+            } catch (...) { OutputDebugStringW(L"Aheadscale: запись диагностики недоступна\n"); }
         }
         deferral.Complete();
     }

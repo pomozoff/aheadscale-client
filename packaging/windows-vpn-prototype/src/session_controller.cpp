@@ -15,7 +15,7 @@ int SystemProfileCommand(std::wstring const& operation) {
     std::wstring script = L"$action='" + operation + L"'\n" + LR"PS(
 [Console]::OutputEncoding=[Text.UTF8Encoding]::new($false)
 $ErrorActionPreference='Stop';$ProgressPreference='SilentlyContinue'
-$name='Aheadscale Prototype';$family='Aheadscale.VpnPrototype_9kyyx27wet2q6';$code=0
+$name='Aheadscale';$family='Aheadscale.VpnPrototype_9kyyx27wet2q6';$code=0
 try {
  $p=Get-VpnConnection -Name $name -ErrorAction SilentlyContinue
  if($p -and $p.PlugInApplicationID -ne $family){throw 'Профиль принадлежит другому приложению'}

@@ -23,7 +23,7 @@ import (
 
 const PrototypeFamily = "Aheadscale.VpnPrototype_9kyyx27wet2q6"
 const PrototypePipe = `\\.\pipe\ProtectedPrefix\Administrators\aheadscale-vpn-prototype`
-const ProfileName = "Aheadscale Prototype"
+const ProfileName = "Aheadscale"
 
 // OwnerSID is explicitly selected by the VM administrator, never by a pipe message.
 var OwnerSID string

@@ -318,3 +318,23 @@ func (s *Connection) waitSSOLogin(ctx context.Context, p WaitSSOParams) (string,
 func (s *Connection) classifyDaemonError(err error) *ClientError {
 	return s.classifier.classify(err)
 }
+
+// ResumeOnLaunch honors the saved startup preference without overriding a newer click.
+func (s *Connection) ResumeOnLaunch(ctx context.Context) error {
+	controller, ok := s.nativeVPN.(interface{ StartOnLaunch(context.Context) error })
+	if !ok {
+		return nil
+	}
+	cli, err := s.conn.Client()
+	if err != nil {
+		return err
+	}
+	config, err := cli.GetConfig(ctx, &proto.GetConfigRequest{})
+	if err != nil {
+		return err
+	}
+	if config.GetDisableAutoConnect() {
+		return nil
+	}
+	return controller.StartOnLaunch(ctx)
+}

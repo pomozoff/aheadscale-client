@@ -106,3 +106,36 @@ func TestSessionControllerFailedConnectClosesPartialConnection(t *testing.T) {
 		t.Fatalf("partial connection survived: %+v", controller.Snapshot())
 	}
 }
+
+func TestSessionControllerStartupDoesNotOverrideUserIntent(t *testing.T) {
+	var connected bool
+	c := NewSessionController(func(_ context.Context, up bool) error { connected = up; return nil })
+	if err := c.SetConnected(context.Background(), false); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.StartOnLaunch(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if connected {
+		t.Fatal("late startup overrode explicit Disconnect")
+	}
+}
+
+func TestSessionControllerStartupConnectsOnlyOnce(t *testing.T) {
+	calls := 0
+	c := NewSessionController(func(_ context.Context, up bool) error {
+		if up {
+			calls++
+		}
+		return nil
+	})
+	if err := c.StartOnLaunch(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.StartOnLaunch(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 1 {
+		t.Fatalf("startup connect calls: %d", calls)
+	}
+}
