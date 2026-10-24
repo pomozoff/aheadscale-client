@@ -30,7 +30,7 @@
 | Fedora 44 ARM64 | GNOME Wayland, desktop RPM | `.8`/UI `.7`: установка/обновление, DNS/HTTP с Ubuntu, **настоящая перезагрузка и автозапуск PASS** | Чистый полный прогон, удаление; CLI RPM отдельно NOT_RUN |
 | Fedora 44 x64 | GNOME Wayland, desktop RPM; отдельный CLI | NOT_RUN | Полный прогон, SELinux Enforcing и firewalld включены |
 | Windows 11 ARM64 | Desktop EXE; CLI без открытия UI | Обычный `.3`/`.8`; отдельно опытный native VPN `0.1.47.1` | Один итоговый установщик, чистая установка, повтор всего UI/CLI, обновление и удаление |
-| Windows 11 x64 | Desktop EXE; CLI | Aheadscale NOT_RUN; [стенд Enterprise Evaluation 26H2 с RDP подготовлен](windows11-x64-lab.md) | Полный прогон после подготовки ОС |
+| Windows 11 x64 | Desktop EXE; CLI | [24.10, `.1`: UI FAIL; CLI/DNS/двусторонний HTTP/SSH/SFTP/RDP и автовосстановление проверены](smoke-results/2026-10-24-windows11-x64-smoke.md); reboot дольше бюджета | Исправить падение UI, значки, callback и экспорт диагностики; один новый комплект с native VPN; полный повтор UI/CLI и жизненного цикла |
 | Windows 10 x64 | Desktop EXE; CLI | NOT_RUN | Отдельный прогон совместимости; результат Windows 11 не переносится |
 | macOS 27.0.1 ARM64 | PKG + UI; встроенный CLI без GUI | `.5`: установка/служба/UI; первоначальный вход подтверждён пользователем, затем LoginFailed | Повторный вход, сеть/DNS с узлом B, перезагрузка, обновление/удаление, оформление |
 | macOS Intel x64 | PKG + UI/CLI | BLOCKED: сборка ранее отложена, стенда пока нет | Отдельный Mac/поддерживаемая ВМ на macOS; Linux KVM этот прогон не заменяет |
