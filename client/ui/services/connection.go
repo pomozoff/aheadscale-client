@@ -329,7 +329,14 @@ func (s *Connection) ResumeOnLaunch(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	config, err := cli.GetConfig(ctx, &proto.GetConfigRequest{})
+	active, err := cli.GetActiveProfile(ctx, &proto.GetActiveProfileRequest{})
+	if err != nil {
+		return err
+	}
+	config, err := cli.GetConfig(ctx, &proto.GetConfigRequest{
+		ProfileName: active.GetId(),
+		Username:    active.GetUsername(),
+	})
 	if err != nil {
 		return err
 	}

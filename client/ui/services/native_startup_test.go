@@ -4,6 +4,8 @@ package services
 
 import (
 	"context"
+	"fmt"
+	"google.golang.org/grpc"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -15,7 +17,7 @@ import (
 func TestNativeStartupHonorsAutoConnectSetting(t *testing.T) {
 	for _, disabled := range []bool{false, true} {
 		calls := 0
-		c := &Connection{conn: stubConn{client: &stubDaemon{stored: &proto.GetConfigResponse{DisableAutoConnect: disabled}}}, nativeVPN: windowsvpn.NewSessionController(func(_ context.Context, up bool) error {
+		c := &Connection{conn: stubConn{client: &startupProfileDaemon{disabled: disabled}}, nativeVPN: windowsvpn.NewSessionController(func(_ context.Context, up bool) error {
 			if up {
 				calls++
 			}
@@ -31,4 +33,21 @@ func TestNativeStartupHonorsAutoConnectSetting(t *testing.T) {
 }
 func TestStandardStartupDoesNotTouchNativeVPN(t *testing.T) {
 	require.NoError(t, (&Connection{}).ResumeOnLaunch(context.Background()))
+}
+
+// Настоящий сервер отвергает GetConfig без имени профиля. Stub должен
+// сохранять этот контракт, иначе проверка автозапуска даёт ложный PASS.
+type startupProfileDaemon struct {
+	proto.DaemonServiceClient
+	disabled bool
+}
+
+func (d *startupProfileDaemon) GetActiveProfile(context.Context, *proto.GetActiveProfileRequest, ...grpc.CallOption) (*proto.GetActiveProfileResponse, error) {
+	return &proto.GetActiveProfileResponse{Id: "default", Username: "aheadtest"}, nil
+}
+func (d *startupProfileDaemon) GetConfig(_ context.Context, req *proto.GetConfigRequest, _ ...grpc.CallOption) (*proto.GetConfigResponse, error) {
+	if req.ProfileName != "default" || req.Username != "aheadtest" {
+		return nil, fmt.Errorf("resolve profile: profile handle is empty or belongs to another user")
+	}
+	return &proto.GetConfigResponse{DisableAutoConnect: d.disabled}, nil
 }
