@@ -14,6 +14,7 @@ import (
 	"github.com/netbirdio/netbird/client/internal/lazyconn/manager"
 	"github.com/netbirdio/netbird/client/internal/peer"
 	"github.com/netbirdio/netbird/client/internal/peerstore"
+	"github.com/netbirdio/netbird/client/internal/profilemanager"
 	"github.com/netbirdio/netbird/route"
 	mgmProto "github.com/netbirdio/netbird/shared/management/proto"
 )
@@ -339,6 +340,11 @@ func resolveLazyForce(mdmState lazyconn.State) lazyForce {
 	case lazyconn.StateOff:
 		return lazyForceOff
 	default:
+		// Small Aheadscale networks establish peers at startup rather than waiting
+		// for inbound traffic to wake a remote lazy peer. Explicit overrides above win.
+		if profilemanager.LockedServerOrigin != "" {
+			return lazyForceOff
+		}
 		return lazyForceNone
 	}
 }
