@@ -10,18 +10,24 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
-// Autostart facade over Wails' AutostartManager. The OS autostart entry registration
-// is the single source of truth; nothing is mirrored to preferences.
-type Autostart struct {
-	mgr *application.AutostartManager
+type autostartBackend interface {
+	IsEnabled() (bool, error)
+	Enable() error
+	Disable() error
 }
 
+// Autostart controls the platform startup registration without duplicating it in preferences.
+type Autostart struct {
+	mgr autostartBackend
+}
+
+// NewAutostart selects the platform backend for the supplied desktop manager.
 func NewAutostart(mgr *application.AutostartManager) *Autostart {
-	return &Autostart{mgr: mgr}
+	return &Autostart{mgr: newAutostartBackend(mgr)}
 }
 
 func (a *Autostart) Supported(_ context.Context) bool {
-	_, err := a.mgr.Status()
+	_, err := a.mgr.IsEnabled()
 	return !errors.Is(err, application.ErrAutostartNotSupported)
 }
 

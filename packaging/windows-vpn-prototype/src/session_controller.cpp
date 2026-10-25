@@ -12,6 +12,8 @@ namespace aheadscale {
 int SystemProfileCommand(std::wstring const& operation) {
     if (operation != L"add" && operation != L"status" && operation != L"connect" &&
         operation != L"disconnect" && operation != L"remove") throw hresult_invalid_argument();
+    auto started=GetTickCount64();
+    if(operation==L"connect") {auto r=ProcessContext();r.SetNamedValue(L"event",Windows::Data::Json::JsonValue::CreateStringValue(L"connect-command-start"));LogProbe(L"profile-connect-start.json",r);}
     std::wstring script = L"$action='" + operation + L"'\n" + LR"PS(
 [Console]::OutputEncoding=[Text.UTF8Encoding]::new($false)
 $ErrorActionPreference='Stop';$ProgressPreference='SilentlyContinue'
@@ -84,6 +86,7 @@ try {
     std::array<char,4096> result{};DWORD count{};
     if(ReadFile(read.value,result.data(),static_cast<DWORD>(result.size()),&count,nullptr) && count) std::cout.write(result.data(),count);
     DWORD exit{};check_bool(GetExitCodeProcess(child.value,&exit));
+    if(operation==L"connect") {auto r=ProcessContext();r.SetNamedValue(L"event",Windows::Data::Json::JsonValue::CreateStringValue(L"connect-command-complete"));r.SetNamedValue(L"elapsedMs",Windows::Data::Json::JsonValue::CreateNumberValue(static_cast<double>(GetTickCount64()-started)));LogProbe(L"profile-connect-complete.json",r);}
     return exit?1:0;
 }
 }
