@@ -4,9 +4,11 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -43,5 +45,57 @@ func runSystemVPN(ctx context.Context, connected bool) error {
 		}
 		return fmt.Errorf("не удалось %s системный VPN Aheadscale: %w", action, err)
 	}
+	if !connected {
+		tokenUser, err := windows.GetCurrentProcessToken().GetTokenUser()
+		if err != nil {
+			return fmt.Errorf("не удалось определить владельца системного VPN: %w", err)
+		}
+		// RAS Disconnected не означает, что посредник уже закончил свой Down.
+		// Он держит этот mutex до полного cleanup; новый Login ждёт его здесь.
+		waitCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+		name := `Local\Aheadscale.VpnPrototype.NativeBroker.` + tokenUser.User.Sid.String()
+		if err := waitNativeBrokerCleanup(waitCtx, name); err != nil {
+			return fmt.Errorf("завершение предыдущего системного VPN: %w", err)
+		}
+	}
 	return nil
+}
+
+// waitNativeBrokerCleanup ждёт завершения старого посредника, включая его Down.
+func waitNativeBrokerCleanup(ctx context.Context, name string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	handle, err := windows.OpenMutex(windows.SYNCHRONIZE|windows.MUTEX_MODIFY_STATE, false, windows.StringToUTF16Ptr(name))
+	if errors.Is(err, windows.ERROR_FILE_NOT_FOUND) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	defer func() { _ = windows.CloseHandle(handle) }()
+	// Windows mutex принадлежит потоку, а не goroutine.
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		result, err := windows.WaitForSingleObject(handle, 100)
+		if err != nil {
+			return err
+		}
+		switch result {
+		case windows.WAIT_OBJECT_0:
+			return windows.ReleaseMutex(handle)
+		case windows.WAIT_ABANDONED:
+			_ = windows.ReleaseMutex(handle)
+			return fmt.Errorf("посредник завершился без подтверждения очистки")
+		case uint32(windows.WAIT_TIMEOUT):
+			continue
+		default:
+			return fmt.Errorf("неожиданный результат ожидания посредника: %d", result)
+		}
+	}
 }
