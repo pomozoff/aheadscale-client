@@ -158,7 +158,6 @@ int RunNativeBroker(){
     auto bytes=ReadPacket(state->pipe.value,4096,state->complete.value,30000);auto text=to_hstring(std::string(bytes.begin(),bytes.end()));
     auto config=JsonObject::Parse(text);state->generation=config.GetNamedString(L"sessionId");
     if(state->generation.size()!=32)throw hresult_invalid_argument();
-    auto progress=ProcessContext();progress.SetNamedValue(L"event",JsonValue::CreateStringValue(L"RG11-configuration-read"));LogProbe(L"rg11-config-read.json",progress);
     reply.Insert(L"configuration",box_value(text));
     reply.Insert(L"packetTransport",state->packets->Offer());
     state->acceptor=std::thread([state]{try{state->packets->Accept(state->complete.value);SetEvent(state->packetReady.value);}catch(...){state->Stop();}});
@@ -194,9 +193,7 @@ int RunNativeBroker(){
      state->Stop();
     }else throw hresult_invalid_argument();
    }
-   if(operation==L"native-config"){auto record=ProcessContext();record.SetNamedValue(L"event",JsonValue::CreateStringValue(L"RG11-response-enter"));LogProbe(L"rg11-config-response.json",record);}
    args.Request().SendResponseAsync(reply).get();
-   if(operation==L"native-config"){auto record=ProcessContext();record.SetNamedValue(L"event",JsonValue::CreateStringValue(L"RG11-response-return"));LogProbe(L"rg11-config-response.json",record);}
 
   }catch(hresult_error const& error){
    auto record=ProcessContext();record.SetNamedValue(L"event",JsonValue::CreateStringValue(L"native-broker-failed"));record.SetNamedValue(L"step",JsonValue::CreateStringValue(state->step));record.SetNamedValue(L"hresult",JsonValue::CreateNumberValue(static_cast<int32_t>(error.code())));record.SetNamedValue(L"message",JsonValue::CreateStringValue(error.message()));LogProbe(L"native-broker.json",record);
@@ -207,7 +204,11 @@ int RunNativeBroker(){
  });
  auto closed=state->connection.ServiceClosed([state](auto const&,auto const&){state->Stop();});
  auto open=state->connection.OpenAsync().get();if(open!=AppServiceConnectionStatus::Success)return 1;
- ValueSet registration;registration.Insert(L"operation",box_value(hstring(L"register-native-broker")));Send(state->connection,registration);
+ ValueSet registration;registration.Insert(L"operation",box_value(hstring(L"register-native-broker")));
+ try{Send(state->connection,registration);}catch(hresult_error const& error){
+  try{auto record=ProcessContext();record.SetNamedValue(L"event",JsonValue::CreateStringValue(L"native-broker-failed"));record.SetNamedValue(L"step",JsonValue::CreateStringValue(L"register-broker"));record.SetNamedValue(L"hresult",JsonValue::CreateNumberValue(static_cast<int32_t>(error.code())));LogProbe(L"native-broker.json",record);}catch(...){}
+  throw;
+ }
  WaitForSingleObject(state->complete.value,INFINITE);
  {std::lock_guard control(state->controlMutex);}
  // Сначала останавливаем старый CLI up: его повтор Login иначе может

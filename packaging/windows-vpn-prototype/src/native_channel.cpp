@@ -48,7 +48,8 @@ struct ChannelSession {
   try{auto record=ProcessContext();record.SetNamedValue(L"reason",JsonValue::CreateStringValue(reason));record.SetNamedValue(L"wasStarted",JsonValue::CreateBooleanValue(wasStarted));LogProbe(L"native-channel-stop.json",record);}catch(...){}
   // WinRT может синхронно вызвать Disconnect: не держим delivery при Stop/Start.
   try{channel.Stop();}catch(...){}
-  try{ClearActiveBroker(connection);if(connection)connection.Close();}catch(...){}
+  try{ClearActiveBroker(connection);}catch(...){}
+  try{if(connection)CloseBrokerConnection(connection);}catch(...){}
  }
 };
 std::mutex sessionMutex;

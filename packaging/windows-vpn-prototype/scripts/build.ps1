@@ -34,7 +34,7 @@ if($LASTEXITCODE){throw 'Регрессии восстановления native 
 & go -C $repo test -tags 'devcert,windowsvpnprototype' -run '^TestNativeWGIfaceMonitor' ./client/internal
 if($LASTEXITCODE){throw 'Регрессия владения системным VPN-интерфейсом не прошла'}
 $env:GOARCH=$Architecture
-$flags='-s -w -X github.com/netbirdio/netbird/version.version=0.80.0-aheadscale.17 -X github.com/netbirdio/netbird/client/internal/profilemanager.DefaultManagementURL=https://aheadscale.ru -X github.com/netbirdio/netbird/client/internal/profilemanager.DefaultAdminURL=https://aheadscale.ru -X github.com/netbirdio/netbird/client/internal/profilemanager.LockedServerOrigin=https://aheadscale.ru'
+$flags='-s -w -X github.com/netbirdio/netbird/version.version=0.80.0-aheadscale.18 -X github.com/netbirdio/netbird/client/internal/profilemanager.DefaultManagementURL=https://aheadscale.ru -X github.com/netbirdio/netbird/client/internal/profilemanager.DefaultAdminURL=https://aheadscale.ru -X github.com/netbirdio/netbird/client/internal/profilemanager.LockedServerOrigin=https://aheadscale.ru'
 & go -C $repo build -trimpath -tags windowsvpnprototype -ldflags $flags -o (Join-Path $stage 'AheadscaleNativeDaemon.exe') ./client
 if($LASTEXITCODE){throw 'Не собран опытный Windows daemon'}
 $standardCheck=Join-Path $root 'out\standard-check.exe'
@@ -97,7 +97,7 @@ try {
  & (Join-Path $tools 'signtool.exe') sign /fd SHA256 /sha1 $cert.Thumbprint $ui
  if($LASTEXITCODE){throw 'Не подписан опытный GUI'}
  Export-Certificate -Cert $cert -FilePath (Join-Path $dist 'Aheadscale.VpnPrototype.cer') | Out-Null
- $manifest=[ordered]@{name='Aheadscale.VpnPrototype';publisher=$cert.Subject;version=$Version;architecture=$Architecture;clientVersion='0.80.0-aheadscale.17';nativeUIFile=(Split-Path $ui -Leaf);nativeUISha256=(Get-FileHash $ui -Algorithm SHA256).Hash;sdk=$SdkVersion;go='1.26.7';nativeDaemonSha256=(Get-FileHash (Join-Path $stage 'AheadscaleNativeDaemon.exe') -Algorithm SHA256).Hash;certificateThumbprint=$cert.Thumbprint;packageFile=(Split-Path $package -Leaf);sha256=(Get-FileHash $package -Algorithm SHA256).Hash;negativePackageFile=(Split-Path $negativePackage -Leaf);negativeSha256=(Get-FileHash $negativePackage -Algorithm SHA256).Hash;sourceCommit=(& git -C $repo rev-parse HEAD)}
+ $manifest=[ordered]@{name='Aheadscale.VpnPrototype';publisher=$cert.Subject;version=$Version;architecture=$Architecture;clientVersion='0.80.0-aheadscale.18';nativeUIFile=(Split-Path $ui -Leaf);nativeUISha256=(Get-FileHash $ui -Algorithm SHA256).Hash;sdk=$SdkVersion;go='1.26.7';nativeDaemonSha256=(Get-FileHash (Join-Path $stage 'AheadscaleNativeDaemon.exe') -Algorithm SHA256).Hash;certificateThumbprint=$cert.Thumbprint;packageFile=(Split-Path $package -Leaf);sha256=(Get-FileHash $package -Algorithm SHA256).Hash;negativePackageFile=(Split-Path $negativePackage -Leaf);negativeSha256=(Get-FileHash $negativePackage -Algorithm SHA256).Hash;sourceCommit=(& git -C $repo rev-parse HEAD)}
  $manifest | ConvertTo-Json | Set-Content (Join-Path $dist 'build-manifest.json') -Encoding utf8
  Copy-Item (Join-Path $PSScriptRoot 'install-test.ps1'),(Join-Path $PSScriptRoot 'remove-test.ps1') $dist
  Get-ChildItem $dist | Select-Object Name,Length

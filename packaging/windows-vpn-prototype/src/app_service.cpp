@@ -10,6 +10,7 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
+#include <unordered_map>
 using namespace winrt;
 using namespace Windows::ApplicationModel;
 using namespace Windows::ApplicationModel::AppService;
@@ -33,6 +34,9 @@ void Record(wchar_t const* file, JsonObject record, wchar_t const* event) {
     record.SetNamedValue(L"event", JsonValue::CreateStringValue(event));
     try { LogProbe(file, record); } catch (hresult_error const&) {}
 }
+struct ServiceSession;
+std::mutex sessionsMutex;
+std::unordered_map<void*, std::weak_ptr<ServiceSession>> sessions;
 struct ServiceSession {
     Windows::ApplicationModel::Background::IBackgroundTaskInstance task{nullptr};
     Windows::ApplicationModel::Background::BackgroundTaskDeferral deferral{nullptr};
@@ -40,26 +44,25 @@ struct ServiceSession {
     event_token requestToken{}, closeToken{}, cancelToken{};
     hstring callerFamily;
     std::atomic<bool> closed{};
+    std::mutex setupMutex;
     void Close(wchar_t const* reason, int32_t platformReason = 0) noexcept {
         if (closed.exchange(true)) return;
+        // Не закрываем частично установленный набор обработчиков.
+        { std::lock_guard setup(setupMutex); }
+        { std::lock_guard guard(sessionsMutex); sessions.erase(get_abi(connection)); }
         try {
             auto record = ProcessContext();
-            record.SetNamedValue(L"event", JsonValue::CreateStringValue(L"RG11-app-service-close"));
+            record.SetNamedValue(L"event", JsonValue::CreateStringValue(L"app-service-closed"));
             record.SetNamedValue(L"reason", JsonValue::CreateStringValue(reason));
             record.SetNamedValue(L"platformReason", JsonValue::CreateNumberValue(platformReason));
-            LogProbe(L"rg11-app-service-close.json", record);
+            LogProbe(L"app-service-close.json", record);
         } catch (...) {}
 
         // Каждый шаг выполняется независимо: ошибка отписки не удерживает deferral.
         try { connection.RequestReceived(requestToken); } catch (...) {}
         try { connection.ServiceClosed(closeToken); } catch (...) {}
         try { task.Canceled(cancelToken); } catch (...) {}
-        try {
-            auto properties = Core::CoreApplication::Properties();
-            if (properties.HasKey(ActiveConnectionKey) &&
-                get_abi(properties.Lookup(ActiveConnectionKey).as<AppServiceConnection>()) == get_abi(connection))
-                properties.Remove(ActiveConnectionKey);
-        } catch (...) {}
+        try { ClearActiveBroker(connection); } catch (...) {}
         try { NativeConnectionLost(connection); } catch (...) {}
         try { connection.Close(); } catch (...) {}
         try { deferral.Complete(); } catch (...) {}
@@ -88,6 +91,8 @@ bool TryRunAppService(Windows::ApplicationModel::Background::IBackgroundTaskInst
     session->deferral = task.GetDeferral();
     session->connection = trigger.AppServiceConnection();
     session->callerFamily = trigger.CallerPackageFamilyName();
+    std::unique_lock setup(session->setupMutex);
+    { std::lock_guard guard(sessionsMutex); sessions[get_abi(session->connection)] = session; }
     session->requestToken = session->connection.RequestReceived([session](auto const&, AppServiceRequestReceivedEventArgs const& args) {
         auto deferral = args.GetDeferral();
         try {
@@ -103,6 +108,8 @@ bool TryRunAppService(Windows::ApplicationModel::Background::IBackgroundTaskInst
                 return;
             }
             if (message.Size() == 1 && (Operation(message) == L"register-broker" || Operation(message) == L"register-native-broker")) {
+                std::lock_guard lifetime(session->setupMutex);
+                if (session->closed) throw hresult_canceled();
                 Core::CoreApplication::Properties().Insert(ActiveConnectionKey, session->connection);
                 Core::CoreApplication::Properties().Insert(NativeRoleKey,box_value(Operation(message)==L"register-native-broker"));
                 code = ERROR_SUCCESS;
@@ -129,6 +136,7 @@ bool TryRunAppService(Windows::ApplicationModel::Background::IBackgroundTaskInst
     session->cancelToken = task.Canceled([weak](auto const&, auto const& reason) {
         if (auto session = weak.lock()) session->Close(L"task-canceled", static_cast<int32_t>(reason));
     });
+    setup.unlock();
     Record(L"app-service.json", record, L"trusted-service-opened");
     return true;
 }
@@ -138,6 +146,19 @@ void ClearActiveBroker(AppServiceConnection const& connection){
   properties.Remove(ActiveConnectionKey);
   if(properties.HasKey(NativeRoleKey))properties.Remove(NativeRoleKey);
  }
+}
+void CloseBrokerConnection(AppServiceConnection const& connection){
+ if(!connection)return;
+ std::shared_ptr<ServiceSession> session;
+ {
+  std::lock_guard guard(sessionsMutex);
+  auto found=sessions.find(get_abi(connection));
+  if(found!=sessions.end())session=found->second.lock();
+ }
+ // Close() вызывается вне sessionsMutex: остановка native-канала может
+ // синхронно вернуться сюда. Старое соединение не закрывает новое.
+ if(session)session->Close(L"native-channel-closed");
+ else connection.Close();
 }
 AppServiceConnection ActiveBroker(bool nativeOnly){
  auto properties=Core::CoreApplication::Properties();

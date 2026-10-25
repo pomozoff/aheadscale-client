@@ -8,3 +8,5 @@ winrt::Windows::ApplicationModel::AppService::AppServiceConnection ActiveBroker(
 }
 
 namespace aheadscale { void ClearActiveBroker(winrt::Windows::ApplicationModel::AppService::AppServiceConnection const&); }
+
+namespace aheadscale { void CloseBrokerConnection(winrt::Windows::ApplicationModel::AppService::AppServiceConnection const&); }
