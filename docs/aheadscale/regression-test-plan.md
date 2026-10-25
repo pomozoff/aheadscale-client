@@ -33,6 +33,9 @@
 
 | RG22 | Windows задерживает Run на минуту; native UI не успевает восстановить VPN, обновление включает выключенный запуск или зависает на старом uninstaller: R02/T03/S07/R03/C13 | `client/internal/windowsstartup`: настоящие Windows Task Scheduler/Registry, `go test -race -tags integration`, миграция/повтор, отключённый Run, изменённая задача, явное включение после StartupApproved. На установленном комплекте: UI toggle, задача Limited/InteractiveToken текущего SID без дубля Run, обновление on/off, полное удаление, вход/перезагрузка и реальные DNS/HTTP. [Прогон `.12`](smoke-results/2026-10-25-windows11-x64-startup.md); быстрый старт процесса не равен готовности VPN |
 
+
+| RG23 | Native посредник и UI одновременно ожидают SSO, открываются две вкладки, первый WaitSSO отменяет новый callback: U02/U03/R02 | `client/ui/services/native_login_test.go`: отмена и cleanup прежнего Connect до Login, отказ при ошибке остановки, запрет позднего Resume, неизменность обычного Login. Посредник использует `up --no-browser`. Живой прогон: одна актуальная вкладка, успешный callback, согласованные статусы и реальные пакеты; не отключать PKCE/state ради PASS. [Прогон `.13`](smoke-results/2026-10-25-windows11-x64-single-login.md) |
+
 ## Запуск существующей автоматизации
 
 Брать **исходник проверяемой сборки**, закреплённый Go/CGO/SDK и штатные команды проекта. Windows-тесты исполнять на Windows нужной архитектуры; `GOOS=windows` на Linux даёт компиляцию, не выполнение. Не переносить незавершённый тест в другую сборку ради зелёного результата.
