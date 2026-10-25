@@ -76,13 +76,21 @@ func NewConnection(conn DaemonConn, translator ErrorTranslator, prefs LanguagePr
 }
 
 func (s *Connection) Login(ctx context.Context, p LoginParams) (LoginResult, error) {
+	// Native RAS may still own a CLI WaitSSOLogin from an earlier Connect.
+	// Finish its cancellation/cleanup before the GUI creates the browser flow;
+	// otherwise the old command can cancel the new callback or open a second tab.
+	if s.nativeVPN != nil {
+		if err := s.nativeVPN.SetConnected(ctx, false); err != nil {
+			return LoginResult{}, fmt.Errorf("остановить предыдущую попытку системного VPN: %w", err)
+		}
+	}
 	cli, err := s.conn.Client()
 	if err != nil {
 		return LoginResult{}, err
 	}
 
-	// No pre-Login Down: Login dislodges a pending WaitSSOLogin itself, and a
-	// defensive Down would only flash an Idle blink in the tray during handoff.
+	// Standard Login dislodges a pending WaitSSOLogin itself; its existing
+	// flow needs no defensive Down or Idle blink during handoff.
 
 	// Fall back to the daemon's active profile and the current OS user.
 	profileName := p.ProfileName

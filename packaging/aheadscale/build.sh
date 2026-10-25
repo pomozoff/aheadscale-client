@@ -20,7 +20,7 @@ out="$PWD/build/$platform-$arch-$channel"
 mkdir -p "$out"
 extension=''
 if [[ $platform == windows ]]; then extension=.exe; fi
-ldflags="-s -w -X github.com/netbirdio/netbird/version.version=0.80.0-aheadscale.12 -X github.com/netbirdio/netbird/client/internal/profilemanager.DefaultManagementURL=$origin -X github.com/netbirdio/netbird/client/internal/profilemanager.DefaultAdminURL=$origin -X github.com/netbirdio/netbird/client/internal/profilemanager.LockedServerOrigin=$origin"
+ldflags="-s -w -X github.com/netbirdio/netbird/version.version=0.80.0-aheadscale.13 -X github.com/netbirdio/netbird/client/internal/profilemanager.DefaultManagementURL=$origin -X github.com/netbirdio/netbird/client/internal/profilemanager.DefaultAdminURL=$origin -X github.com/netbirdio/netbird/client/internal/profilemanager.LockedServerOrigin=$origin"
 CGO_ENABLED=0 go build -trimpath -ldflags "$ldflags" -o "$out/aheadscale$extension" ./client
 export CGO_ENABLED=1
 export VITE_AHEADSCALE_MANAGEMENT_URL=$origin

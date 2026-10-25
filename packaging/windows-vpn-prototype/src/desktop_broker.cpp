@@ -102,7 +102,8 @@ struct NativeBrokerState {
   if(reader.joinable())reader.join();if(writer.joinable())writer.join();if(acceptor.joinable())acceptor.join();
  }
  void Open(){
-  step=L"start-engine";up.value=StartCLI(L"up");
+  // GUI owns the browser flow; a headless broker must never open its own tab.
+  step=L"start-engine";up.value=StartCLI(L"up --no-browser");
   step=L"open-packet-pipe";
   for(unsigned attempt=0;attempt<150 && !closing;attempt++){
    pipe.value=CreateFileW(PacketPipe,GENERIC_READ|GENERIC_WRITE|READ_CONTROL,0,nullptr,OPEN_EXISTING,FILE_FLAG_OVERLAPPED|SECURITY_SQOS_PRESENT|SECURITY_IDENTIFICATION,nullptr);

@@ -132,9 +132,15 @@ if($package) {
  # Удалять старое приложение разрешено только с его собственной квитанцией.
  if($package.PackageFamilyName -ne $family -or -not(Test-Path (Join-Path $env:LOCALAPPDATA 'AheadscaleVpnPrototype\install.json')) -or -not(Test-Path (Join-Path $private 'native-service-backup.json'))){throw 'Нет проверенного резерва предыдущего preview'}
  $previousBackup=Get-Content (Join-Path $private 'native-service-backup.json') -Raw|ConvertFrom-Json
+ if($previousBackup.ownerSid -ne $owner){throw 'Обновление preview доступно владельцу установки'}
  Restore-Standard
  Invoke-Bundled 'remove-test.ps1'
  Restore-DesktopIntegration $previousBackup
+ # Базовый NSIS читает этот ключ и вызывает прежний деинсталлятор.
+ # Native-пакет уже удалён; повторный запуск его uninstaller недопустим.
+ $standardUninstaller='C:\Program Files\Aheadscale\aheadscale_uninstall.exe'
+ if((Get-FileHash $standardUninstaller).Hash -ne $previousBackup.originalUninstallerSha256){throw 'Исходный деинсталлятор изменён; обновление остановлено'}
+ Set-ItemProperty $appKey -Name UninstallString -Value $standardUninstaller
  $archive=$private+'.previous-'+[guid]::NewGuid().ToString('N')
  Move-Item -LiteralPath $private -Destination $archive
 }
