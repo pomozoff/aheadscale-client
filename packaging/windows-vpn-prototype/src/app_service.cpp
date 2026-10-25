@@ -40,8 +40,16 @@ struct ServiceSession {
     event_token requestToken{}, closeToken{}, cancelToken{};
     hstring callerFamily;
     std::atomic<bool> closed{};
-    void Close() noexcept {
+    void Close(wchar_t const* reason, int32_t platformReason = 0) noexcept {
         if (closed.exchange(true)) return;
+        try {
+            auto record = ProcessContext();
+            record.SetNamedValue(L"event", JsonValue::CreateStringValue(L"RG11-app-service-close"));
+            record.SetNamedValue(L"reason", JsonValue::CreateStringValue(reason));
+            record.SetNamedValue(L"platformReason", JsonValue::CreateNumberValue(platformReason));
+            LogProbe(L"rg11-app-service-close.json", record);
+        } catch (...) {}
+
         // Каждый шаг выполняется независимо: ошибка отписки не удерживает deferral.
         try { connection.RequestReceived(requestToken); } catch (...) {}
         try { connection.ServiceClosed(closeToken); } catch (...) {}
@@ -109,17 +117,17 @@ bool TryRunAppService(Windows::ApplicationModel::Background::IBackgroundTaskInst
             Record(L"app-service.json", record, L"request-failed");
             try { args.Request().SendResponseAsync(Reply(ERROR_INVALID_DATA)).get(); } catch (...) {}
             deferral.Complete();
-            session->Close();
+            session->Close(L"request-failed");
             return;
         }
         deferral.Complete();
     });
     std::weak_ptr<ServiceSession> weak(session);
-    session->closeToken = session->connection.ServiceClosed([weak](auto const&, auto const&) {
-        if (auto session = weak.lock()) session->Close();
+    session->closeToken = session->connection.ServiceClosed([weak](auto const&, auto const& args) {
+        if (auto session = weak.lock()) session->Close(L"service-closed", static_cast<int32_t>(args.Status()));
     });
-    session->cancelToken = task.Canceled([weak](auto const&, auto const&) {
-        if (auto session = weak.lock()) session->Close();
+    session->cancelToken = task.Canceled([weak](auto const&, auto const& reason) {
+        if (auto session = weak.lock()) session->Close(L"task-canceled", static_cast<int32_t>(reason));
     });
     Record(L"app-service.json", record, L"trusted-service-opened");
     return true;

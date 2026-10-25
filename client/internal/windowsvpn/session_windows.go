@@ -18,6 +18,7 @@ import (
 
 	"github.com/Microsoft/go-winio"
 	"github.com/netbirdio/netbird/client/internal/ipcauth"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/sys/windows"
 )
 
@@ -75,6 +76,7 @@ func AcceptSession(ctx context.Context, configuration SessionConfiguration) (net
 		return nil, err
 	}
 	defer listener.Close()
+	log.Info("RG11 native listener ready")
 	stopAccept := context.AfterFunc(ctx, func() { _ = listener.Close() })
 	defer stopAccept()
 	timer := time.AfterFunc(90*time.Second, func() { _ = listener.Close() })
@@ -84,8 +86,10 @@ func AcceptSession(ctx context.Context, configuration SessionConfiguration) (net
 		if err != nil {
 			return nil, err
 		}
+		log.Info("RG11 native broker accepted")
 		stopConn := context.AfterFunc(ctx, func() { _ = conn.Close() })
 		if err = authorizeNativeBroker(conn); err != nil {
+			log.Infof("RG11 native broker authorization failed: %v", err)
 			stopConn()
 			_ = conn.Close()
 			continue
@@ -94,16 +98,19 @@ func AcceptSession(ctx context.Context, configuration SessionConfiguration) (net
 			_ = conn.Close()
 			return nil, err
 		}
+		log.Info("RG11 native broker authorized")
 		// Control prelude is separate from the IP stream: magic, bounded JSON frame,
 		// then an acknowledgement of this exact generation before any TUN packets.
 		err = writeAll(conn, []byte("ASV1"))
 		if err == nil {
 			err = WriteFrame(conn, payload)
 		}
+		log.Infof("RG11 native configuration write completed: %v", err)
 		var ack [40]byte
 		if err == nil {
 			_, err = io.ReadFull(conn, ack[:])
 		}
+		log.Infof("RG11 native acknowledgement read completed: %v", err)
 		if err == nil && string(ack[:]) != "ASREADY1"+configuration.SessionID {
 			err = errors.New("stale native VPN generation")
 		}

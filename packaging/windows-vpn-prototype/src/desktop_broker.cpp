@@ -158,6 +158,7 @@ int RunNativeBroker(){
     auto bytes=ReadPacket(state->pipe.value,4096,state->complete.value,30000);auto text=to_hstring(std::string(bytes.begin(),bytes.end()));
     auto config=JsonObject::Parse(text);state->generation=config.GetNamedString(L"sessionId");
     if(state->generation.size()!=32)throw hresult_invalid_argument();
+    auto progress=ProcessContext();progress.SetNamedValue(L"event",JsonValue::CreateStringValue(L"RG11-configuration-read"));LogProbe(L"rg11-config-read.json",progress);
     reply.Insert(L"configuration",box_value(text));
     reply.Insert(L"packetTransport",state->packets->Offer());
     state->acceptor=std::thread([state]{try{state->packets->Accept(state->complete.value);SetEvent(state->packetReady.value);}catch(...){state->Stop();}});
@@ -193,7 +194,10 @@ int RunNativeBroker(){
      state->Stop();
     }else throw hresult_invalid_argument();
    }
+   if(operation==L"native-config"){auto record=ProcessContext();record.SetNamedValue(L"event",JsonValue::CreateStringValue(L"RG11-response-enter"));LogProbe(L"rg11-config-response.json",record);}
    args.Request().SendResponseAsync(reply).get();
+   if(operation==L"native-config"){auto record=ProcessContext();record.SetNamedValue(L"event",JsonValue::CreateStringValue(L"RG11-response-return"));LogProbe(L"rg11-config-response.json",record);}
+
   }catch(hresult_error const& error){
    auto record=ProcessContext();record.SetNamedValue(L"event",JsonValue::CreateStringValue(L"native-broker-failed"));record.SetNamedValue(L"step",JsonValue::CreateStringValue(state->step));record.SetNamedValue(L"hresult",JsonValue::CreateNumberValue(static_cast<int32_t>(error.code())));record.SetNamedValue(L"message",JsonValue::CreateStringValue(error.message()));LogProbe(L"native-broker.json",record);
    try{args.Request().SendResponseAsync(Reply(HRESULT_CODE(error.code()))).get();}catch(...){}
