@@ -67,3 +67,5 @@ Windows 11 Pro ARM64, build 26300; пользователь `adnako`, интер
 Ubuntu-ответчики до и после reboot остановлены по UID/PID/startTicks, их точные каталоги удалены, порт закрыт; сохранены ubuntu-http-cleanup.json и ubuntu-http-postboot-cleanup.json. Windows: windows-postboot-cleanup.json. Рабочее подключение сохранено. Общий публичный выпуск остаётся закрытым; подписи издателя и подтверждение email — самостоятельные условия приёмки.
 
 Свидетельства завершения T03-OS: `reboot-after-logon.json`, `http-postboot-outgoing.json`, `http-postboot-incoming.json`. Все шесть HTTP выполнены до каких-либо ручных Connect/up; одноимённые новые ответчики отдельно проверены локально.
+
+Продолжение: [исправление RG26 на `.15` / native 57](2026-10-25-windows11-arm64-service-recovery.md). Исторический FAIL `.14` выше сохраняется; результаты новых компонентов учитываются отдельно.
