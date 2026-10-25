@@ -139,3 +139,62 @@ func TestSessionControllerStartupConnectsOnlyOnce(t *testing.T) {
 		t.Fatalf("startup connect calls: %d", calls)
 	}
 }
+
+// После потери демона сохраняется прежнее намерение Connect, но повторный
+// запуск должен оставаться слабее более нового ручного Disconnect.
+func TestSessionControllerResumesAfterDaemonRestart(t *testing.T) {
+	calls := 0
+	c := NewSessionController(func(_ context.Context, up bool) error {
+		if up {
+			calls++
+		}
+		return nil
+	})
+	if err := c.SetConnected(context.Background(), true); err != nil {
+		t.Fatal(err)
+	}
+	ticket := c.Snapshot().Generation
+	if err := c.ResumeAfterDaemonRestart(context.Background(), ticket); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 2 || c.Snapshot().State != Connected {
+		t.Fatalf("VPN не восстановлен: calls=%d state=%+v", calls, c.Snapshot())
+	}
+}
+
+func TestSessionControllerRestartCannotOverrideNewDisconnect(t *testing.T) {
+	connected := false
+	c := NewSessionController(func(_ context.Context, up bool) error { connected = up; return nil })
+	if err := c.SetConnected(context.Background(), true); err != nil {
+		t.Fatal(err)
+	}
+	ticket := c.Snapshot().Generation
+	if err := c.SetConnected(context.Background(), false); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.ResumeAfterDaemonRestart(context.Background(), ticket); err != nil {
+		t.Fatal(err)
+	}
+	if connected {
+		t.Fatal("устаревшее восстановление отменило Disconnect")
+	}
+}
+
+func TestSessionControllerRestartDoesNotResumeDisconnectedSession(t *testing.T) {
+	calls := 0
+	c := NewSessionController(func(_ context.Context, up bool) error {
+		if up {
+			calls++
+		}
+		return nil
+	})
+	if err := c.SetConnected(context.Background(), false); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.ResumeAfterDaemonRestart(context.Background(), c.Snapshot().Generation); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 0 {
+		t.Fatal("восстановление включило отключённый VPN")
+	}
+}

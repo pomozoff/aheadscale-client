@@ -111,7 +111,6 @@ func main() {
 	// Update service is a thin Wails-bound facade over it plus the install RPCs.
 	updaterHolder := updater.NewHolder(app.Event)
 	update := services.NewUpdate(conn, updaterHolder)
-	daemonFeed := services.NewDaemonFeed(conn, app.Event, updaterHolder, debugLog)
 	notifier := newNotifier()
 	compat := services.NewCompat(conn)
 	// macOS shows no toast until permission is requested. Run it after
@@ -131,6 +130,7 @@ func main() {
 	// After bundle + prefStore: both are used to localise daemon errors.
 	settings := services.NewSettings(conn, bundle, prefStore, daemonAddr)
 	connection := services.NewConnection(conn, bundle, prefStore)
+	daemonFeed := services.NewDaemonFeed(conn, app.Event, updaterHolder, debugLog, connection)
 	profileSwitcher := services.NewProfileSwitcher(profiles, connection, daemonFeed)
 	// authsession.Session owns the full extend + dismiss surface the tray
 	// drives directly; the Wails-bound services.Session wraps only the subset

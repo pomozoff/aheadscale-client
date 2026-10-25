@@ -13,6 +13,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/netbirdio/netbird/client/internal/profilemanager"
+	"github.com/netbirdio/netbird/client/internal/windowsvpn"
 	"github.com/netbirdio/netbird/client/proto"
 )
 
@@ -333,23 +334,49 @@ func (s *Connection) ResumeOnLaunch(ctx context.Context) error {
 	if !ok {
 		return nil
 	}
+	enabled, err := s.nativeAutoConnectEnabled(ctx)
+	if err != nil || !enabled {
+		return err
+	}
+	return controller.StartOnLaunch(ctx)
+}
+
+func (s *Connection) nativeAutoConnectEnabled(ctx context.Context) (bool, error) {
 	cli, err := s.conn.Client()
 	if err != nil {
-		return err
+		return false, err
 	}
 	active, err := cli.GetActiveProfile(ctx, &proto.GetActiveProfileRequest{})
 	if err != nil {
-		return err
+		return false, err
 	}
 	config, err := cli.GetConfig(ctx, &proto.GetConfigRequest{
 		ProfileName: active.GetId(),
 		Username:    active.GetUsername(),
 	})
 	if err != nil {
-		return err
+		return false, err
 	}
-	if config.GetDisableAutoConnect() {
+	return !config.GetDisableAutoConnect(), nil
+}
+
+func (s *Connection) nativeDaemonRecovery() func(context.Context) error {
+	controller, ok := s.nativeVPN.(interface {
+		Snapshot() windowsvpn.SessionSnapshot
+		ResumeAfterDaemonRestart(context.Context, uint64) error
+	})
+	if !ok {
 		return nil
 	}
-	return controller.StartOnLaunch(ctx)
+	snapshot := controller.Snapshot()
+	if snapshot.State != windowsvpn.Connected && snapshot.State != windowsvpn.Connecting {
+		return nil
+	}
+	return func(ctx context.Context) error {
+		enabled, err := s.nativeAutoConnectEnabled(ctx)
+		if err != nil || !enabled {
+			return err
+		}
+		return controller.ResumeAfterDaemonRestart(ctx, snapshot.Generation)
+	}
 }

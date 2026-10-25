@@ -47,20 +47,26 @@ func (c *SessionController) Snapshot() SessionSnapshot {
 }
 
 func (c *SessionController) SetConnected(ctx context.Context, connected bool) error {
-	return c.setConnected(ctx, connected, false)
+	return c.setConnected(ctx, connected, false, nil)
 }
 
 // StartOnLaunch resumes a saved connection only before any explicit user intent.
 func (c *SessionController) StartOnLaunch(ctx context.Context) error {
-	return c.setConnected(ctx, true, true)
+	return c.setConnected(ctx, true, true, nil)
 }
 
-func (c *SessionController) setConnected(ctx context.Context, connected, startup bool) error {
+// ResumeAfterDaemonRestart восстанавливает только сохранившееся намерение Connect.
+func (c *SessionController) ResumeAfterDaemonRestart(ctx context.Context, generation uint64) error {
+	return c.setConnected(ctx, true, false, &generation)
+}
+
+func (c *SessionController) setConnected(ctx context.Context, connected, startup bool, restartGeneration *uint64) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 	c.mu.Lock()
-	if startup && c.generation != 0 {
+	if (startup && c.generation != 0) || (restartGeneration != nil &&
+		(c.generation != *restartGeneration || (c.state != Connected && c.state != Connecting))) {
 		c.mu.Unlock()
 		return nil
 	}

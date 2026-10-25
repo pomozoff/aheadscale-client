@@ -154,9 +154,10 @@ type Status struct {
 //	│ (timeout elapsed)                          │ Clear flags, emit normally       │
 //	└────────────────────────────────────────────┴──────────────────────────────────┘
 type DaemonFeed struct {
-	conn    DaemonConn
-	emitter Emitter
-	updater *updater.Holder
+	conn     DaemonConn
+	recovery *Connection
+	emitter  Emitter
+	updater  *updater.Holder
 	// logCtl attaches/detaches the GUI file log in response to the daemon's log
 	// level (a marked SystemEvent on the SubscribeEvents stream). nil when the GUI
 	// doesn't manage its log (server build / not wired), in which case the marker
@@ -184,8 +185,8 @@ type LogController interface {
 
 // NewDaemonFeed builds the feed. logCtl may be nil (server build / GUI log not
 // managed), in which case log-level markers on the event stream are ignored.
-func NewDaemonFeed(conn DaemonConn, emitter Emitter, updaterHolder *updater.Holder, logCtl LogController) *DaemonFeed {
-	return &DaemonFeed{conn: conn, emitter: emitter, updater: updaterHolder, logCtl: logCtl}
+func NewDaemonFeed(conn DaemonConn, emitter Emitter, updaterHolder *updater.Holder, logCtl LogController, recovery *Connection) *DaemonFeed {
+	return &DaemonFeed{conn: conn, emitter: emitter, updater: updaterHolder, logCtl: logCtl, recovery: recovery}
 }
 
 // BeginProfileSwitch arms suppression for a switch from Connected/Connecting,
@@ -338,16 +339,33 @@ func (s *DaemonFeed) statusStreamLoop(ctx context.Context) {
 
 	// unavailable fires the synthetic event once per outage, not on every retry.
 	unavailable := false
+	var resume func(context.Context) error
 	emitUnavailable := func() {
 		if unavailable {
 			return
 		}
 		unavailable = true
+		if s.recovery != nil {
+			resume = s.recovery.nativeDaemonRecovery()
+		}
 		s.emitter.Emit(EventStatusSnapshot, Status{Status: StatusDaemonUnavailable})
 	}
 
 	op := func() error {
-		return s.subscribeAndStreamStatus(ctx, &unavailable, emitUnavailable)
+		return s.subscribeAndStreamStatus(ctx, &unavailable, emitUnavailable, func() {
+			if resume == nil {
+				return
+			}
+			pending := resume
+			resume = nil
+			s.streamWg.Go(func() {
+				attempt, cancel := context.WithTimeout(ctx, 60*time.Second)
+				defer cancel()
+				if err := pending(attempt); err != nil && ctx.Err() == nil {
+					log.WithError(err).Warn("restore system VPN after daemon restart")
+				}
+			})
+		})
 	}
 
 	if err := backoff.Retry(op, bo); err != nil && ctx.Err() == nil {
@@ -358,7 +376,7 @@ func (s *DaemonFeed) statusStreamLoop(ctx context.Context) {
 // subscribeAndStreamStatus is one attempt of the status backoff loop: open
 // SubscribeStatus and re-emit every snapshot until it errors. A daemon-
 // unreachable failure also flips the synthetic-unavailable signal.
-func (s *DaemonFeed) subscribeAndStreamStatus(ctx context.Context, unavailable *bool, emitUnavailable func()) error {
+func (s *DaemonFeed) subscribeAndStreamStatus(ctx context.Context, unavailable *bool, emitUnavailable func(), onAvailable func()) error {
 	cli, err := s.conn.Client()
 	if err != nil {
 		emitUnavailable()
@@ -375,6 +393,9 @@ func (s *DaemonFeed) subscribeAndStreamStatus(ctx context.Context, unavailable *
 		resp, err := stream.Recv()
 		if err != nil {
 			return s.handleStatusRecvErr(ctx, err, emitUnavailable)
+		}
+		if *unavailable {
+			onAvailable()
 		}
 		*unavailable = false
 		s.emitStatus(statusFromProto(resp))
