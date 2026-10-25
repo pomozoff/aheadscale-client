@@ -40,6 +40,14 @@ func (m *WGIfaceMonitor) Start(ctx context.Context, ifaceName string) (shouldRes
 		return false, errors.New("not supported on mobile platforms")
 	}
 
+	// В нативной сборке интерфейс принадлежит Windows VPN. Его удаление —
+	// часть штатного Disconnect; посредник закрывает канал и выполняет Down.
+	// Повторный запуск движка здесь конкурировал бы с этой остановкой.
+	if platformOwnsWGIfaceLifecycle() {
+		log.Debug("Interface monitor: lifecycle managed by Windows VPN")
+		return false, nil
+	}
+
 	if netstack.IsEnabled() {
 		log.Debugf("Interface monitor: skipped in netstack mode")
 		return false, nil
