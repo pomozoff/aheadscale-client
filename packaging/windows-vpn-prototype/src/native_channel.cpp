@@ -46,10 +46,12 @@ struct ChannelSession {
   deliveryReady.notify_all();transmitReady.notify_all();
   if(!first && !wasStarted)return;
   try{auto record=ProcessContext();record.SetNamedValue(L"reason",JsonValue::CreateStringValue(reason));record.SetNamedValue(L"wasStarted",JsonValue::CreateBooleanValue(wasStarted));LogProbe(L"native-channel-stop.json",record);}catch(...){}
-  // WinRT может синхронно вызвать Disconnect: не держим delivery при Stop/Start.
-  try{channel.Stop();}catch(...){}
+  // Сначала завершаем AppService и его deferral: Stop может ждать фоновые
+  // задачи этого host. closed уже установлен, повторный callback безопасен.
   try{ClearActiveBroker(connection);}catch(...){}
   try{if(connection)CloseBrokerConnection(connection);}catch(...){}
+  // WinRT может синхронно вызвать Disconnect: не держим delivery при Stop/Start.
+  try{channel.Stop();}catch(...){}
  }
 };
 std::mutex sessionMutex;
