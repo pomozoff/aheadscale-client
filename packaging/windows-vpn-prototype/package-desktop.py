@@ -73,6 +73,7 @@ def main():
             shutil.copy2(args.native / name, payload / name)
         for name in ("install-test.ps1", "remove-test.ps1", "desktop-install.ps1"):
             shutil.copy2(repo / "packaging/windows-vpn-prototype/scripts" / name, payload / name)
+        shutil.copy2(repo / "client/internal/windowsstartup/task.ps1", payload / "startup-task.ps1")
         shutil.copy2(args.standard_installer, payload / "standard-setup.exe")
         shutil.copy2(repo / "LICENSE", payload / "LICENSE")
         shutil.copy2(repo / "packaging/aheadscale/NOTICES.md", payload / "NOTICES.md")

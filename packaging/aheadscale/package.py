@@ -11,7 +11,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--platform', choices=['linux', 'darwin', 'windows'], required=True)
 parser.add_argument('--arch', choices=['amd64', 'arm64'], required=True)
 parser.add_argument('--channel', choices=['public', 'internal'], required=True)
-parser.add_argument('--version', default='0.80.0-aheadscale.11')
+parser.add_argument('--version', default='0.80.0-aheadscale.12')
 parser.add_argument('--cli-only', action='store_true')
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[2]
@@ -123,7 +123,7 @@ else:
     installer = client / 'installer.nsis'
     installer.write_text(original)
     makensis = os.environ.get('MAKENSIS', 'makensis')
-    env = dict(os.environ, APPVER='0.80.0.11')
+    env = dict(os.environ, APPVER='0.80.0.12')
     subprocess.run([makensis, '-V2', '-DARCH=' + args.arch, str(installer)], cwd=work, env=env, check=True)
     shutil.copy2(work / 'aheadscale-installer.exe', output / (name + '.exe'))
 print('Created preview package: ' + name)

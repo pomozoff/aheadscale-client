@@ -11,6 +11,10 @@ function Invoke-Bundled([string]$name) {
  & ([scriptblock]::Create($text.Replace('$PSScriptRoot','$artifactRoot')))
 }
 function Read-Service { Get-CimInstance Win32_Service -Filter "Name='Aheadscale'" }
+function Test-StartupOwnership {
+ $null=& ([scriptblock]::Create([IO.File]::ReadAllText((Join-Path $artifactRoot 'startup-task.ps1')))) -Operation inspect -Executable (Join-Path $runtime 'aheadscale-ui.exe')
+}
+
 function Set-ServiceImage([string]$image) {
  $changed=Invoke-CimMethod -InputObject (Read-Service) -MethodName Change -Arguments @{PathName=$image}
  if($changed.ReturnValue -ne 0){throw 'Не удалось изменить собственную службу Aheadscale'}
@@ -47,6 +51,14 @@ function Restore-Standard {
 }
 function Restore-DesktopIntegration($backup) {
  $runKey='HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+ $startup=& ([scriptblock]::Create([IO.File]::ReadAllText((Join-Path $artifactRoot 'startup-task.ps1')))) -Operation remove -Executable (Join-Path $runtime 'aheadscale-ui.exe') | ConvertFrom-Json
+ if($startup.exists){
+  if($startup.enabled){
+   # Возвращаем текущий выбор пользователя стандартному UI, независимо от старого резерва.
+   Set-ItemProperty $runKey -Name Aheadscale -Value '"C:\Program Files\Aheadscale\aheadscale-ui.exe"'
+  }
+ }
+
  $run=Get-ItemProperty $runKey -Name Aheadscale -ErrorAction SilentlyContinue
  if($run -and $run.PSObject.Properties.Name -contains 'Aheadscale' -and $run.Aheadscale -eq ('"'+$runtime+'\aheadscale-ui.exe"')) {
   $previous=$null
@@ -80,6 +92,7 @@ if($operation -eq 'remove') {
  if($backup.ownerSid -ne $owner){throw 'Удаление preview доступно владельцу установки'}
  $originalUninstaller='C:\Program Files\Aheadscale\aheadscale_uninstall.exe'
  if((Get-FileHash $originalUninstaller).Hash -ne $backup.originalUninstallerSha256){throw 'Исходный деинсталлятор изменён; файлы сохранены'}
+ Test-StartupOwnership
  Get-CimInstance Win32_Process -Filter "Name='aheadscale-ui.exe'"|Where-Object {$_.SessionId -eq $session -and $_.ExecutablePath -ieq (Join-Path $runtime 'aheadscale-ui.exe')}|ForEach-Object{Stop-Process -Id $_.ProcessId}
  Restore-Standard
  Invoke-Bundled 'remove-test.ps1'
@@ -104,6 +117,7 @@ if((Read-Service) -and (Get-Service Aheadscale).Status -eq 'Running') {
 $previousReceipt=Join-Path $env:LOCALAPPDATA 'AheadscaleVpnPrototype\install.json'
 $previousSigner=$null
 if(Test-Path $previousReceipt){$previousSigner=(Get-Content $previousReceipt -Raw|ConvertFrom-Json).certificateThumbprint}
+if($package){Test-StartupOwnership}
 Get-CimInstance Win32_Process | Where-Object { $_.SessionId -eq $session -and $_.Name -in @('aheadscale-ui.exe','AheadscaleNativeUI.exe') } | ForEach-Object {
  $owned=$false
  if($_.ExecutablePath -ieq 'C:\Program Files\Aheadscale\aheadscale-ui.exe') {$owned=(Get-FileHash $_.ExecutablePath).Hash -eq $desktopManifest.standardUiSha256}
@@ -118,9 +132,15 @@ if($package) {
  # Удалять старое приложение разрешено только с его собственной квитанцией.
  if($package.PackageFamilyName -ne $family -or -not(Test-Path (Join-Path $env:LOCALAPPDATA 'AheadscaleVpnPrototype\install.json')) -or -not(Test-Path (Join-Path $private 'native-service-backup.json'))){throw 'Нет проверенного резерва предыдущего preview'}
  $previousBackup=Get-Content (Join-Path $private 'native-service-backup.json') -Raw|ConvertFrom-Json
+ if($previousBackup.ownerSid -ne $owner){throw 'Обновление preview доступно владельцу установки'}
  Restore-Standard
  Invoke-Bundled 'remove-test.ps1'
  Restore-DesktopIntegration $previousBackup
+ # Базовый NSIS читает этот ключ и вызывает прежний деинсталлятор.
+ # Native-пакет уже удалён; повторный запуск его uninstaller недопустим.
+ $standardUninstaller='C:\Program Files\Aheadscale\aheadscale_uninstall.exe'
+ if((Get-FileHash $standardUninstaller).Hash -ne $previousBackup.originalUninstallerSha256){throw 'Исходный деинсталлятор изменён; обновление остановлено'}
+ Set-ItemProperty $appKey -Name UninstallString -Value $standardUninstaller
  $archive=$private+'.previous-'+[guid]::NewGuid().ToString('N')
  Move-Item -LiteralPath $private -Destination $archive
 }
