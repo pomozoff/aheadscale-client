@@ -1,6 +1,6 @@
 # Регрессионные проверки Aheadscale
 
-Связь найденных дефектов с [UI](ui-test-plan.md), [CLI](cli-test-plan.md) и [сетевыми сценариями](smoke-test-plan.md). Дата сверки: 24 октября 2026.
+Связь найденных дефектов с [UI](ui-test-plan.md), [CLI](cli-test-plan.md) и [сетевыми сценариями](smoke-test-plan.md). Дата сверки: 25 октября 2026.
 
 **Первичная сверка 23 октября была документальной.** Проверки исправлений Windows от 24 октября описаны в [отдельном отчёте](smoke-results/2026-10-24-windows11-x64-fixes.md). Наличие теста не означает PASS. `main` ниже — снимок `15b6c5e`; «рабочая копия» — незавершённая ветка `codex/aheadscale-client` в `aheadscale-client.worktrees/client-builds`. Её исходники не становятся частью main при переносе отчётов.
 
@@ -24,19 +24,13 @@
 | RG16 | RPM неверной архитектуры/зависимостей, CLI требует GUI, удаление задевает другую VPN: S01/R03/R04/U04/C01/C13 | Fedora-отчёт подтверждает упаковку и часть runtime. Нужны чистые зависимости, отдельный CLI, удаление и сосуществование |
 | RG17 | GUI Windows закрывается без окна: S01/U01/R01; создание окна и переключение темы во время инициализации WebView2 | `client/ui/application_errors_test.go: TestApplicationErrorsReachClientLog`; `client/ui/services/theme_lifecycle_test.go`: окно до RuntimeReady, свежая тема при готовности, закрытое окно и поздний ready. Первый FAIL и runtime-повтор — в [отчёте исправлений](smoke-results/2026-10-24-windows11-x64-fixes.md) |
 | RG18 | ZIP остаётся в SystemTemp без доступа; strict сохраняет IPv4 соседа/адрес с маской: C11/U01 | `bundle_access_windows_test.go`: реальный Windows DACL, чужой SID, неподтверждённый caller, экспорт в Temp; `TestStrictBundleHidesPeerAddressPrefix`, `TestStrictStatusHidesPeerIPv4`. Проверять ZIP обычным пользователем, содержимое и отсутствие UAC при открытии |
-
-
 | RG19 | Поздний запуск UI отменяет нажатый Disconnect, либо native VPN не возобновляется после входа в Windows: R02/T03/S07 | `windowsvpn/controller_test.go`: startup после нового намерения и отмена выполняющегося startup; `ui/services/native_startup_test.go`: DisableAutoConnect, запрос настроек с ID/владельцем активного профиля и отсутствие native RPC в стандартной сборке. Пустой профиль воспроизводит реальный отказ cold startup; permissive stub его скрывал. Живой повтор: оба переключателя, повторный запуск UI, вход в Windows; чужой сеанс не имитировать текущим |
 | RG20 | Управляющий сервер включает lazy connections, и личная сеть оживает лишь после встречного трафика: T01/T03/C06 | `client/internal/aheadscale_connection_policy_test.go`: locked Aheadscale по умолчанию eager, явные настройки ENV/MDM сохраняют приоритет, unlocked upstream сохраняет серверную политику. На ВМ измерять отдельно загрузку ОС и первый настоящий VPN-пакет |
 | RG21 | Удаление x64 ошибочно отклоняется ARM64-проверкой, установщик запускает 32-битный PowerShell: S01/C13/R03 | Native MSIX использует `x64`, Go-артефакт — `amd64`. Проверить настоящий пакет, проверку изменённого payload до любых мутаций, обновление, откат, удаление собственного правила и TrustedPeople по квитанции; чужие ресурсы сохранять |
-
-
 | RG22 | Windows задерживает Run на минуту; native UI не успевает восстановить VPN, обновление включает выключенный запуск или зависает на старом uninstaller: R02/T03/S07/R03/C13 | `client/internal/windowsstartup`: настоящие Windows Task Scheduler/Registry, `go test -race -tags integration`, миграция/повтор, отключённый Run, изменённая задача, явное включение после StartupApproved. На установленном комплекте: UI toggle, задача Limited/InteractiveToken текущего SID без дубля Run, обновление on/off, полное удаление, вход/перезагрузка и реальные DNS/HTTP. [Прогон `.12`](smoke-results/2026-10-25-windows11-x64-startup.md); быстрый старт процесса не равен готовности VPN |
-
-
 | RG23 | Native посредник и UI одновременно ожидают SSO, открываются две вкладки, первый WaitSSO отменяет новый callback: U02/U03/R02 | `client/ui/services/native_login_test.go`: отмена и cleanup прежнего Connect до Login, отказ при ошибке остановки, запрет позднего Resume, неизменность обычного Login. Посредник использует `up --no-browser`. Живой прогон: одна актуальная вкладка, успешный callback, согласованные статусы и реальные пакеты; не отключать PKCE/state ради PASS. [Прогон `.13`](smoke-results/2026-10-25-windows11-x64-single-login.md) |
-
 | RG24 | Системный Disconnect вернулся, но запоздалый Down старого посредника отменяет новый WaitSSO: U02/U03/R05 | `windows_vpn_cleanup_windows_test.go`: настоящий Windows mutex удерживает следующий вход до конца cleanup; отмена не разрешает Login; отсутствующий посредник не задерживает подключение. После RAS Disconnect GUI ждёт освобождения mutex текущего SID, затем завершает Down. На ВМ обязательно пройти свежий SSO: одних unit-тестов недостаточно. [Отчёт](smoke-results/2026-10-25-windows11-x64-single-login.md) |
+| RG25 | Загрузка ОС, создание процесса UI, активация системного VPN и реальная готовность сети смешиваются в одно время; «40 с Connect» не проверено на прогретой ОС | [P01–P06](connection-performance-test-plan.md): три тёплых UI/CLI-замера, отдельные запуск UI/службы/reboot/SSO, тайм-ауты сохранены; на Windows этапы controller/PowerShell/RAS/plugin/broker/движок/HTTP. Сохранять файлы каждой попытки до перезаписи; указывать ограничение диагностической серии и накладные расходы наблюдателя. [Диагностика `.14`](smoke-results/2026-10-25-windows11-x64-connection-latency.md): тёплый UI и прежний reboot измерены отдельно; полный P01 ещё не зачтён |
 
 ## Запуск существующей автоматизации
 
