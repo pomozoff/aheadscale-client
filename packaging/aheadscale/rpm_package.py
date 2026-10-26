@@ -38,10 +38,11 @@ def package_rpm(root, binaries, staging, output, version, arch, cli_only):
         files += ["%{_bindir}/aheadscale-ui", "%{_datadir}/applications/org.wails.aheadscale.desktop",
                   "%{_datadir}/icons/hicolor/512x512/apps/aheadscale.png"]
     replacements = {
-        "@NAME@": package_name, "@VERSION@": match[1], "@RELEASE@": "0.aheadscale." + match[2],
+        "@NAME@": package_name, "@VERSION@": match[1], "@RELEASE@": "0.aheadscale." + match[2] + ".1",
         "@CONFLICT@": conflict,
         "@GUI_REQUIRES@": "" if cli_only else "Requires: gtk4 >= 4.14\nRequires: webkitgtk6.0",
         "@FILES@": "\n".join(files),
+        "@RPM_LIFECYCLE@": (root / "packaging/aheadscale/scripts/rpm-lifecycle").read_text().replace("%", "%%"),
     }
     spec = (root / "packaging/aheadscale/aheadscale.spec.in").read_text()
     for token, value in replacements.items():

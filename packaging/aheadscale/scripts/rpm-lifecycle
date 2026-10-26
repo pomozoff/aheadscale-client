@@ -1,0 +1,69 @@
+#!/bin/sh
+# Функции включаются в scriptlets: новый файл ещё недоступен во время %pre.
+# Сохраняются только состояния systemd; настройки и ключи клиента не читаются.
+aheadscale_rpm_snapshot() (
+    set -eu
+    state=$1
+    directory=${state%/*}
+    [ ! -L "$directory" ] && [ ! -L "$state" ] || return 1
+    install -d -m 0700 -- "$directory"
+    umask 077
+    mode=fresh
+    if rpm -q aheadscale >/dev/null 2>&1 || rpm -q aheadscale-cli >/dev/null 2>&1; then
+        mode=existing
+    fi
+    enabled=$(systemctl is-enabled aheadscale.service 2>/dev/null) || :
+    case "$enabled" in
+        enabled|enabled-runtime|disabled|masked|masked-runtime|static|indirect|linked|linked-runtime|not-found) ;;
+        *) echo 'Не удалось определить автозапуск Aheadscale.' >&2; return 1 ;;
+    esac
+    active=$(systemctl is-active aheadscale.service 2>/dev/null) || :
+    case "$active" in
+        active|activating) active=active ;;
+        inactive|failed|deactivating|unknown) active=inactive ;;
+        *) echo 'Не удалось определить состояние службы Aheadscale.' >&2; return 1 ;;
+    esac
+    temporary=$(mktemp "$directory/transaction.XXXXXX")
+    trap 'rm -f -- "$temporary"' EXIT HUP INT TERM
+    printf '%s\n%s\n%s\n' "$mode" "$enabled" "$active" > "$temporary"
+    mv -f -- "$temporary" "$state"
+)
+
+aheadscale_rpm_restore() (
+    set -eu
+    state=$1
+    [ -f "$state" ] && [ ! -L "$state" ] || {
+        echo 'Отсутствует сохранённое состояние RPM-транзакции Aheadscale.' >&2
+        return 1
+    }
+    {
+        IFS= read -r mode
+        IFS= read -r enabled
+        IFS= read -r active
+    } < "$state"
+    case "$mode:$active" in fresh:active|fresh:inactive|existing:active|existing:inactive) ;;
+        *) echo 'Неверное сохранённое состояние Aheadscale.' >&2; return 1 ;;
+    esac
+    case "$enabled" in
+        enabled|enabled-runtime|disabled|masked|masked-runtime|static|indirect|linked|linked-runtime|not-found) ;;
+        *) echo 'Неверное сохранённое состояние автозапуска Aheadscale.' >&2; return 1 ;;
+    esac
+    systemctl daemon-reload
+    if [ "$mode" = fresh ]; then
+        systemctl enable --now aheadscale.service
+    else
+        case "$enabled" in
+            enabled) systemctl enable aheadscale.service ;;
+            enabled-runtime) systemctl enable --runtime aheadscale.service ;;
+            disabled) systemctl disable aheadscale.service ;;
+            masked) systemctl mask aheadscale.service ;;
+            masked-runtime) systemctl mask --runtime aheadscale.service ;;
+        esac
+        if [ "$active" = active ]; then
+            systemctl restart aheadscale.service
+        else
+            systemctl stop aheadscale.service
+        fi
+    fi
+    rm -f -- "$state"
+)

@@ -34,11 +34,19 @@ if [ -e /etc/systemd/system/aheadscale.service ] || [ -L /etc/systemd/system/ahe
     exit 1
 fi
 
+# Старый вариант может остановить общую службу позже, в своём %preun.
+if [ -d "%{_rundir}/systemd/system" ]; then
+@RPM_LIFECYCLE@
+    aheadscale_rpm_snapshot "%{_rundir}/aheadscale-rpm/transaction" || exit 1
+fi
+
 %post
 %systemd_post aheadscale.service
-# Собственный клиент после установки должен сразу предоставлять GUI рабочую службу.
-if [ "$1" -eq 1 ] && [ -d /run/systemd/system ]; then
-    systemctl enable --now aheadscale.service || :
+
+%posttrans
+if [ -d "%{_rundir}/systemd/system" ]; then
+@RPM_LIFECYCLE@
+    aheadscale_rpm_restore "%{_rundir}/aheadscale-rpm/transaction" || exit 1
 fi
 
 %preun
@@ -48,7 +56,10 @@ if [ "$1" -eq 0 ]; then
 fi
 
 %postun
-%systemd_postun_with_restart aheadscale.service
+# Перезапуск после install/upgrade выполняется один раз в %posttrans.
+if [ -d "%{_rundir}/systemd/system" ]; then
+    systemctl daemon-reload || :
+fi
 
 %files
 %defattr(-,root,root,-)
