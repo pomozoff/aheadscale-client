@@ -1,6 +1,6 @@
 # Регрессионные проверки Aheadscale
 
-Связь найденных дефектов с [UI](ui-test-plan.md), [CLI](cli-test-plan.md) и [сетевыми сценариями](smoke-test-plan.md). Дата сверки: 25 октября 2026.
+Связь найденных дефектов с [UI](ui-test-plan.md), [CLI](cli-test-plan.md) и [сетевыми сценариями](smoke-test-plan.md). Дата сверки: 26 октября 2026.
 
 **Первичная сверка 23 октября была документальной.** Проверки исправлений Windows от 24 октября описаны в [отдельном отчёте](smoke-results/2026-10-24-windows11-x64-fixes.md). Наличие теста не означает PASS. `main` ниже — снимок `15b6c5e`; «рабочая копия» — незавершённая ветка `codex/aheadscale-client` в `aheadscale-client.worktrees/client-builds`. Её исходники не становятся частью main при переносе отчётов.
 
@@ -41,6 +41,8 @@
 | RG30 | Неизвестные даты соседей в отрицательном часовом поясе превращаются в год 0 и ломают YAML: C05 | [macOS `.5` → `.19`](smoke-results/2026-10-26-macos-arm64-gui-cli.md): RED → GREEN `TestStatusSerializationPreservesUnknownPeerTimestampsInLocalTimezones`, mapper и JSON/YAML в UTC−8/UTC/UTC+3; `go test -tags devcert -race ./client/status` PASS. Настоящий YAML `.19` разбирается стандартным парсером. Неизвестные даты остаются нулевыми, известные локализуются; повторить на кандидате каждой ОС |
 | RG31 | Цветной логотип macOS становится белым квадратом: U01 | [`.20`, настоящий menubar](smoke-results/2026-10-26-macos-arm64-menubar.md): Darwin использует SetIcon вместо SetTemplateIcon для непрозрачного цветного PNG. Снимки до/после, Light/Dark, A и индикатор Connected PASS; повторить на кандидате и в остальных состояниях |
 | RG32 | После установки новой macOS-сборки GUI остаётся старым процессом: R03 | [Исправление `.22`](smoke-results/2026-10-26-macos-arm64-upgrade22.md): `.20` с работающим GUI обновлена без ручного Quit; новый PID и загруженный inode, регистрация и настройки сохранены. Чужой executable с подставленным argv[0] не затронут; 12 unit-регрессий и native kernel-helper CI PASS. Полный R03 с reboot/T01, отсутствие сеанса и несколько пользователей отдельно не закрыты |
+| RG33 | Единый Windows EXE не собирается для ARM64 или принимает компоненты разных архитектур/версий/исходников: R03/U01 | `packaging/windows-vpn-prototype/test_package_desktop.py`: семь NSIS/7z-регрессий, RED → GREEN; реальные x64/ARM64 EXE `.23` установлены с сохранением ключа. [Отчёт](smoke-results/2026-10-26-release23-packaging.md); полный lifecycle отдельно |
+| RG34 | RPM нельзя воспроизвести из Git либо SHA-манифест пропускает поздно созданные пакеты: R01/R03/C01 | Восстановлены RPM helper/spec/unit, реальная сборка DEB/RPM desktop/CLI обеих архитектур в CI. Итоговый манифест формируется после всех пакетов; сверить каждый SHA256/размер, commit и архитектуру, наличие обоих каналов. Fedora runtime `.23` этим не закрыт; [отчёт](smoke-results/2026-10-26-release23-packaging.md) |
 
 ## Запуск существующей автоматизации
 
