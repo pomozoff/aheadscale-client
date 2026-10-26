@@ -35,6 +35,10 @@ func TestMacOSPreinstallGUIExit(t *testing.T) {
 		{"termination refused", "refuse", "101 " + gui, "501 Mon Oct 26 01:00:00 2026 " + gui, "-TERM 101\n", true},
 		{"GUI ignores TERM", "stubborn", "101 " + gui, "501 Mon Oct 26 01:00:00 2026 " + gui, "-TERM 101\n", true},
 		{"process enumeration fails", "ps-fails", "", "", "", true},
+		{"foreign argv0 spoof", "spoof", "101 " + gui, "501 Mon Oct 26 01:00:00 2026 " + gui, "", false},
+		{"native path query fails", "probe-fails", "101 " + gui, "501 Mon Oct 26 01:00:00 2026 " + gui, "", true},
+		{"native path unavailable for live PID", "unavailable", "101 " + gui, "501 Mon Oct 26 01:00:00 2026 " + gui, "", true},
+		{"unexpected path query reply", "bad-reply", "101 " + gui, "501 Mon Oct 26 01:00:00 2026 " + gui, "", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			fixture := t.TempDir()
@@ -44,7 +48,7 @@ func TestMacOSPreinstallGUIExit(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			write("list", tc.listing)
+			write("list", strings.ReplaceAll(strings.ReplaceAll(tc.listing, gui, "aheadscale-ui"), other, "aheadscale-ui"))
 			if tc.identity != "" {
 				write("identity.101", tc.identity)
 			}
@@ -60,7 +64,8 @@ func TestMacOSPreinstallGUIExit(t *testing.T) {
         for entry in "$FIXTURE"/identity.*; do
             [[ -f "$entry" ]] || continue
             contents=$(cat "$entry")
-            printf '%s %s\n' "${entry##*.}" "${contents##* }"
+            executable=${contents##* }
+            printf '%s %s\n' "${entry##*.}" "${executable##*/}"
         done
     elif [[ "$1" == '-p' ]]; then
         [[ -f "$FIXTURE/identity.$2" ]] || return 1
@@ -68,9 +73,24 @@ func TestMacOSPreinstallGUIExit(t *testing.T) {
             printf '%s\n' '502 Mon Oct 26 02:00:00 2026 /tmp/another-app/aheadscale-ui' > "$FIXTURE/identity.$2"
         fi
         : > "$FIXTURE/read-once"
-        cat "$FIXTURE/identity.$2"
+        contents=$(cat "$FIXTURE/identity.$2")
+        printf '%s\n' "${contents% *}"
     else
         return 97
+    fi
+}
+osascript() {
+    case "$MODE" in
+        spoof) printf 'other\n'; return 0 ;;
+        probe-fails) return 1 ;;
+        unavailable) printf 'unavailable\n'; return 0 ;;
+        bad-reply) printf 'invalid\n'; return 0 ;;
+    esac
+    if [[ ! -f "$FIXTURE/identity.$4" ]]; then
+        printf 'unavailable\n'
+    else
+        contents=$(cat "$FIXTURE/identity.$4")
+        if [[ "${contents##* }" == "$5" ]]; then printf 'match\n'; else printf 'other\n'; fi
     fi
 }
 kill() {

@@ -3,21 +3,43 @@ set -euo pipefail
 PATH=/usr/bin:/bin:/usr/sbin:/sbin
 export PATH
 
+gui_process_kind() {
+    local pid=$1 gui=$2 helper=$3 result
+    if ! result=$(osascript -l JavaScript "$helper" "$pid" "$gui"); then
+        echo "Cannot verify the executable for PID $pid." >&2
+        return 1
+    fi
+    case "$result" in
+        match|other) printf '%s\n' "$result" ;;
+        unavailable)
+            if ps -p "$pid" -o uid= -o lstart= >/dev/null 2>&1; then
+                echo "Cannot read the executable for live PID $pid." >&2
+                return 1
+            fi
+            printf 'other\n'
+            ;;
+        *) echo 'Unexpected executable verification result.' >&2; return 1 ;;
+    esac
+}
+
 stop_aheadscale_ui() {
-    local gui=$1 candidates pid executable identity current attempt
-    if ! candidates=$(ps -axo pid= -o comm=); then
+    local gui=$1 helper=$2 candidates pid executable identity current attempt kind
+    if ! candidates=$(ps -axo pid= -o ucomm=); then
         echo 'Cannot enumerate processes before updating Aheadscale.' >&2
         return 1
     fi
     while read -r pid executable; do
-        [[ "$executable" == "$gui" ]] || continue
+        [[ "$executable" == "${gui##*/}" ]] || continue
         # A PID may have exited or been reused since the enumeration.
-        identity=$(ps -p "$pid" -o uid= -o lstart= -o comm= 2>/dev/null) || continue
-        [[ "$identity" == *" $gui" ]] || continue
-        current=$(ps -p "$pid" -o uid= -o lstart= -o comm= 2>/dev/null) || continue
+        identity=$(ps -p "$pid" -o uid= -o lstart= 2>/dev/null) || continue
+        current=$(ps -p "$pid" -o uid= -o lstart= 2>/dev/null) || continue
+        [[ "$current" == "$identity" ]] || continue
+        kind=$(gui_process_kind "$pid" "$gui" "$helper")
+        [[ "$kind" == match ]] || continue
+        current=$(ps -p "$pid" -o uid= -o lstart= 2>/dev/null) || continue
         [[ "$current" == "$identity" ]] || continue
         if ! kill -TERM "$pid"; then
-            current=$(ps -p "$pid" -o uid= -o lstart= -o comm= 2>/dev/null) || continue
+            current=$(ps -p "$pid" -o uid= -o lstart= 2>/dev/null) || continue
             if [[ "$current" == "$identity" ]]; then
                 echo "Cannot stop Aheadscale GUI (PID $pid); close it before retrying." >&2
                 return 1
@@ -25,22 +47,24 @@ stop_aheadscale_ui() {
             continue
         fi
         for ((attempt = 0; attempt < 50; attempt++)); do
-            current=$(ps -p "$pid" -o uid= -o lstart= -o comm= 2>/dev/null) || break
+            current=$(ps -p "$pid" -o uid= -o lstart= 2>/dev/null) || break
             [[ "$current" == "$identity" ]] || break
             sleep 0.2
         done
-        if current=$(ps -p "$pid" -o uid= -o lstart= -o comm= 2>/dev/null) && [[ "$current" == "$identity" ]]; then
+        if current=$(ps -p "$pid" -o uid= -o lstart= 2>/dev/null) && [[ "$current" == "$identity" ]]; then
             echo "Aheadscale GUI (PID $pid) did not exit; close it before retrying." >&2
             return 1
         fi
     done <<< "$candidates"
     # Do not replace files if another instance was opened during cleanup.
-    if ! candidates=$(ps -axo pid= -o comm=); then
+    if ! candidates=$(ps -axo pid= -o ucomm=); then
         echo 'Cannot verify that Aheadscale GUI has exited.' >&2
         return 1
     fi
     while read -r pid executable; do
-        if [[ "$executable" == "$gui" ]]; then
+        [[ "$executable" == "${gui##*/}" ]] || continue
+        kind=$(gui_process_kind "$pid" "$gui" "$helper")
+        if [[ "$kind" == match ]]; then
             echo 'Aheadscale GUI was opened during the update; close it before retrying.' >&2
             return 1
         fi
@@ -49,7 +73,9 @@ stop_aheadscale_ui() {
 
 app=/Applications/Aheadscale.app
 agent="$app/Contents/MacOS/aheadscale"
-stop_aheadscale_ui "$app/Contents/MacOS/aheadscale-ui"
+helper="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/macos-gui-process.js"
+[[ -r "$helper" ]] || { echo 'GUI executable verifier is missing.' >&2; exit 1; }
+stop_aheadscale_ui "$app/Contents/MacOS/aheadscale-ui" "$helper"
 if [[ -x "$agent" && -f /Library/LaunchDaemons/aheadscale.plist ]]; then
     "$agent" service stop
     "$agent" service uninstall

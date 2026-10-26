@@ -124,6 +124,15 @@ jobs:
           else
             echo 'CC=x86_64-w64-mingw32-gcc' >> "$GITHUB_ENV"
           fi
+      - name: Проверка kernel-path GUI на macOS
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          /bin/sleep 120 &
+          verifier_pid=$!
+          trap 'kill "$verifier_pid" 2>/dev/null || true; wait "$verifier_pid" 2>/dev/null || true' EXIT
+          test "$(/usr/bin/osascript -l JavaScript packaging/aheadscale/scripts/macos-gui-process.js "$verifier_pid" /bin/sleep)" = match
+          test "$(/usr/bin/osascript -l JavaScript packaging/aheadscale/scripts/macos-gui-process.js "$verifier_pid" /bin/false)" = other
       - name: Install pinned binding generator
         run: CC=cc CXX=c++ go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.3
       - name: Build private and public-endpoint previews
