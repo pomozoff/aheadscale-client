@@ -1,0 +1,17 @@
+[Unit]
+Description=Aheadscale private network
+After=network-online.target NetworkManager.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/aheadscale service run --log-level info --daemon-addr unix:///var/run/aheadscale.sock --log-file /var/log/aheadscale/client.log --disable-profiles
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+LogsDirectory=aheadscale
+StateDirectory=aheadscale
+StateDirectoryMode=0700
+
+[Install]
+WantedBy=multi-user.target

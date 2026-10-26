@@ -1,0 +1,2 @@
+FROM registry.fedoraproject.org/fedora@sha256:12151022b0ec7cb4d70ae14e4a4d319377323265d7198b69dd53ec92713198d5
+RUN dnf -y install --setopt=install_weak_deps=False rpm-build-6.0.2-1.fc44 systemd-rpm-macros-259.10-1.fc44 && dnf clean all

@@ -11,7 +11,7 @@ on:
         type: choice
         required: true
         default: current
-        options: [current, arm64, macos-arm64]
+        options: [current, arm64, linux-arm64, macos-arm64]
 permissions:
   contents: read
 concurrency:
@@ -59,7 +59,8 @@ jobs:
       matrix:
         include: >-
           ${{ fromJSON(inputs.targets == 'macos-arm64' &&
-          '[{"platform":"darwin","arch":"arm64","runner":"macos-26"}]' || inputs.targets == 'arm64' &&
+          '[{"platform":"darwin","arch":"arm64","runner":"macos-26"}]' || inputs.targets == 'linux-arm64' &&
+          '[{"platform":"linux","arch":"arm64","runner":"ubuntu-24.04-arm"}]' || inputs.targets == 'arm64' &&
           '[{"platform":"linux","arch":"arm64","runner":"ubuntu-24.04-arm"},
           {"platform":"windows","arch":"arm64","runner":"ubuntu-24.04"}]' ||
           '[{"platform":"linux","arch":"amd64","runner":"ubuntu-24.04"},
@@ -157,6 +158,25 @@ jobs:
       - name: Native UI service tests
         if: matrix.platform == 'linux'
         run: CGO_ENABLED=1 go test -timeout 5m ./client/ui/authsession/... ./client/ui/i18n/... ./client/ui/preferences/... ./client/ui/services/...
+      - name: Нативные RPM desktop и CLI
+        if: matrix.platform == 'linux'
+        env:
+          AHEADSCALE_RPM_ARCH: ${{ matrix.arch }}
+        run: |
+          docker build --iidfile /tmp/aheadscale-rpm-image -f packaging/aheadscale/Dockerfile.rpm packaging/aheadscale
+          export AHEADSCALE_RPM_IMAGE=$(cat /tmp/aheadscale-rpm-image)
+          tools=$(mktemp -d)
+          trap 'rm -rf "$tools"' EXIT
+          for tool in rpm rpmbuild; do
+            ln -s "$PWD/packaging/aheadscale/scripts/rpm-tool.sh" "$tools/$tool"
+          done
+          export RPMBUILD="$tools/rpmbuild" RPM="$tools/rpm"
+          export SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)
+          for channel in internal public; do
+            export AHEADSCALE_RPM_CHANNEL=$channel
+            python3 packaging/aheadscale/package.py --platform linux --arch "$AHEADSCALE_RPM_ARCH" --channel "$channel" --format rpm
+            python3 packaging/aheadscale/package.py --platform linux --arch "$AHEADSCALE_RPM_ARCH" --channel "$channel" --format rpm --cli-only
+          done
       - name: Linux preview installation and removal
         if: matrix.platform == 'linux'
         run: |

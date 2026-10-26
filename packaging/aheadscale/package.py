@@ -14,10 +14,16 @@ parser.add_argument('--arch', choices=['amd64', 'arm64'], required=True)
 parser.add_argument('--channel', choices=['public', 'internal'], required=True)
 parser.add_argument('--version', default=(Path(__file__).resolve().parent / 'version.txt').read_text().strip())
 parser.add_argument('--cli-only', action='store_true')
+parser.add_argument('--format', choices=['deb', 'rpm'], help='Формат Linux-пакета; по умолчанию deb')
 args = parser.parse_args()
+if args.format and args.platform != 'linux':
+    parser.error('--format применяется только к Linux')
 root = Path(__file__).resolve().parents[2]
 binaries = root / 'build' / f'{args.platform}-{args.arch}-{args.channel}'
-staging = binaries / ('cli-package' if args.cli_only else 'desktop-package')
+staging_name = 'cli-package' if args.cli_only else 'desktop-package'
+if args.format == 'rpm':
+    staging_name += '-rpm'
+staging = binaries / staging_name
 # Staging is only our build output; refuse ambiguous or reused paths.
 if staging.exists():
     raise SystemExit('Package staging already exists; choose a fresh build output')
@@ -51,22 +57,26 @@ if args.platform == 'linux':
             'Categories=Network;\nStartupWMClass=org.wails.aheadscale\n')
     copy(root / 'LICENSE', staging / 'usr/share/doc/aheadscale/LICENSE')
     copy(root / 'packaging/aheadscale/NOTICES.md', staging / 'usr/share/doc/aheadscale/NOTICES.md')
-    control = staging / 'DEBIAN'
-    control.mkdir()
-    depends = 'iproute2, iptables'
-    if not args.cli_only:
-        depends += ', libgtk-4-1 (>= 4.14), libwebkitgtk-6.0-4'
-    control.joinpath('control').write_text(
-        f'Package: aheadscale\nVersion: {args.version.replace("-", "~", 1)}\n'
-        f'Architecture: {args.arch}\nMaintainer: Aheadscale <hello@aheadscale.ru>\n'
-        f'Depends: {depends}\nConflicts: aheadscale-cli\n'
-        'Section: net\nPriority: optional\nDescription: Aheadscale private network client\n')
-    for source, target in [('postinst', 'postinst'), ('prerm', 'prerm')]:
-        copy(scripts / source, control / target)
-        control.joinpath(target).chmod(0o755)
-    # Installer is one package containing both UI and service; no second download.
-    subprocess.run(['dpkg-deb', '--root-owner-group', '--build', str(staging), str(output / (name + '.deb'))], check=True)
-    subprocess.run(['dpkg-deb', '--info', str(output / (name + '.deb'))], check=True)
+    if args.format == 'rpm':
+        from rpm_package import package_rpm
+        package_rpm(root, binaries, staging, output / (name + '.rpm'), args.version, args.arch, args.cli_only)
+    else:
+        control = staging / 'DEBIAN'
+        control.mkdir()
+        depends = 'iproute2, iptables'
+        if not args.cli_only:
+            depends += ', libgtk-4-1 (>= 4.14), libwebkitgtk-6.0-4'
+        control.joinpath('control').write_text(
+            f'Package: aheadscale\nVersion: {args.version.replace("-", "~", 1)}\n'
+            f'Architecture: {args.arch}\nMaintainer: Aheadscale <hello@aheadscale.ru>\n'
+            f'Depends: {depends}\nConflicts: aheadscale-cli\n'
+            'Section: net\nPriority: optional\nDescription: Aheadscale private network client\n')
+        for source, target in [('postinst', 'postinst'), ('prerm', 'prerm')]:
+            copy(scripts / source, control / target)
+            control.joinpath(target).chmod(0o755)
+        # Installer is one package containing both UI and service; no second download.
+        subprocess.run(['dpkg-deb', '--root-owner-group', '--build', str(staging), str(output / (name + '.deb'))], check=True)
+        subprocess.run(['dpkg-deb', '--info', str(output / (name + '.deb'))], check=True)
 elif args.platform == 'darwin':
     if args.cli_only:
         raise SystemExit('macOS uses a single desktop installer')

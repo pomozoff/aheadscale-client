@@ -3,6 +3,13 @@ set -euo pipefail
 platform=${1:?platform: linux, windows or darwin}
 arch=${2:?architecture: amd64 or arm64}
 channel=${3:?channel: internal or public}
+linux_format=${4:-deb}
+if [[ $linux_format != deb && $linux_format != rpm ]]; then
+  echo 'Invalid Linux package format' >&2; exit 1
+fi
+if [[ $platform != linux && $linux_format != deb ]]; then
+  echo 'Package format applies only to Linux' >&2; exit 1
+fi
 case "$channel" in
   internal) origin=https://macmini.tailb71cbe.ts.net:10443 ;;
   public) origin=https://aheadscale.ru:443 ;;
@@ -41,7 +48,9 @@ if [[ $platform == windows ]]; then
     -info client/ui/build/windows/info.json -out "$syso"
 fi
 go build -trimpath -tags production -ldflags "$ui_ldflags" -o "$out/aheadscale-ui$extension" ./client/ui
-python3 packaging/aheadscale/package.py --platform "$platform" --arch "$arch" --channel "$channel"
 if [[ $platform == linux ]]; then
-  python3 packaging/aheadscale/package.py --platform "$platform" --arch "$arch" --channel "$channel" --cli-only
+  python3 packaging/aheadscale/package.py --platform "$platform" --arch "$arch" --channel "$channel" --format "$linux_format"
+  python3 packaging/aheadscale/package.py --platform "$platform" --arch "$arch" --channel "$channel" --format "$linux_format" --cli-only
+else
+  python3 packaging/aheadscale/package.py --platform "$platform" --arch "$arch" --channel "$channel"
 fi

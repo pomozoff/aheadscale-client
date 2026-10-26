@@ -1,0 +1,55 @@
+# Готовые проверенные бинарники не изменяются упаковщиком и не получают debug-пакет.
+%global debug_package %{nil}
+%global __strip /bin/true
+Name: @NAME@
+Version: @VERSION@
+Release: @RELEASE@
+Summary: Aheadscale private network client
+License: BSD-3-Clause
+URL: https://aheadscale.ru
+Source0: payload.tar.gz
+BuildRequires: systemd-rpm-macros
+%{?systemd_requires}
+Requires: iproute
+Requires: iptables-nft
+@GUI_REQUIRES@
+Conflicts: @CONFLICT@
+
+%description
+Клиент частной сети Aheadscale с собственной службой.
+Параметры подключения и регистрация сохраняются при обновлении и удалении.
+
+%prep
+
+%build
+
+%install
+mkdir -p %{buildroot}
+tar -xzf %{SOURCE0} -C %{buildroot}
+
+%pre
+# Локальный unit может перекрыть пакетный: не перезаписываем неизвестную установку.
+if [ -e /etc/systemd/system/aheadscale.service ] || [ -L /etc/systemd/system/aheadscale.service ]; then
+    echo 'Обнаружен локальный aheadscale.service; сначала требуется перенос существующей установки.' >&2
+    exit 1
+fi
+
+%post
+%systemd_post aheadscale.service
+# Собственный клиент после установки должен сразу предоставлять GUI рабочую службу.
+if [ "$1" -eq 1 ] && [ -d /run/systemd/system ]; then
+    systemctl enable --now aheadscale.service || :
+fi
+
+%preun
+%systemd_preun aheadscale.service
+if [ "$1" -eq 0 ]; then
+    /usr/lib/aheadscale/cleanup-networkmanager || :
+fi
+
+%postun
+%systemd_postun_with_restart aheadscale.service
+
+%files
+%defattr(-,root,root,-)
+@FILES@
