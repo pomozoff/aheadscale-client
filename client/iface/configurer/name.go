@@ -1,4 +1,4 @@
-//go:build linux || windows || freebsd || js || wasip1
+//go:build android || windows || freebsd || js || wasip1
 
 package configurer
 

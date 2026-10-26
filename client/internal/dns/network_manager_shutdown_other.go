@@ -9,3 +9,6 @@ func PrepareInterfaceRemoval(string) error { return nil }
 func PrepareNetworkManagerInterface(string) (func() error, error) {
 	return func() error { return nil }, nil
 }
+
+// ConfigureNetworkManagerInterface has no NetworkManager integration on this platform.
+func ConfigureNetworkManagerInterface(string) error { return nil }

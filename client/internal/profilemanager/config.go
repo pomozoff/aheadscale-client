@@ -408,7 +408,7 @@ func (config *Config) apply(input ConfigInput) (updated bool, err error) {
 			*input.InterfaceName, config.WgIface)
 		config.WgIface = *input.InterfaceName
 		updated = true
-	} else if config.WgIface == "" {
+	} else if config.WgIface == "" || (runtime.GOOS == "linux" && input.InterfaceName == nil && config.WgIface == "as0") {
 		config.WgIface = iface.WgInterfaceDefault
 		log.Infof("using default Wireguard interface %s", config.WgIface)
 		updated = true
@@ -478,6 +478,11 @@ func (config *Config) apply(input ConfigInput) (updated bool, err error) {
 		log.Infof("filling in interface blacklist with defaults: [ %s ]",
 			strings.Join(DefaultInterfaceBlacklist, " "))
 		config.IFaceBlackList = append(config.IFaceBlackList, DefaultInterfaceBlacklist...)
+		updated = true
+	}
+
+	if runtime.GOOS == "linux" && config.WgIface == iface.WgInterfaceDefault && !slices.Contains(config.IFaceBlackList, config.WgIface) {
+		config.IFaceBlackList = append(config.IFaceBlackList, config.WgIface)
 		updated = true
 	}
 

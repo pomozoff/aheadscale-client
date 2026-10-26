@@ -59,14 +59,15 @@ const (
 
 var supportedNetworkManagerVersionConstraints = []string{
 	">= 1.16, < 1.27",
-	">= 1.44, < 1.45",
+	">= 1.44, < 2.0",
 }
 
 type networkManagerDbusConfigurator struct {
-	dbusLinkObject  dbus.ObjectPath
-	routingAll      bool
-	ifaceName       string
-	origNameservers []netip.Addr
+	dbusLinkObject     dbus.ObjectPath
+	routingAll         bool
+	ifaceName          string
+	origNameservers    []netip.Addr
+	preserveExternalIP bool
 }
 
 // the types below are based on dbus specification, each field is mapped to a dbus type
@@ -114,8 +115,9 @@ func newNetworkManagerDbusConfigurator(wgInterface string) (*networkManagerDbusC
 	log.Debugf("got network manager dbus Link Object: %s from net interface %s", s, wgInterface)
 
 	c := &networkManagerDbusConfigurator{
-		dbusLinkObject: dbus.ObjectPath(s),
-		ifaceName:      wgInterface,
+		dbusLinkObject:     dbus.ObjectPath(s),
+		ifaceName:          wgInterface,
+		preserveExternalIP: networkManagerSupportsExternalIP(),
 	}
 
 	origNameservers, err := c.captureOriginalNameservers()
@@ -340,20 +342,7 @@ func (n *networkManagerDbusConfigurator) applyDNSConfig(config HostDNSConfig, st
 		delete(staleSettings, networkManagerDbusDNSPriorityKey)
 		delete(staleSettings, networkManagerDbusDNSSearchKey)
 	}
-	var (
-		searchDomains []string
-		matchDomains  []string
-	)
-	for _, dConf := range config.Domains {
-		if dConf.Disabled {
-			continue
-		}
-		if dConf.MatchOnly {
-			matchDomains = append(matchDomains, "~."+dConf.Domain)
-			continue
-		}
-		searchDomains = append(searchDomains, dConf.Domain)
-	}
+	searchDomains, matchDomains := networkManagerDomainLists(config)
 
 	newDomainList := append(searchDomains, matchDomains...) //nolint:gocritic
 
@@ -391,6 +380,20 @@ func (n *networkManagerDbusConfigurator) applyDNSConfig(config HostDNSConfig, st
 		return fmt.Errorf("reapplying the connection with new settings, error: %w", err)
 	}
 	return nil
+}
+
+func networkManagerDomainLists(config HostDNSConfig) (searchDomains, matchDomains []string) {
+	for _, dConf := range config.Domains {
+		if dConf.Disabled {
+			continue
+		}
+		if dConf.MatchOnly {
+			matchDomains = append(matchDomains, "~"+dConf.Domain)
+			continue
+		}
+		searchDomains = append(searchDomains, dConf.Domain)
+	}
+	return searchDomains, matchDomains
 }
 
 func (n *networkManagerDbusConfigurator) restoreHostDNS() error {
@@ -454,8 +457,12 @@ func (n *networkManagerDbusConfigurator) reApplyConnectionSettings(connSettings 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	defer cancel()
 
+	flags := networkManagerDbusDefaultBehaviorFlag
+	if n.preserveExternalIP {
+		flags = 1 // NM_DEVICE_REAPPLY_FLAGS_PRESERVE_EXTERNAL_IP (1.42+).
+	}
 	err = obj.CallWithContext(ctx, networkManagerDbusDeviceReapplyMethod, dbusDefaultFlag,
-		connSettings, configVersion, networkManagerDbusDefaultBehaviorFlag).Store()
+		connSettings, configVersion, flags).Store()
 	if err != nil {
 		return fmt.Errorf("calling ReApply method with context, err: %w", err)
 	}
@@ -537,23 +544,44 @@ func getNetworkManagerDNSProperty(property string, store any) error {
 	return v.Store(store)
 }
 
-func isNetworkManagerSupportedVersion() bool {
+func readNetworkManagerVersion() (*version.Version, error) {
 	obj, closeConn, err := getDbusObject(networkManagerDest, networkManagerDbusObjectNode)
 	if err != nil {
-		log.Errorf("got error while attempting to get the network manager object, err: %s", err)
-		return false
+		return nil, err
 	}
-
 	defer closeConn()
-
 	value, err := obj.GetProperty(networkManagerDbusVersionProperty)
 	if err != nil {
-		log.Errorf("unable to retrieve network manager mode, got error: %s", err)
+		return nil, err
+	}
+	text, ok := value.Value().(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid NetworkManager version type")
+	}
+	return parseVersion(text)
+}
+
+func networkManagerSupportsExternalIP() bool {
+	v, err := readNetworkManagerVersion()
+	if err != nil {
 		return false
 	}
-	versionValue, err := parseVersion(value.Value().(string))
+	segments := v.Segments()
+	return segments[0] == 1 && segments[1] >= 42
+}
+
+func networkManagerUsesResolved() bool {
+	var mode string
+	if err := getNetworkManagerDNSProperty(networkManagerDbusDNSManagerModeProperty, &mode); err != nil || mode != "systemd-resolved" {
+		return false
+	}
+	return networkManagerSupportsExternalIP() && isNetworkManagerSupportedVersion()
+}
+
+func isNetworkManagerSupportedVersion() bool {
+	versionValue, err := readNetworkManagerVersion()
 	if err != nil {
-		log.Errorf("nm: parse version: %s", err)
+		log.Debugf("read NetworkManager version: %v", err)
 		return false
 	}
 

@@ -79,6 +79,12 @@ func getOSDNSManagerType() (osManagerType, string, error) {
 	nss := isLibnssResolveUsed()
 	stub := checkStub()
 
+	// NetworkManager must own link DNS when it forwards it to resolved;
+	// otherwise its external-interface activation can erase our DNS settings.
+	if resolved && (nss || stub) && networkManagerUsesResolved() {
+		return networkManager, "NetworkManager forwards link DNS to systemd-resolved", nil
+	}
+
 	// Prefer systemd-resolved whenever it owns libc resolution, regardless of
 	// who wrote /etc/resolv.conf. File-mode rewrites do not affect lookups
 	// that go through nss-resolve, and in foreign mode they can loop back
