@@ -11,7 +11,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--platform', choices=['linux', 'darwin', 'windows'], required=True)
 parser.add_argument('--arch', choices=['amd64', 'arm64'], required=True)
 parser.add_argument('--channel', choices=['public', 'internal'], required=True)
-parser.add_argument('--version', default='0.80.0-aheadscale.14')
+parser.add_argument('--version', default='0.80.0-aheadscale.19')
 parser.add_argument('--cli-only', action='store_true')
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[2]

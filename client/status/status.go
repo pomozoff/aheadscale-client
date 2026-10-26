@@ -298,6 +298,13 @@ func mapSSHServer(sshServerState *proto.SSHServerState) SSHServerStateOutput {
 	}
 }
 
+func localPeerTimestamp(timestamp time.Time) time.Time {
+	if timestamp.IsZero() {
+		return timestamp
+	}
+	return timestamp.Local()
+}
+
 func mapPeers(
 	peers []*proto.PeerState,
 	statusFilter string,
@@ -339,12 +346,12 @@ func mapPeers(
 			localICEEndpoint = pbPeerState.GetLocalIceCandidateEndpoint()
 			remoteICEEndpoint = pbPeerState.GetRemoteIceCandidateEndpoint()
 			relayServerAddress = pbPeerState.GetRelayAddress()
-			lastHandshake = pbPeerState.GetLastWireguardHandshake().AsTime().Local()
+			lastHandshake = localPeerTimestamp(pbPeerState.GetLastWireguardHandshake().AsTime())
 			transferReceived = pbPeerState.GetBytesRx()
 			transferSent = pbPeerState.GetBytesTx()
 		}
 
-		timeLocal := pbPeerState.GetConnStatusUpdate().AsTime().Local()
+		timeLocal := localPeerTimestamp(pbPeerState.GetConnStatusUpdate().AsTime())
 		peerState := PeerStateDetailOutput{
 			IP:               pbPeerState.GetIP(),
 			IPv6:             pbPeerState.GetIpv6(),

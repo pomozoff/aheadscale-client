@@ -253,6 +253,40 @@ func TestConversionFromFullStatusToOutputOverview(t *testing.T) {
 	assert.Equal(t, overview, convertedResult)
 }
 
+func TestStatusSerializationPreservesUnknownPeerTimestampsInLocalTimezones(t *testing.T) {
+	originalLocation := time.Local
+	t.Cleanup(func() { time.Local = originalLocation })
+	knownTime := time.Date(2026, time.October, 26, 0, 0, 0, 0, time.UTC)
+	for _, offset := range []int{-8, 0, 3} {
+		t.Run(fmt.Sprintf("offset_%d", offset), func(t *testing.T) {
+			time.Local = time.FixedZone("test-local", offset*60*60)
+			converted := OutputOverview{Peers: mapPeers(
+				[]*proto.PeerState{
+					{IP: "100.88.0.1", ConnStatus: "Connected", ConnStatusUpdate: timestamppb.New(time.Time{}), LastWireguardHandshake: timestamppb.New(time.Time{})},
+					{IP: "100.88.0.2", ConnStatus: "Connected", ConnStatusUpdate: timestamppb.New(knownTime), LastWireguardHandshake: timestamppb.New(knownTime)},
+				}, "", nil, nil, nil, "",
+			)}
+			require.Len(t, converted.Peers.Details, 2)
+			unknown := converted.Peers.Details[0]
+			assert.True(t, unknown.LastStatusUpdate.IsZero())
+			assert.True(t, unknown.LastWireguardHandshake.IsZero())
+			assert.Equal(t, 1, unknown.LastStatusUpdate.Year())
+			assert.Equal(t, 1, unknown.LastWireguardHandshake.Year())
+			known := converted.Peers.Details[1]
+			assert.True(t, known.LastStatusUpdate.Equal(knownTime))
+			assert.Equal(t, time.Local, known.LastStatusUpdate.Location())
+			assert.True(t, known.LastWireguardHandshake.Equal(knownTime))
+			assert.Equal(t, time.Local, known.LastWireguardHandshake.Location())
+			yamlOutput, err := converted.YAML()
+			require.NoError(t, err)
+			assert.NotContains(t, yamlOutput, "0000-")
+			jsonOutput, err := converted.JSON()
+			require.NoError(t, err)
+			assert.NotContains(t, jsonOutput, "0000-")
+		})
+	}
+}
+
 func TestSortingOfPeers(t *testing.T) {
 	peers := []PeerStateDetailOutput{
 		{
