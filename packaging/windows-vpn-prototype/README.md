@@ -26,20 +26,30 @@
 
 Фактические результаты: [ARM64, GUI и обмен](../../docs/aheadscale/smoke-results/2026-10-20-windows-vpn-gui.md), [x64, единый EXE и перезагрузка](../../docs/aheadscale/smoke-results/2026-10-24-windows11-x64-native.md).
 
-## Единый установщик x64
+## Единый установщик x64 / ARM64
 
 `package-desktop.py` объединяет native-артефакт CI и стандартный desktop EXE
-одной версии в один тестовый EXE. Требуются Python 3, 7z и закреплённый NSIS
+одной версии, архитектуры и исходного коммита в один тестовый EXE. Требуются Python 3, 7z и закреплённый NSIS
 с x86-unicode ShellExecAsUser. Сборщик сверяет SHA256 native-файлов и содержимое
-стандартного установщика с указанными CLI/UI. Пример из корня репозитория:
+стандартного установщика с указанными CLI/UI, архитектуру PE и MSIX. В каталоге
+стандартного CLI обязателен `build-manifest.json` с полями `sourceCommit`,
+`clientVersion`, `architecture`, `cliSha256`, `uiSha256`; `scripts/build.ps1`
+создаёт его вместе с обеими стандартными программами в `out/dist/standard`.
+Версия клиента берётся из `packaging/aheadscale/version.txt`.
+
+Workflow `Aheadscale Windows VPN prototype` с `architecture=all` строит оба
+комплекта из одного commit и выдаёт отдельные артефакты
+`aheadscale-windows-{amd64,arm64}-NATIVE-DESKTOP-PREVIEW` с SHA256 и манифестом.
+Это проверка сборки; чистая установка и работа на ВМ принимаются отдельно.
+Пример ручной упаковки из корня репозитория:
 
 ```bash
 python3 packaging/windows-vpn-prototype/package-desktop.py \
   --native /path/to/aheadscale-windows-vpn-amd64-PROTOTYPE \
-  --standard-installer dist/aheadscale_0.80.0-aheadscale.11_windows_amd64_public.exe \
-  --standard-cli build/windows-amd64-public/aheadscale.exe \
-  --standard-ui build/windows-amd64-public/aheadscale-ui.exe \
-  --output dist/aheadscale_0.80.0-aheadscale.11_windows_amd64_native-preview.exe
+  --standard-installer dist/aheadscale_0.80.0-aheadscale.23_windows_amd64_public.exe \
+  --standard-cli /path/to/aheadscale-windows-vpn-amd64-PROTOTYPE/standard/aheadscale.exe \
+  --standard-ui /path/to/aheadscale-windows-vpn-amd64-PROTOTYPE/standard/aheadscale-ui.exe \
+  --output dist/aheadscale_0.80.0-aheadscale.23_windows_amd64_native-preview.exe
 ```
 
 Этот preview требует Windows 11 24H2+ и административную учётную запись

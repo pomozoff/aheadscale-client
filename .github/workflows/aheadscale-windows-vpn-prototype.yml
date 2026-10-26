@@ -8,14 +8,18 @@ on:
       architecture:
         description: Архитектура тестового пакета
         type: choice
-        options: [amd64, arm64]
-        default: amd64
+        options: [all, amd64, arm64]
+        default: all
 permissions:
   contents: read
 jobs:
   build:
+    strategy:
+      fail-fast: false
+      matrix:
+        architecture: ${{ fromJSON((inputs.architecture == 'amd64' && '["amd64"]') || (inputs.architecture == 'arm64' && '["arm64"]') || '["amd64","arm64"]') }}
     runs-on: windows-2022
-    timeout-minutes: 20
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
@@ -33,10 +37,78 @@ jobs:
           if ($LASTEXITCODE -or (pnpm --version) -ne '11.4.0') { throw 'Неверная версия pnpm' }
       - name: Собрать и подписать отдельный опытный пакет
         shell: pwsh
-        run: ./packaging/windows-vpn-prototype/scripts/build.ps1 -Architecture ${{ inputs.architecture || 'amd64' }} -SdkVersion 10.0.26100.0 -Version '0.1.${{ github.run_number }}.${{ github.run_attempt }}'
+        run: ./packaging/windows-vpn-prototype/scripts/build.ps1 -Architecture ${{ matrix.architecture }} -SdkVersion 10.0.26100.0 -Version '0.1.${{ github.run_number }}.${{ github.run_attempt }}'
       - name: Сохранить опытный пакет без закрытого ключа
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
-          name: aheadscale-windows-vpn-${{ inputs.architecture || 'amd64' }}-PROTOTYPE
+          name: aheadscale-windows-vpn-${{ matrix.architecture }}-PROTOTYPE
           path: packaging/windows-vpn-prototype/out/dist/
+          if-no-files-found: error
+  package:
+    needs: build
+    permissions:
+      contents: read
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        architecture: ${{ fromJSON((inputs.architecture == 'amd64' && '["amd64"]') || (inputs.architecture == 'arm64' && '["arm64"]') || '["amd64","arm64"]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - name: Подготовить инструменты упаковки
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y nsis p7zip-full
+          curl --fail --location --retry 3 -o /tmp/shell.7z https://pkgs.netbird.io/nsis/ShellExecAsUser_amd64-Unicode.7z
+          echo '0a55ea25c7330a92cec028eda8afcaf1b1a7092e0dfb77c21c8f654564b4ff9d  /tmp/shell.7z' | sha256sum -c
+          7z x /tmp/shell.7z -o/tmp/nsis-shell
+          sudo cp /tmp/nsis-shell/Plugins/x86-unicode/ShellExecAsUser.dll /usr/share/nsis/Plugins/x86-unicode/
+          curl --fail --location --retry 3 -o /tmp/envar.zip https://pkgs.netbird.io/nsis/EnVar_plugin.zip
+          echo 'e9aa92de351345ed82795251d838f1ae9041ba35af9d381a5780c7843b01f56a  /tmp/envar.zip' | sha256sum -c
+          unzip -q /tmp/envar.zip -d /tmp/nsis-envar
+          sudo cp /tmp/nsis-envar/Plugins/x86-unicode/EnVar.dll /usr/share/nsis/Plugins/x86-unicode/
+      - name: Регрессии единого EXE
+        run: python3 -B -m unittest discover -s packaging/windows-vpn-prototype -p test_package_desktop.py
+      - name: Получить компоненты из этого запуска
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARCHITECTURE: ${{ matrix.architecture }}
+        run: gh run download "$GITHUB_RUN_ID" -n "aheadscale-windows-vpn-$ARCHITECTURE-PROTOTYPE" -D native
+      - name: Подготовить стандартный установщик из тех же исходников
+        env:
+          ARCHITECTURE: ${{ matrix.architecture }}
+        run: |
+          curl --fail --location --retry 3 -o /tmp/wintun.zip https://pkgs.netbird.io/wintun/wintun-0.14.1.zip
+          echo '07c256185d6ee3652e09fa55c0b673e2624b565e02c4b9091c79ca7d2f24ef51  /tmp/wintun.zip' | sha256sum -c
+          unzip -q /tmp/wintun.zip -d /tmp/wintun
+          curl --fail --location --retry 3 -o /tmp/webview.exe https://go.microsoft.com/fwlink/p/?LinkId=2124703
+          mkdir -p "build/windows-$ARCHITECTURE-public"
+          cp native/standard/* "build/windows-$ARCHITECTURE-public/"
+          cp "/tmp/wintun/wintun/bin/$ARCHITECTURE/wintun.dll" "build/windows-$ARCHITECTURE-public/"
+          cp /tmp/wintun/wintun/LICENSE.txt "build/windows-$ARCHITECTURE-public/WINTUN-LICENSE.txt"
+          cp /tmp/webview.exe "build/windows-$ARCHITECTURE-public/MicrosoftEdgeWebview2Setup.exe"
+          python3 packaging/aheadscale/package.py --platform windows --arch "$ARCHITECTURE" --channel public
+      - name: Собрать единый native preview и манифест
+        env:
+          ARCHITECTURE: ${{ matrix.architecture }}
+        run: |
+          version=$(cat packaging/aheadscale/version.txt)
+          python3 packaging/windows-vpn-prototype/package-desktop.py --native native --standard-installer "dist/aheadscale_${version}_windows_${ARCHITECTURE}_public.exe" --standard-cli "native/standard/aheadscale.exe" --standard-ui "native/standard/aheadscale-ui.exe" --output "dist/aheadscale_${version}_windows_${ARCHITECTURE}_native-preview.exe"
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, os
+          manifest=json.loads(Path('native/build-manifest.json').read_text(encoding='utf-8-sig'))
+          if manifest['sourceCommit'] != os.environ['GITHUB_SHA']:
+              raise SystemExit('Неверный исходный коммит компонентов')
+          files={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in Path('dist').glob('*.exe')}
+          manifest.update(files=files, publisherSigning='PREVIEW-TEST-CERTIFICATE', ciRun=os.environ['GITHUB_RUN_ID'])
+          Path('dist/build-manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
+          Path('dist/SHA256SUMS').write_text(''.join(sha+'  '+name+'\n' for name,sha in sorted(files.items())))
+          PY
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: aheadscale-windows-${{ matrix.architecture }}-NATIVE-DESKTOP-PREVIEW
+          path: dist/
           if-no-files-found: error

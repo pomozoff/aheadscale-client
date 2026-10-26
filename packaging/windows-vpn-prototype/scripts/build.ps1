@@ -8,6 +8,8 @@ $packageArchitecture=if($Architecture -eq 'amd64'){'x64'}else{'arm64'}
 Set-StrictMode -Version Latest
 $root=Split-Path $PSScriptRoot -Parent
 $repo=Resolve-Path (Join-Path $root '..\..')
+$clientVersion=(Get-Content (Join-Path $repo 'packaging\aheadscale\version.txt') -Raw).Trim()
+if($clientVersion -notmatch '^\d+\.\d+\.\d+-aheadscale\.\d+$'){throw 'Неверная версия клиента'}
 $sdk=Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10'
 $tools=Join-Path $sdk "bin\$SdkVersion\x64"
 foreach($name in @('makeappx.exe','signtool.exe')) {
@@ -34,7 +36,7 @@ if($LASTEXITCODE){throw 'Регрессии восстановления native 
 & go -C $repo test -tags 'devcert,windowsvpnprototype' -run '^TestNativeWGIfaceMonitor' ./client/internal
 if($LASTEXITCODE){throw 'Регрессия владения системным VPN-интерфейсом не прошла'}
 $env:GOARCH=$Architecture
-$flags='-s -w -X github.com/netbirdio/netbird/version.version=0.80.0-aheadscale.18 -X github.com/netbirdio/netbird/client/internal/profilemanager.DefaultManagementURL=https://aheadscale.ru -X github.com/netbirdio/netbird/client/internal/profilemanager.DefaultAdminURL=https://aheadscale.ru -X github.com/netbirdio/netbird/client/internal/profilemanager.LockedServerOrigin=https://aheadscale.ru'
+$flags="-s -w -X github.com/netbirdio/netbird/version.version=$clientVersion -X github.com/netbirdio/netbird/client/internal/profilemanager.DefaultManagementURL=https://aheadscale.ru -X github.com/netbirdio/netbird/client/internal/profilemanager.DefaultAdminURL=https://aheadscale.ru -X github.com/netbirdio/netbird/client/internal/profilemanager.LockedServerOrigin=https://aheadscale.ru"
 & go -C $repo build -trimpath -tags windowsvpnprototype -ldflags $flags -o (Join-Path $stage 'AheadscaleNativeDaemon.exe') ./client
 if($LASTEXITCODE){throw 'Не собран опытный Windows daemon'}
 $standardCheck=Join-Path $root 'out\standard-check.exe'
@@ -64,6 +66,13 @@ if($LASTEXITCODE){throw 'Не созданы ресурсы Windows GUI'}
 $env:GOARCH=$Architecture
 & go -C $repo build -trimpath -tags 'production,windowsvpnprototype' -ldflags ($flags+' -H windowsgui') -o $ui ./client/ui
 if($LASTEXITCODE){throw 'Не собран опытный Windows GUI'}
+$standard=Join-Path $dist 'standard'
+New-Item -ItemType Directory -Force $standard|Out-Null
+& go -C $repo build -trimpath -ldflags $flags -o (Join-Path $standard 'aheadscale.exe') ./client
+if($LASTEXITCODE){throw 'Не собран стандартный Windows CLI'}
+& go -C $repo build -trimpath -tags production -ldflags ($flags+' -H windowsgui') -o (Join-Path $standard 'aheadscale-ui.exe') ./client/ui
+if($LASTEXITCODE){throw 'Не собран стандартный Windows GUI'}
+[ordered]@{sourceCommit=(& git -C $repo rev-parse HEAD);clientVersion=$clientVersion;architecture=$Architecture;cliSha256=(Get-FileHash (Join-Path $standard 'aheadscale.exe')).Hash;uiSha256=(Get-FileHash (Join-Path $standard 'aheadscale-ui.exe')).Hash}|ConvertTo-Json|Set-Content (Join-Path $standard 'build-manifest.json') -Encoding utf8
 Remove-Item $syso
 
 (Get-Content (Join-Path $root 'Package.appxmanifest') -Raw).Replace('@VERSION@',$Version).Replace('@ARCHITECTURE@',$packageArchitecture) | Set-Content (Join-Path $stage 'AppxManifest.xml') -Encoding utf8
@@ -97,7 +106,7 @@ try {
  & (Join-Path $tools 'signtool.exe') sign /fd SHA256 /sha1 $cert.Thumbprint $ui
  if($LASTEXITCODE){throw 'Не подписан опытный GUI'}
  Export-Certificate -Cert $cert -FilePath (Join-Path $dist 'Aheadscale.VpnPrototype.cer') | Out-Null
- $manifest=[ordered]@{name='Aheadscale.VpnPrototype';publisher=$cert.Subject;version=$Version;architecture=$Architecture;clientVersion='0.80.0-aheadscale.18';nativeUIFile=(Split-Path $ui -Leaf);nativeUISha256=(Get-FileHash $ui -Algorithm SHA256).Hash;sdk=$SdkVersion;go='1.26.7';nativeDaemonSha256=(Get-FileHash (Join-Path $stage 'AheadscaleNativeDaemon.exe') -Algorithm SHA256).Hash;certificateThumbprint=$cert.Thumbprint;packageFile=(Split-Path $package -Leaf);sha256=(Get-FileHash $package -Algorithm SHA256).Hash;negativePackageFile=(Split-Path $negativePackage -Leaf);negativeSha256=(Get-FileHash $negativePackage -Algorithm SHA256).Hash;sourceCommit=(& git -C $repo rev-parse HEAD)}
+ $manifest=[ordered]@{name='Aheadscale.VpnPrototype';publisher=$cert.Subject;version=$Version;architecture=$Architecture;clientVersion=$clientVersion;nativeUIFile=(Split-Path $ui -Leaf);nativeUISha256=(Get-FileHash $ui -Algorithm SHA256).Hash;sdk=$SdkVersion;go='1.26.7';nativeDaemonSha256=(Get-FileHash (Join-Path $stage 'AheadscaleNativeDaemon.exe') -Algorithm SHA256).Hash;certificateThumbprint=$cert.Thumbprint;packageFile=(Split-Path $package -Leaf);sha256=(Get-FileHash $package -Algorithm SHA256).Hash;negativePackageFile=(Split-Path $negativePackage -Leaf);negativeSha256=(Get-FileHash $negativePackage -Algorithm SHA256).Hash;sourceCommit=(& git -C $repo rev-parse HEAD)}
  $manifest | ConvertTo-Json | Set-Content (Join-Path $dist 'build-manifest.json') -Encoding utf8
  Copy-Item (Join-Path $PSScriptRoot 'install-test.ps1'),(Join-Path $PSScriptRoot 'remove-test.ps1') $dist
  Get-ChildItem $dist | Select-Object Name,Length

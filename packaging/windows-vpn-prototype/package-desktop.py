@@ -5,14 +5,54 @@ import base64
 import hashlib
 import json
 import re
+import struct
 from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import xml.etree.ElementTree as ET
+import zipfile
 
 
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest().upper()
+
+
+def binary_architecture(path):
+    with path.open("rb") as binary:
+        header = binary.read(64)
+        if len(header) != 64 or header[:2] != b"MZ":
+            raise SystemExit("Неверный PE-файл: " + path.name)
+        offset = struct.unpack_from("<I", header, 60)[0]
+        if offset < 64 or offset > path.stat().st_size - 24:
+            raise SystemExit("Неверный PE-заголовок: " + path.name)
+        binary.seek(offset)
+        coff = binary.read(6)
+    if coff[:4] != b"PE\0\0":
+        raise SystemExit("Неверная PE-сигнатура: " + path.name)
+    machine = struct.unpack_from("<H", coff, 4)[0]
+    return {0x8664: "amd64", 0xAA64: "arm64"}.get(machine)
+
+
+def verify_components(args, manifest):
+    arch = manifest["architecture"]
+    if arch not in ("amd64", "arm64"):
+        raise SystemExit("Неподдерживаемая архитектура Windows")
+    standard = json.loads((args.standard_cli.parent / "build-manifest.json").read_text(encoding="utf-8-sig"))
+    if (not re.fullmatch(r"[0-9a-f]{40}", manifest["sourceCommit"])
+            or any(standard.get(key) != manifest[key] for key in ("sourceCommit", "clientVersion", "architecture"))):
+        raise SystemExit("Не совпадают исходники, версия или архитектура компонентов")
+    for path, sha in ((args.standard_cli, standard["cliSha256"]),
+                      (args.standard_ui, standard["uiSha256"])):
+        if digest(path) != sha.upper():
+            raise SystemExit("Не совпала контрольная сумма стандартного компонента: " + path.name)
+    for path in (args.standard_cli, args.standard_ui, args.native / manifest["nativeUIFile"]):
+        if binary_architecture(path) != arch:
+            raise SystemExit("Не совпадает архитектура PE-компонента: " + path.name)
+    with zipfile.ZipFile(args.native / manifest["packageFile"]) as package:
+        identity = ET.fromstring(package.read("AppxManifest.xml")).find("{http://schemas.microsoft.com/appx/manifest/foundation/windows10}Identity")
+    if identity is None or identity.get("ProcessorArchitecture") != {"amd64": "x64", "arm64": "arm64"}[arch]:
+        raise SystemExit("Не совпадает архитектура MSIX-компонента")
 
 
 def loader(hashes, operation):
@@ -58,12 +98,11 @@ def main():
     args = parser.parse_args()
     repo = Path(__file__).resolve().parents[2]
     manifest = json.loads((args.native / "build-manifest.json").read_text(encoding="utf-8-sig"))
-    if manifest["architecture"] != "amd64":
-        raise SystemExit("Первый единый preview проверяется только на Windows x64")
     for field, sha in (("packageFile", "sha256"), ("nativeUIFile", "nativeUISha256")):
         name = manifest[field]
         if Path(name).name != name or digest(args.native / name) != manifest[sha].upper():
             raise SystemExit("Не совпала контрольная сумма native-компонента")
+    verify_components(args, manifest)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="aheadscale-desktop-") as folder:
         work = Path(folder)

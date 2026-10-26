@@ -4,6 +4,7 @@ import argparse
 import os
 from pathlib import Path
 import plistlib
+import re
 import shutil
 import subprocess
 
@@ -11,7 +12,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--platform', choices=['linux', 'darwin', 'windows'], required=True)
 parser.add_argument('--arch', choices=['amd64', 'arm64'], required=True)
 parser.add_argument('--channel', choices=['public', 'internal'], required=True)
-parser.add_argument('--version', default='0.80.0-aheadscale.22')
+parser.add_argument('--version', default=(Path(__file__).resolve().parent / 'version.txt').read_text().strip())
 parser.add_argument('--cli-only', action='store_true')
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[2]
@@ -124,7 +125,10 @@ else:
     installer = client / 'installer.nsis'
     installer.write_text(original)
     makensis = os.environ.get('MAKENSIS', 'makensis')
-    env = dict(os.environ, APPVER='0.80.0.14')
+    version = re.fullmatch(r'(\d+)\.(\d+)\.(\d+)-aheadscale\.(\d+)', args.version)
+    if not version or any(int(part) > 65535 for part in version.groups()):
+        raise SystemExit('Invalid Windows package version')
+    env = dict(os.environ, APPVER='.'.join(version.groups()))
     subprocess.run([makensis, '-V2', '-DARCH=' + args.arch, str(installer)], cwd=work, env=env, check=True)
     shutil.copy2(work / 'aheadscale-installer.exe', output / (name + '.exe'))
 print('Created preview package: ' + name)
