@@ -75,7 +75,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           ARCHITECTURE: ${{ matrix.architecture }}
-        run: gh run download "$GITHUB_RUN_ID" -n "aheadscale-windows-vpn-$ARCHITECTURE-PROTOTYPE" -D native
+        run: gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" -n "aheadscale-windows-vpn-$ARCHITECTURE-PROTOTYPE" -D native
       - name: Подготовить стандартный установщик из тех же исходников
         env:
           ARCHITECTURE: ${{ matrix.architecture }}
