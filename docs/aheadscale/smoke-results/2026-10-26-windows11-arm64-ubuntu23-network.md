@@ -7,7 +7,7 @@
 | Узел | ОС / backend | Пакет и исходник |
 | --- | --- | --- |
 | Windows | Windows 11 ARM64, build `26300.9711`; native VPN `Aheadscale`, MSIX `0.1.62.1`; CLI/daemon `.23` | `aheadscale_0.80.0-aheadscale.23_windows_arm64_native-preview.exe`, `f9a52d82026c4abde721ed10b11e25170f19dd4c` |
-| Ubuntu | Ubuntu 26.04.1 LTS aarch64; kernel WireGuard `as0`; CLI/daemon `.23` | `aheadscale_0.80.0-aheadscale.23_linux_arm64_public.deb`, `b52f1818984b8a7b16a7b9f94c93995de498d7cc` |
+| Ubuntu | Ubuntu 26.04.1 LTS aarch64; kernel WireGuard `Aheadscale` (имя сохранено из прежней конфигурации); CLI/daemon `.23` | `aheadscale_0.80.0-aheadscale.23_linux_arm64_public.deb`, `b52f1818984b8a7b16a7b9f94c93995de498d7cc` |
 
 SHA256 Windows EXE: `296539598246a759a72080701aad0b54d5aa0c4d6db7f0390266bd5001876595`. SHA256 Ubuntu DEB: `ca777aee0a1fb50a8e79ec576cac46f915f95be5fe5408fa48b5a6ff9ca349b4`.
 

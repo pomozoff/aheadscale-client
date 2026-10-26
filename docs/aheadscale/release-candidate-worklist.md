@@ -10,7 +10,7 @@
 | Windows 11 ARM64, build 26300 на стенде | GUI/CLI, native MSIX, единый EXE | `.18` / MSIX `0.1.61.1`, включая восстановление службы и повторные Disconnect | Единый EXE `.23` установлен, обычный GUI запускается; повторить сеть и полный жизненный цикл |
 | Windows 10 22H2 x64, кандидат для проверки | Отдельный совместимый GUI/CLI-комплект; backend требуется проверить | NOT_RUN | Текущие native MSIX/установщик требуют build 26100; совместимый backend и системную интеграцию нельзя объявлять готовыми |
 | macOS 27.0.1 ARM64 | PKG, GUI и встроенный CLI | `.22`: значок, обновление работающего GUI, сохранение регистрации; частичные CLI/сеть | Собственный VPN IPv4, первый TCP после обновления, полный lifecycle; Network Extension требует отдельного этапа |
-| Ubuntu 26 ARM64 | DEB desktop и отдельный CLI | daemon/CLI `.8`, UI `.7`; GNOME, Plasma Wayland, Xfce X11 на общей ВМ | Desktop DEB `.23` установлен поверх `.8`, ключ сохранён, авто-Connected и базовый CLI проверены; T01 и restart службы прошли; S04 NetworkManager FAIL, ещё нужны GUI, headless CLI и lifecycle |
+| Ubuntu 26 ARM64 | DEB desktop и отдельный CLI | daemon/CLI `.8`, UI `.7`; GNOME, Plasma Wayland, Xfce X11 на общей ВМ | Desktop DEB `.23` установлен поверх `.8`, ключ сохранён, авто-Connected и базовый CLI проверены; T01 и restart службы прошли; S04/RG35 исправлен в `.24`: DEB, UI/NM off/on и восстановление службы PASS; ещё нужны полный GUI, headless CLI, прикладной повтор и lifecycle |
 | Ubuntu 26 x64 | DEB desktop и отдельный CLI | Чистая матрица NOT_RUN | Подготовить стенд и выполнить применимые UI/CLI/сетевые проверки |
 | Fedora 44 ARM64 | RPM desktop и отдельный CLI | `.8`: сеть с Ubuntu, reboot/автозапуск | RPM-упаковка восстановлена, реальная ARM64-сборка CI прошла; обновить ВМ и проверить CLI/lifecycle |
 | Fedora 44 x64 | RPM desktop и отдельный CLI | NOT_RUN | Подготовить стенд и принять точный RPM |
@@ -28,7 +28,7 @@
 | Браузерный callback / одна попытка входа / брендинг | Исправления есть в общем коде; проверить на новых Windows EXE |
 | Native Windows, служба и нормальное отключение интерфейса | Исправления `.18` присутствуют; последний успешный native CI `40220973817`, исходник `840c9a9` |
 | Windows Settings | Связь прежнего симптома с выключенным экраном подтверждена; проверять при активном рабочем столе, не записывать прежний симптом как открытый deadlock |
-| Linux WireGuard-порт и NetworkManager | Исправления параметров WireGuard присутствуют; доработка видимости внешнего подключения NM осталась в старой рабочей копии и отсутствует в `.23`. S04 Ubuntu FAIL, RG35 |
+| Linux WireGuard-порт и NetworkManager | `c447fd6` / Linux `.24`: восстановлены видимость внешнего подключения, согласованный DNS, ожидание NM и Linux-имя; Ubuntu ARM64 обновлена с прежним ключом, NM/GUI off/on и restart PASS. Fedora RPM обновлён, сетевой повтор после SSO; x64 runtime и reboot открыты |
 | CLI YAML с нулевым временем | Общий код исправлен после Linux `.8`; старый Linux PASS не покрывает новый CLI |
 | macOS menubar и работающий GUI при upgrade | Приняты `.20` / `.22`; CI `40300047703`, runtime-исходник `661f2de` |
 
@@ -67,3 +67,5 @@
 ## Продолжение сетевой приёмки `.23`
 
 [Windows ARM64 ↔ Ubuntu ARM64](smoke-results/2026-10-26-windows11-arm64-ubuntu23-network.md): четыре полные серии T01, GUI Disconnect/Connect Windows, T03-SVC обеих служб и SSH/SFTP прошли с сохранением устройств. Обнаружен пропуск прежней сверки: системная видимость Linux в NetworkManager не включена в общие исходники, S04/RG35 остаётся FAIL. В Ubuntu скорректированы часы существующим chrony/NTS; Connected и приватный SSH сохранены. Полный выпуск и остальные строки матрицы не приняты.
+
+[Linux `.24`: RG35 и проверка Fedora](smoke-results/2026-10-26-linux24-networkmanager.md): оба CI и 16 DEB/RPM проверены; Ubuntu NM исправлен. Прежний FAIL `.23` остаётся историческим результатом. Падение Fedora при удалённом управлении оказалось конфликтом внесённого оснасткой SIGUSR1 с JavaScriptCore; штатные запуск/отмена входа ×4 прошли. Полная приёмка Fedora ожидает завершения SSO, остальные релизные блокеры сохраняются.
