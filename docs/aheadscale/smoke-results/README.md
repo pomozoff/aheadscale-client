@@ -30,7 +30,8 @@
 
 | [25.10 восстановление Windows ARM64](2026-10-25-windows11-arm64-service-recovery.md) | `.15` / MSIX 57: RG26, два Restart-Service и HTTP/DNS PASS; приоритет Disconnect | Отдельный отказ повторного Connect RG11; полный набор серверных тестов/линтер красный, единый ARM64 EXE отсутствует |
 
-| [25.10 переподключение Windows ARM64](2026-10-25-windows11-arm64-native-disconnect.md) | `.18` / MSIX 61: семь циклов, явное закрытие AppService, системный RAS Disconnect, восстановление службы и двусторонний HTTP/DNS PASS | Settings зависает на заставке — T02-UI не завершён; полный R05, другие платформы и единый native ARM64 EXE остаются открытыми |
+| [25.10 переподключение Windows ARM64](2026-10-25-windows11-arm64-native-disconnect.md) | `.18` / MSIX 61: семь циклов, явное закрытие AppService, системный RAS Disconnect, восстановление службы и двусторонний HTTP/DNS PASS | Settings: см. повтор 26.10; полный R05, другие платформы и единый native ARM64 EXE остаются открытыми |
+| [26.10 Settings Windows ARM64](2026-10-26-windows11-arm64-settings.md) | `.18` / MSIX 61: три новых запуска Settings, строка VPN и системный Disconnect → GUI Connect PASS | Прежнее зависание NOT_REPRODUCED; причина открыта, исправление не заявлено |
 
 Новые результаты оформлять по шаблону общего плана с SHA256, commit и версиями всех компонентов. Миграция отчёта не означает интеграцию его незавершённых исходников в main.
 
