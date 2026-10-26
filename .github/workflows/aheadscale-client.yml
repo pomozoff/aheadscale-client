@@ -11,11 +11,11 @@ on:
         type: choice
         required: true
         default: current
-        options: [current, arm64, linux-arm64, macos-arm64]
+        options: [current, arm64, linux-amd64, linux-arm64, macos-arm64]
 permissions:
   contents: read
 concurrency:
-  group: aheadscale-${{ github.workflow }}-${{ github.ref }}
+  group: aheadscale-${{ github.workflow }}-${{ github.ref }}-${{ inputs.targets || 'current' }}
   cancel-in-progress: true
 jobs:
   unit:
@@ -58,7 +58,8 @@ jobs:
       fail-fast: false
       matrix:
         include: >-
-          ${{ fromJSON(inputs.targets == 'macos-arm64' &&
+          ${{ fromJSON(inputs.targets == 'linux-amd64' &&
+          '[{"platform":"linux","arch":"amd64","runner":"ubuntu-24.04"}]' || inputs.targets == 'macos-arm64' &&
           '[{"platform":"darwin","arch":"arm64","runner":"macos-26"}]' || inputs.targets == 'linux-arm64' &&
           '[{"platform":"linux","arch":"arm64","runner":"ubuntu-24.04-arm"}]' || inputs.targets == 'arm64' &&
           '[{"platform":"linux","arch":"arm64","runner":"ubuntu-24.04-arm"},
@@ -149,12 +150,6 @@ jobs:
             fi
             bash packaging/aheadscale/build.sh '${{ matrix.platform }}' '${{ matrix.arch }}' "$channel"
           done
-          python3 - <<'PY'
-          from pathlib import Path
-          import hashlib
-          outputs=[p for p in Path('dist').iterdir() if p.is_file()]
-          Path('dist/SHA256SUMS').write_text(''.join(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name+'\n' for p in sorted(outputs)))
-          PY
       - name: Native UI service tests
         if: matrix.platform == 'linux'
         run: CGO_ENABLED=1 go test -timeout 5m ./client/ui/authsession/... ./client/ui/i18n/... ./client/ui/preferences/... ./client/ui/services/...
@@ -186,6 +181,18 @@ jobs:
           sudo apt-get remove -y aheadscale
           test ! -f /etc/systemd/system/aheadscale.service
           test ! -x /usr/bin/aheadscale
+      - name: Манифест всех установщиков
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, subprocess
+          outputs = sorted(p for p in Path('dist').iterdir() if p.is_file())
+          files = [{"name": p.name, "sha256": hashlib.file_digest(p.open('rb'), 'sha256').hexdigest(), "size": p.stat().st_size} for p in outputs]
+          Path('dist/SHA256SUMS').write_text(''.join(f['sha256']+'  '+f['name']+'\n' for f in files))
+          manifest = {"sourceCommit": subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(), "clientVersion": Path('packaging/aheadscale/version.txt').read_text().strip(), "platform": "${{ matrix.platform }}", "architecture": "${{ matrix.arch }}", "files": files}
+          Path('dist/build-manifest.json').write_text(json.dumps(manifest, indent=2)+'\n')
+          PY
       - name: Save test installers
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
