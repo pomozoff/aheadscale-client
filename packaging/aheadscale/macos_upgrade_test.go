@@ -88,10 +88,10 @@ osascript() {
     esac
     if [[ ! -f "$FIXTURE/identity.$4" ]]; then
         printf 'unavailable\n'
-    else
-        contents=$(cat "$FIXTURE/identity.$4")
-        if [[ "${contents##* }" == "$5" ]]; then printf 'match\n'; else printf 'other\n'; fi
+        return 0
     fi
+    contents=$(cat "$FIXTURE/identity.$4")
+    if [[ "${contents##* }" == "$5" ]]; then printf 'match\n'; else printf 'other\n'; fi
 }
 kill() {
     printf '%s\n' "$*" >> "$FIXTURE/signals"
