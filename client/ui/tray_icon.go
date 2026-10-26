@@ -26,7 +26,9 @@ func (t *Tray) applyIcon() {
 
 	icon, dark := t.iconForState()
 	if runtime.GOOS == "darwin" {
-		t.tray.SetTemplateIcon(icon)
+		// Aheadscale assets include an opaque blue background and colored status badge.
+		// Template rendering would flatten their alpha mask into an unreadable block.
+		t.tray.SetIcon(icon)
 		return
 	}
 	if runtime.GOOS == "linux" {
