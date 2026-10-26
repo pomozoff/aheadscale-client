@@ -1,6 +1,55 @@
 #!/bin/bash
 set -euo pipefail
-agent=/Applications/Aheadscale.app/Contents/MacOS/aheadscale
+PATH=/usr/bin:/bin:/usr/sbin:/sbin
+export PATH
+
+stop_aheadscale_ui() {
+    local gui=$1 candidates pid executable identity current attempt
+    if ! candidates=$(ps -axo pid= -o comm=); then
+        echo 'Cannot enumerate processes before updating Aheadscale.' >&2
+        return 1
+    fi
+    while read -r pid executable; do
+        [[ "$executable" == "$gui" ]] || continue
+        # A PID may have exited or been reused since the enumeration.
+        identity=$(ps -p "$pid" -o uid= -o lstart= -o comm= 2>/dev/null) || continue
+        [[ "$identity" == *" $gui" ]] || continue
+        current=$(ps -p "$pid" -o uid= -o lstart= -o comm= 2>/dev/null) || continue
+        [[ "$current" == "$identity" ]] || continue
+        if ! kill -TERM "$pid"; then
+            current=$(ps -p "$pid" -o uid= -o lstart= -o comm= 2>/dev/null) || continue
+            if [[ "$current" == "$identity" ]]; then
+                echo "Cannot stop Aheadscale GUI (PID $pid); close it before retrying." >&2
+                return 1
+            fi
+            continue
+        fi
+        for ((attempt = 0; attempt < 50; attempt++)); do
+            current=$(ps -p "$pid" -o uid= -o lstart= -o comm= 2>/dev/null) || break
+            [[ "$current" == "$identity" ]] || break
+            sleep 0.2
+        done
+        if current=$(ps -p "$pid" -o uid= -o lstart= -o comm= 2>/dev/null) && [[ "$current" == "$identity" ]]; then
+            echo "Aheadscale GUI (PID $pid) did not exit; close it before retrying." >&2
+            return 1
+        fi
+    done <<< "$candidates"
+    # Do not replace files if another instance was opened during cleanup.
+    if ! candidates=$(ps -axo pid= -o comm=); then
+        echo 'Cannot verify that Aheadscale GUI has exited.' >&2
+        return 1
+    fi
+    while read -r pid executable; do
+        if [[ "$executable" == "$gui" ]]; then
+            echo 'Aheadscale GUI was opened during the update; close it before retrying.' >&2
+            return 1
+        fi
+    done <<< "$candidates"
+}
+
+app=/Applications/Aheadscale.app
+agent="$app/Contents/MacOS/aheadscale"
+stop_aheadscale_ui "$app/Contents/MacOS/aheadscale-ui"
 if [[ -x "$agent" && -f /Library/LaunchDaemons/aheadscale.plist ]]; then
     "$agent" service stop
     "$agent" service uninstall
