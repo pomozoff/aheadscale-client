@@ -10,9 +10,9 @@
 | Windows 11 ARM64, build 26300 на стенде | GUI/CLI, native MSIX, единый EXE | `.18` / MSIX `0.1.61.1`, включая восстановление службы и повторные Disconnect | Единый EXE `.23` установлен, обычный GUI запускается; повторить сеть и полный жизненный цикл |
 | Windows 10 22H2 x64, кандидат для проверки | Отдельный совместимый GUI/CLI-комплект; backend требуется проверить | NOT_RUN | Текущие native MSIX/установщик требуют build 26100; совместимый backend и системную интеграцию нельзя объявлять готовыми |
 | macOS 27.0.1 ARM64 | PKG, GUI и встроенный CLI | `.22`: значок, обновление работающего GUI, сохранение регистрации; частичные CLI/сеть | Собственный VPN IPv4, первый TCP после обновления, полный lifecycle; Network Extension требует отдельного этапа |
-| Ubuntu 26 ARM64 | DEB desktop и отдельный CLI | daemon/CLI `.8`, UI `.7`; GNOME, Plasma Wayland, Xfce X11 на общей ВМ | Desktop DEB `.23` установлен поверх `.8`, ключ сохранён, авто-Connected и базовый CLI проверены; T01 и restart службы прошли; S04/RG35 исправлен в `.24`: DEB, UI/NM off/on и восстановление службы PASS; ещё нужны полный GUI, headless CLI, прикладной повтор и lifecycle |
+| Ubuntu 26 ARM64 | DEB desktop и отдельный CLI | Desktop `.24`, KDE/Wayland: обновление с сохранением ключа, GUI/NM off/on; [сеть с Fedora](smoke-results/2026-10-27-linux24-ubuntu-fedora-network.md), восстановление службы и DNS PASS | Повторить GNOME/Xfce на `.24`, полный GUI, чистый headless CLI и lifecycle/reboot; прежние прогоны других сеансов остаются историческими |
 | Ubuntu 26 x64 | DEB desktop и отдельный CLI | Чистая матрица NOT_RUN | Подготовить стенд и выполнить применимые UI/CLI/сетевые проверки |
-| Fedora 44 ARM64 | RPM desktop и отдельный CLI | `.8`: сеть с Ubuntu, reboot/автозапуск | RPM-упаковка восстановлена, реальная ARM64-сборка CI прошла; обновить ВМ и проверить CLI/lifecycle |
+| Fedora 44 ARM64 | RPM desktop и отдельный CLI | Desktop `.24` поверх `.8`, GNOME/Wayland: системный VPN, GUI off/on, [24 HTTP/DNS и restart обеих служб](smoke-results/2026-10-27-linux24-ubuntu-fedora-network.md) PASS | Полный GUI/CLI, чистый CLI-пакет, lifecycle/reboot на `.24`; старый reboot `.8` не переносить |
 | Fedora 44 x64 | RPM desktop и отдельный CLI | NOT_RUN | Подготовить стенд и принять точный RPM |
 
 Это ближайшие тестовые строки, а не обещанная совместимость со всеми версиями каждой ОС. Windows 7 исключена; Windows 10 ARM64 и macOS Intel сейчас не включаются. Для macOS нижняя граница ещё не принята: `LSMinimumSystemVersion=11.0` в упаковщике не доказывает работу на macOS 11. Более ранние Ubuntu/Fedora требуют отдельных строк проверки.
@@ -28,7 +28,7 @@
 | Браузерный callback / одна попытка входа / брендинг | Исправления есть в общем коде; проверить на новых Windows EXE |
 | Native Windows, служба и нормальное отключение интерфейса | Исправления `.18` присутствуют; последний успешный native CI `40220973817`, исходник `840c9a9` |
 | Windows Settings | Связь прежнего симптома с выключенным экраном подтверждена; проверять при активном рабочем столе, не записывать прежний симптом как открытый deadlock |
-| Linux WireGuard-порт и NetworkManager | `c447fd6` / Linux `.24`: восстановлены видимость внешнего подключения, согласованный DNS, ожидание NM и Linux-имя; Ubuntu ARM64 обновлена с прежним ключом, NM/GUI off/on и restart PASS. Fedora RPM обновлён, сетевой повтор после SSO; x64 runtime и reboot открыты |
+| Linux WireGuard-порт и NetworkManager | `c447fd6` / Linux `.24`: восстановлены видимость внешнего подключения, согласованный DNS, ожидание NM и Linux-имя; Ubuntu ARM64 обновлена с прежним ключом, NM/GUI off/on и restart PASS. Fedora/Ubuntu ARM64 `.24`: системный VPN, GUI off/on Fedora, 24 HTTP/DNS, restart обеих служб и сохранение порта/fwmark PASS; x64 runtime и reboot открыты |
 | CLI YAML с нулевым временем | Общий код исправлен после Linux `.8`; старый Linux PASS не покрывает новый CLI |
 | macOS menubar и работающий GUI при upgrade | Приняты `.20` / `.22`; CI `40300047703`, runtime-исходник `661f2de` |
 
