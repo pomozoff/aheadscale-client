@@ -1,4 +1,4 @@
-//go:build !windows
+//go:build linux
 
 package aheadscale
 
@@ -15,14 +15,14 @@ import (
 func TestRPMTransactionPreservesServiceState(t *testing.T) {
 	for _, tc := range []struct {
 		name, enabled, active, wantEnabled, wantActive string
-		installed                                      bool
+		installed                                      string
 	}{
-		{"desktop to CLI", "enabled", "active", "enabled", "active", true},
-		{"CLI to desktop", "enabled", "active", "enabled", "active", true},
-		{"disabled and stopped", "disabled", "inactive", "disabled", "inactive", true},
-		{"enabled but stopped", "enabled", "inactive", "enabled", "inactive", true},
-		{"disabled but active", "disabled", "active", "disabled", "active", true},
-		{"fresh installation", "disabled", "inactive", "enabled", "active", false},
+		{"desktop to CLI", "enabled", "active", "enabled", "active", "aheadscale"},
+		{"CLI to desktop", "enabled", "active", "enabled", "active", "aheadscale-cli"},
+		{"disabled and stopped", "disabled", "inactive", "disabled", "inactive", "aheadscale-cli"},
+		{"enabled but stopped", "enabled", "inactive", "enabled", "inactive", "aheadscale"},
+		{"disabled but active", "disabled", "active", "disabled", "active", "aheadscale-cli"},
+		{"fresh installation", "disabled", "inactive", "enabled", "active", ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			fixture := t.TempDir()
@@ -34,8 +34,8 @@ func TestRPMTransactionPreservesServiceState(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if tc.installed {
-				if err := os.WriteFile(filepath.Join(fixture, "installed"), nil, 0600); err != nil {
+			if tc.installed != "" {
+				if err := os.WriteFile(filepath.Join(fixture, "installed"), []byte(tc.installed), 0600); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -52,7 +52,7 @@ func TestRPMTransactionPreservesServiceState(t *testing.T) {
 			}
 			body = strings.ReplaceAll(body, "@RPM_LIFECYCLE@", string(helper))
 			commands := `
-rpm() { [ "$1" = '-q' ] || return 97; [ -f "$FIXTURE/installed" ]; }
+rpm() { [ "$1" = '-q' ] || return 97; [ -f "$FIXTURE/installed" ] && [ "$(cat "$FIXTURE/installed")" = "$2" ]; }
 systemctl() {
     operation=$1; shift
     case "$*" in *aheadscale.service*) ;; *) [ "$operation" = daemon-reload ] || return 98 ;; esac
@@ -69,7 +69,7 @@ systemctl() {
 }
 `
 			script := commands + rpmTestHook(body, "pre") + "\n" + rpmTestHook(body, "post")
-			if tc.installed {
+			if tc.installed != "" {
 				script += "\nsystemctl disable --now aheadscale.service\n"
 			}
 			script += "\n" + rpmTestHook(body, "posttrans")
