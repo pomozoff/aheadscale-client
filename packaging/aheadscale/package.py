@@ -105,7 +105,19 @@ elif args.platform == 'darwin':
                            ('macos-gui-process.js', 'macos-gui-process.js')]:
         copy(scripts / source, package_scripts / target)
         package_scripts.joinpath(target).chmod(0o755)
-    subprocess.run(['pkgbuild', '--root', str(staging), '--identifier', 'ru.aheadscale.client',
+    # Scripts use the canonical /Applications path. A moved or test copy with
+    # the same bundle ID must never redirect installation elsewhere.
+    components_file = binaries / 'components.plist'
+    subprocess.run(['pkgbuild', '--analyze', '--root', str(staging), str(components_file)], check=True)
+    components = plistlib.loads(components_file.read_bytes())
+    app_components = [item for item in components
+                      if item.get('RootRelativeBundlePath') == 'Applications/Aheadscale.app']
+    if len(app_components) != 1:
+        raise SystemExit('Expected exactly one Aheadscale app component')
+    app_components[0]['BundleIsRelocatable'] = False
+    components_file.write_bytes(plistlib.dumps(components))
+    subprocess.run(['pkgbuild', '--root', str(staging), '--component-plist', str(components_file),
+                    '--identifier', 'ru.aheadscale.client',
                     '--version', '0.80.0', '--scripts', str(package_scripts), '--install-location', '/',
                     str(output / (name + '.pkg'))], check=True)
     subprocess.run(['pkgutil', '--payload-files', str(output / (name + '.pkg'))], check=True)

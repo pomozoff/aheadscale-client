@@ -39,6 +39,7 @@ jobs:
       - name: Package source checks
         run: |
           python3 -m py_compile packaging/aheadscale/package.py
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s packaging/aheadscale -p 'test_*.py' -v
           bash -n packaging/aheadscale/build.sh packaging/aheadscale/scripts/macos-preinstall packaging/aheadscale/scripts/macos-postinstall packaging/aheadscale/scripts/macos-uninstall.command
           sh -n packaging/aheadscale/scripts/postinst packaging/aheadscale/scripts/prerm packaging/aheadscale/scripts/cleanup-networkmanager
           git diff --check
