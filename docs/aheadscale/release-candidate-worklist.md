@@ -6,7 +6,7 @@
 
 | ОС / архитектура | Комплект | Подтверждённая отправная точка | До принятия нового пакета |
 | --- | --- | --- | --- |
-| Windows 11 24H2+ x64 | GUI/CLI, native MSIX, единый EXE | `.14` / native 55: вход, сеть, reboot; поздние native-исправления испытаны только на ARM64 | Единый EXE `.23` установлен; повторить вход, GUI/CLI, службу, Settings и удаление |
+| Windows 11 24H2+ x64 | GUI/CLI, native MSIX, единый EXE | [`.23` / native 62](smoke-results/2026-10-27-windows11-x64-acceptance23.md): SSO, 27 HTTP, GUI/Settings off/on, полный T03-SVC, CLI/strict ZIP, удаление и восстановление прежнего устройства | T03-OS: GUI запущен, VPN Idle при включённом auto-connect (RG19); reinstall теряет включённую задачу запуска (RG22). Полный UI/CLI, чистая установка и публичная подпись открыты |
 | Windows 11 ARM64, build 26300 на стенде | GUI/CLI, native MSIX, единый EXE | `.18` / MSIX `0.1.61.1`, включая восстановление службы и повторные Disconnect | Единый EXE `.23` установлен, обычный GUI запускается; повторить сеть и полный жизненный цикл |
 | Windows 10 22H2 x64, кандидат для проверки | Отдельный совместимый GUI/CLI-комплект; backend требуется проверить | NOT_RUN | Текущие native MSIX/установщик требуют build 26100; совместимый backend и системную интеграцию нельзя объявлять готовыми |
 | macOS 27.0.1 ARM64 | PKG, GUI и встроенный CLI | [Клиент `.25`, PKG `.25.1`](smoke-results/2026-10-27-macos25-reboot-reinstall.md): RG40 и RG41 PASS; на исходном `.25` reboot/VPN до GUI и автозапуск, на `.25.1` remove/reinstall с прежним устройством; 18 новых HTTP | Полный GUI/CLI/lifecycle, чистая установка и reboot именно PKG `.25.1`; Network Extension требует отдельного этапа |
@@ -14,6 +14,8 @@
 | Ubuntu 26 x64 | DEB desktop и отдельный CLI | Чистая матрица NOT_RUN | Подготовить стенд и выполнить применимые UI/CLI/сетевые проверки |
 | Fedora 44 ARM64 | RPM desktop и отдельный CLI | Desktop `.24` поверх `.8`, GNOME/Wayland: системный VPN, GUI off/on, [24 HTTP/DNS и restart обеих служб](smoke-results/2026-10-27-linux24-ubuntu-fedora-network.md) PASS | [Reboot до GUI и отдельный CLI RPM](smoke-results/2026-10-27-linux24-reboot-cli.md) проверены; [RPM `.24.1`](smoke-results/2026-10-27-rpm37-fix.md): RG37 исправлен и проверен на ARM64, оба перехода/upgrade/состояния/remove-reinstall и 42 HTTP PASS. Открыты RG38, полный GUI/CLI, чистая CLI-установка и остальной lifecycle |
 | Fedora 44 x64 | RPM desktop и отдельный CLI | NOT_RUN | Подготовить стенд и принять точный RPM |
+
+Отдельно: [Ubuntu Server 24.04.5 x64, чистый CLI `.24`](smoke-results/2026-10-27-ubuntu24-x64-clean-cli.md) — установка/29 локальных команд/отмена входа/remove-reinstall/служба после reboot проверены. Регистрация и VPN-трафик не приняты; это не результат Ubuntu 26 Desktop x64.
 
 Это ближайшие тестовые строки, а не обещанная совместимость со всеми версиями каждой ОС. Windows 7 исключена; Windows 10 ARM64 и macOS Intel сейчас не включаются. Для macOS нижняя граница ещё не принята: `LSMinimumSystemVersion=11.0` в упаковщике не доказывает работу на macOS 11. Более ранние Ubuntu/Fedora требуют отдельных строк проверки.
 
