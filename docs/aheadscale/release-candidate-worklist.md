@@ -15,7 +15,7 @@
 | Fedora 44 ARM64 | RPM desktop и отдельный CLI | Desktop `.24` поверх `.8`, GNOME/Wayland: системный VPN, GUI off/on, [24 HTTP/DNS и restart обеих служб](smoke-results/2026-10-27-linux24-ubuntu-fedora-network.md) PASS | [Reboot до GUI и отдельный CLI RPM](smoke-results/2026-10-27-linux24-reboot-cli.md) проверены; [RPM `.24.1`](smoke-results/2026-10-27-rpm37-fix.md): RG37 исправлен и проверен на ARM64, оба перехода/upgrade/состояния/remove-reinstall и 42 HTTP PASS. Открыты RG38, полный GUI/CLI, чистая CLI-установка и остальной lifecycle |
 | Fedora 44 x64 | RPM desktop и отдельный CLI | NOT_RUN | Подготовить стенд и принять точный RPM |
 
-Отдельно: [Ubuntu Server 24.04.5 x64, чистый CLI `.24`](smoke-results/2026-10-27-ubuntu24-x64-clean-cli.md) — установка/29 локальных команд/отмена входа/remove-reinstall/служба после reboot проверены. Регистрация и VPN-трафик не приняты; это не результат Ubuntu 26 Desktop x64.
+Отдельно: [Ubuntu Server 24.04.5 x64, чистый CLI `.24`](smoke-results/2026-10-27-ubuntu24-x64-clean-cli.md) — установка/29 локальных команд/отмена входа/remove-reinstall/служба после reboot проверены. [Регистрация и сеть чистого CLI x64](smoke-results/2026-10-27-ubuntu24-x64-cli-registered-network.md): слот после удаления Fedora занят новым узлом; 18 HTTP/DNS, down/up, restart и reboot без GUI/SSO проверены. Полный C01–C24 открыт; это не результат Ubuntu 26 Desktop x64.
 
 Это ближайшие тестовые строки, а не обещанная совместимость со всеми версиями каждой ОС. Windows 7 исключена; Windows 10 ARM64 и macOS Intel сейчас не включаются. Для macOS нижняя граница ещё не принята: `LSMinimumSystemVersion=11.0` в упаковщике не доказывает работу на macOS 11. Более ранние Ubuntu/Fedora требуют отдельных строк проверки.
 
