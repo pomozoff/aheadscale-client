@@ -1,5 +1,5 @@
 # Общий контракт UI и установщика. Запускается только от текущего пользователя.
-param([ValidateSet('state','enable','disable','remove','inspect')][string]$Operation='state',[string]$Executable,[string]$TestSuffix='')
+param([ValidateSet('state','enable','disable','remove','inspect','restore')][string]$Operation='state',[string]$Executable,[string]$TestSuffix='')
 $ErrorActionPreference='Stop';$ProgressPreference='SilentlyContinue'
 Set-StrictMode -Version Latest
 if($TestSuffix -notmatch '^(-test-[a-f0-9]{16})?$'){throw 'Недопустимое имя тестовой задачи'}
@@ -11,6 +11,8 @@ $name='Aheadscale-Startup-'+$sid+$TestSuffix
 $legacyName='Aheadscale'+$TestSuffix
 $runPath='Software\Microsoft\Windows\CurrentVersion\Run'
 $marker='AheadscaleUserStartupV1'
+$selectionPath='Software\Aheadscale\DesktopInstallerStartupV1'
+$selectionName='Enabled'+$TestSuffix
 function Resolve-Sid([string]$value){
  if($value -match '^S-1-'){return [Security.Principal.SecurityIdentifier]::new($value).Value}
  return [Security.Principal.NTAccount]::new($value).Translate([Security.Principal.SecurityIdentifier]).Value
@@ -64,6 +66,23 @@ function Remove-Legacy {
   if($key){try{$key.DeleteValue($legacyName,$false)}finally{$key.Dispose()}}
  }
 }
+# Удаление убирает системную запись, сохраняя только выбор текущего пользователя.
+function Save-Selection([bool]$enabled) {
+ $key=[Microsoft.Win32.Registry]::CurrentUser.CreateSubKey($selectionPath)
+ try{$key.SetValue($selectionName,[int]$enabled,[Microsoft.Win32.RegistryValueKind]::DWord)}finally{$key.Dispose()}
+}
+function Read-Selection {
+ $key=[Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($selectionPath)
+ if(-not $key){return $null}
+ try {
+  $value=$key.GetValue($selectionName,$null)
+  if($null -eq $value){return $null}
+  if($key.GetValueKind($selectionName) -ne [Microsoft.Win32.RegistryValueKind]::DWord -or $value -notin @(0,1)){
+   throw 'Сохранённый выбор автозапуска Aheadscale имеет неверный формат'
+  }
+  return [bool]$value
+ }finally{$key.Dispose()}
+}
 function Create-Task {
  $d=$service.NewTask(0)
  $d.RegistrationInfo.Author='Aheadscale';$d.RegistrationInfo.Description=$marker
@@ -96,7 +115,20 @@ switch($Operation){
   if($task){$root.DeleteTask($name,0);$task=$null}
   Remove-Legacy
  }
+ 'restore' {
+  $choice=Read-Selection
+  if($null -ne $choice){
+   if($choice){
+    if(-not $task){$task=Create-Task}else{$task.Enabled=$true}
+   }else{
+    if($task){$root.DeleteTask($name,0);$task=$null}
+   }
+   Remove-Legacy
+  }
+ }
  'remove' {
+  $enabled=if($task){[bool]$task.Enabled}else{$null -ne $legacy -and (Legacy-Approved)}
+  Save-Selection $enabled
   if($task){$root.DeleteTask($name,0)}
   $before|ConvertTo-Json -Compress
   return

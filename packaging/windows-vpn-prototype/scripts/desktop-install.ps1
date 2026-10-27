@@ -194,6 +194,8 @@ try {
  $backup.shortcuts=$shortcuts
  $backup|ConvertTo-Json -Depth 5|Set-Content (Join-Path $private 'native-service-backup.json') -Encoding UTF8
  if($resume){& $controller connect;if($LASTEXITCODE){Write-Warning 'Подключение можно повторить в Aheadscale'}}
+ # Полная переустановка возвращает прежний выбор, не запуская GUI сейчас.
+ $null=& ([scriptblock]::Create([IO.File]::ReadAllText((Join-Path $artifactRoot 'startup-task.ps1')))) -Operation restore -Executable (Join-Path $runtime 'aheadscale-ui.exe')
 } catch {
  $failure=$_
  if($switched){Restore-Standard}

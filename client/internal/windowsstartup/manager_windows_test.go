@@ -49,7 +49,7 @@ func fixture(t *testing.T) *Manager {
 	m := New(installedUI)
 	m.suffix = "-test-" + hex.EncodeToString(b)
 	t.Cleanup(func() {
-		powershell(t, `$ErrorActionPreference='Stop';$s=New-Object -ComObject Schedule.Service;$s.Connect();$n='Aheadscale-Startup-'+[Security.Principal.WindowsIdentity]::GetCurrent().User.Value+'`+m.suffix+`';try{$s.GetFolder('\').DeleteTask($n,0)}catch{if($_.Exception.GetBaseException().HResult-ne-2147024894){throw}};Remove-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'Aheadscale`+m.suffix+`' -ErrorAction SilentlyContinue;Remove-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run' -Name 'Aheadscale`+m.suffix+`' -ErrorAction SilentlyContinue;exit 0`)
+		powershell(t, `$ErrorActionPreference='Stop';$s=New-Object -ComObject Schedule.Service;$s.Connect();$n='Aheadscale-Startup-'+[Security.Principal.WindowsIdentity]::GetCurrent().User.Value+'`+m.suffix+`';try{$s.GetFolder('\').DeleteTask($n,0)}catch{if($_.Exception.GetBaseException().HResult-ne-2147024894){throw}};Remove-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'Aheadscale`+m.suffix+`' -ErrorAction SilentlyContinue;Remove-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run' -Name 'Aheadscale`+m.suffix+`' -ErrorAction SilentlyContinue;Remove-ItemProperty 'HKCU:\Software\Aheadscale\DesktopInstallerStartupV1' -Name 'Enabled`+m.suffix+`' -ErrorAction SilentlyContinue;exit 0`)
 	})
 	return m
 }
