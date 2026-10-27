@@ -27,7 +27,7 @@ jobs:
         with:
           go-version: '1.26.7'
       - name: Client configuration and identity tests
-        run: go test ./client/cmd ./client/status ./client/internal/auth ./client/internal/templates ./client/internal/profilemanager ./client/internal/daemonaddr ./client/internal/ipcauth ./client/net ./client/internal/routemanager/systemops ./client/configs -count=1
+        run: go test ./client/cmd ./client/status ./client/internal/auth ./client/internal/templates ./client/internal/profilemanager ./client/internal/daemonaddr ./client/internal/selfroute ./client/internal/ipcauth ./client/net ./client/internal/routemanager/systemops ./client/configs -count=1
       - name: Проверки DNS и остановки Linux-клиента
         env:
           DBUS_SYSTEM_BUS_ADDRESS: unix:path=/tmp/aheadscale-unit-no-system-bus
@@ -150,6 +150,13 @@ jobs:
             fi
             bash packaging/aheadscale/build.sh '${{ matrix.platform }}' '${{ matrix.arch }}' "$channel"
           done
+      - name: Локальный IPv4 macOS и восстановление маршрута RG40
+        if: matrix.platform == 'darwin'
+        run: |
+          go test -race ./client/internal/selfroute -count=1
+          go test -tags privileged -c -o "$RUNNER_TEMP/aheadscale-selfroute.test" ./client/internal/selfroute
+          sudo "$RUNNER_TEMP/aheadscale-selfroute.test" -test.v -test.run TestDarwinLocalRouteLifecycle -test.timeout 30s
+          rm "$RUNNER_TEMP/aheadscale-selfroute.test"
       - name: Native UI service tests
         if: matrix.platform == 'linux'
         run: CGO_ENABLED=1 go test -timeout 5m ./client/ui/authsession/... ./client/ui/i18n/... ./client/ui/preferences/... ./client/ui/services/...

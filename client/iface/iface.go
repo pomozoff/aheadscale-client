@@ -23,6 +23,7 @@ import (
 	"github.com/netbirdio/netbird/client/iface/udpmux"
 	"github.com/netbirdio/netbird/client/iface/wgaddr"
 	"github.com/netbirdio/netbird/client/iface/wgproxy"
+	"github.com/netbirdio/netbird/client/internal/statemanager"
 	"github.com/netbirdio/netbird/monotime"
 )
 
@@ -66,6 +67,7 @@ type WGIFaceOpts struct {
 	MobileArgs   *device.MobileIFaceArguments
 	TransportNet transport.Net
 	DisableDNS   bool
+	StateManager *statemanager.Manager
 }
 
 // WGIface represents an interface instance

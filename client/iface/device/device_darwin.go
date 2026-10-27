@@ -3,6 +3,7 @@
 package device
 
 import (
+	"errors"
 	"fmt"
 	"os/exec"
 
@@ -15,6 +16,8 @@ import (
 	"github.com/netbirdio/netbird/client/iface/configurer"
 	"github.com/netbirdio/netbird/client/iface/udpmux"
 	"github.com/netbirdio/netbird/client/iface/wgaddr"
+	"github.com/netbirdio/netbird/client/internal/selfroute"
+	"github.com/netbirdio/netbird/client/internal/statemanager"
 )
 
 type TunDevice struct {
@@ -29,16 +32,18 @@ type TunDevice struct {
 	filteredDevice *FilteredDevice
 	udpMux         *udpmux.UniversalUDPMuxDefault
 	configurer     WGConfigurer
+	localRoute     *selfroute.Manager
 }
 
-func NewTunDevice(name string, address wgaddr.Address, port int, key string, mtu uint16, iceBind *bind.ICEBind) *TunDevice {
+func NewTunDevice(name string, address wgaddr.Address, port int, key string, mtu uint16, iceBind *bind.ICEBind, stateManager *statemanager.Manager) *TunDevice {
 	return &TunDevice{
-		name:    name,
-		address: address,
-		port:    port,
-		key:     key,
-		mtu:     mtu,
-		iceBind: iceBind,
+		name:       name,
+		address:    address,
+		port:       port,
+		key:        key,
+		mtu:        mtu,
+		iceBind:    iceBind,
+		localRoute: selfroute.New(stateManager),
 	}
 }
 
@@ -58,16 +63,15 @@ func (t *TunDevice) Create() (WGConfigurer, error) {
 
 	err = t.assignAddr()
 	if err != nil {
-		t.device.Close()
-		return nil, fmt.Errorf("error assigning ip: %s", err)
+		cleanupErr := t.Close()
+		return nil, errors.Join(fmt.Errorf("error assigning ip: %w", err), cleanupErr)
 	}
 
 	t.configurer = configurer.NewUSPConfigurer(t.device, t.name, t.iceBind.ActivityRecorder())
 	err = t.configurer.ConfigureInterface(t.key, t.port)
 	if err != nil {
-		t.device.Close()
-		t.configurer.Close()
-		return nil, fmt.Errorf("error configuring interface: %s", err)
+		cleanupErr := t.Close()
+		return nil, errors.Join(fmt.Errorf("error configuring interface: %w", err), cleanupErr)
 	}
 	return t.configurer, nil
 }
@@ -93,6 +97,7 @@ func (t *TunDevice) UpdateAddr(address wgaddr.Address) error {
 }
 
 func (t *TunDevice) Close() error {
+	localErr := t.localRoute.Close()
 	if t.configurer != nil {
 		t.configurer.Close()
 	}
@@ -103,9 +108,9 @@ func (t *TunDevice) Close() error {
 	}
 
 	if t.udpMux != nil {
-		return t.udpMux.Close()
+		return errors.Join(localErr, t.udpMux.Close())
 	}
-	return nil
+	return localErr
 }
 
 func (t *TunDevice) WgAddress() wgaddr.Address {
@@ -157,7 +162,7 @@ func (t *TunDevice) assignAddr() error {
 		}
 	}
 
-	return nil
+	return t.localRoute.Set(t.address.IP, t.name)
 }
 
 func (t *TunDevice) GetNet() *netstack.Net {

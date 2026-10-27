@@ -112,8 +112,11 @@ func TestServer_SubcribeEvents(t *testing.T) {
 	})
 
 	ctx := internal.CtxInitState(context.Background())
+	disableAutoConnect := true
 	ic := profilemanager.ConfigInput{
-		ConfigPath: tempDir + "/default.json",
+		ConfigPath:         tempDir + "/default.json",
+		ManagementURL:      "http://non-existent-url-for-testing.invalid:12345",
+		DisableAutoConnect: &disableAutoConnect,
 	}
 
 	_, err := profilemanager.UpdateOrCreateConfig(ic)
@@ -137,12 +140,6 @@ func TestServer_SubcribeEvents(t *testing.T) {
 
 	err = s.Start()
 	require.NoError(t, err)
-
-	u, err := url.Parse("http://non-existent-url-for-testing.invalid:12345")
-	require.NoError(t, err)
-	s.config = &profilemanager.Config{
-		ManagementURL: u,
-	}
 
 	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 	defer cancel()

@@ -2230,6 +2230,7 @@ func (e *Engine) newWgIface() (*iface.WGIface, error) {
 		MTU:          e.config.MTU,
 		TransportNet: transportNet,
 		DisableDNS:   e.config.DisableDNS,
+		StateManager: e.stateManager,
 	}
 
 	switch runtime.GOOS {

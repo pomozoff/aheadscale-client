@@ -32,6 +32,7 @@ import (
 	"github.com/netbirdio/netbird/client/internal/metrics"
 	"github.com/netbirdio/netbird/client/internal/peer"
 	"github.com/netbirdio/netbird/client/internal/profilemanager"
+	"github.com/netbirdio/netbird/client/internal/selfroute"
 	"github.com/netbirdio/netbird/client/internal/statemanager"
 	"github.com/netbirdio/netbird/client/internal/stdnet"
 	"github.com/netbirdio/netbird/client/internal/tunnelnotifier"
@@ -272,6 +273,7 @@ func (c *ConnectClient) run(mobileDependency MobileDependency, runningChan chan 
 	}
 	stateManager := statemanager.New(path)
 	stateManager.RegisterState(&sshconfig.ShutdownState{})
+	selfroute.RegisterState(stateManager)
 
 	if c.updateManager != nil {
 		c.updateManager.CheckUpdateSuccess(c.ctx)
