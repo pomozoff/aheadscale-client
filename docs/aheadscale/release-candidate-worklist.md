@@ -96,6 +96,13 @@
 
 [Lifecycle Linux `.26`](smoke-results/2026-10-28-linux26-lifecycle.md): headless reboot ON/OFF, переходы Desktop ↔ CLI Ubuntu/Fedora ARM64, сохранение OFF при remove/reinstall и 42 HTTP/DNS приняты. Исходные ON, Desktop и настройки возвращены, временные файлы убраны. Самостоятельное завершение graceful reboot Ubuntu Desktop не доказано.
 
-[R05 Linux `.26`](smoke-results/2026-10-28-linux26-r05.md): restart NetworkManager на обеих ARM64 ОС и 24 HTTP/DNS с baseline PASS. Полный R05 открыт: постоянного системного Connect/Cancel нет; OFF после смены владельца D-Bus требует фактической проверки.
+[R05 Linux `.26`](smoke-results/2026-10-28-linux26-r05.md): restart сам сохранил
+трафик, последующий настоящий системный OFF воспроизвёл **RG43 FAIL** на обеих
+ARM64 ОС. Down/Up восстановил стенд; 36/36 положительных HTTP/DNS, исходные профили
+сохранены. Это не исправление продукта.
 
-Следующий шаг — системный OFF после restart и сопоставление GUI/CLI/трафика; при воспроизведении дефекта сначала регрессионный тест и исправление. Реализация постоянного системного Connect/Cancel, отдельный GUI autostart OFF/новый вход после reinstall, полный UI/CLI, RG38, остальные ОС и подписи остаются открытыми; RG39 не исправляется.
+Следующий этап — [полная интеграция NetworkManager](../superpowers/specs/2026-10-28-linux-networkmanager-design.md):
+владелец подтвердил системные Connect/Disconnect/Cancel для первого выпуска
+и адаптацию upstream v0.1.12. Дизайн для согласования; затем план, регрессия RG43,
+реализация/пакеты и R05. GUI autostart OFF/вход после reinstall, полный UI/CLI,
+RG38, остальные ОС и подписи открыты; RG39 и задержки не менять.
