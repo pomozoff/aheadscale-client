@@ -895,7 +895,7 @@ func (am *DefaultAccountManager) AddPeer(ctx context.Context, accountID, setupKe
 				if err != nil {
 					return err
 				}
-				if len(registered) >= 5 {
+				if len(registered) >= 5 && !slices.Contains(strings.Fields(os.Getenv("AS_UNLIMITED_DEVICE_ACCOUNT_IDS")), accountID) {
 					return status.Errorf(status.PermissionDenied, "Aheadscale Free supports up to 5 registered devices; remove a device before adding another")
 				}
 			}

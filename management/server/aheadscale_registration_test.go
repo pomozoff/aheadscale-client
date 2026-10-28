@@ -15,7 +15,9 @@ import (
 	"github.com/netbirdio/netbird/idp/dex"
 	"github.com/netbirdio/netbird/management/server/idp"
 	"github.com/netbirdio/netbird/management/server/registration"
+	"github.com/netbirdio/netbird/management/server/store"
 	"github.com/netbirdio/netbird/shared/auth"
+	"github.com/netbirdio/netbird/shared/management/status"
 	"github.com/stretchr/testify/require"
 )
 
@@ -129,4 +131,53 @@ func TestAheadscaleSocialAccountIsolation(t *testing.T) {
 		require.Equal(t, account.Id, again.Id)
 	}
 	require.Len(t, accounts, 5)
+}
+
+// Guards against granting an unlimited quota to every account or matching an ID prefix.
+func TestAheadscaleUnlimitedDeviceAccountIsolation(t *testing.T) {
+	t.Setenv("AS_SELF_REGISTRATION", "true")
+	manager, _, err := createManagerWithEmbeddedIdPMode(t, "")
+	require.NoError(t, err)
+	ctx := context.Background()
+	type owner struct{ userID, accountID string }
+	var owners []owner
+	for _, email := range []string{"operator@example.test", "ordinary@example.test"} {
+		user, err := manager.idpManager.(*idp.EmbeddedIdPManager).CreateUserWithPassword(ctx, email, "correct-horse-123", email)
+		require.NoError(t, err)
+		account, err := manager.GetOrCreateAccountByUser(ctx, auth.UserAuth{UserId: user.ID, Email: user.Email, Name: user.Name})
+		require.NoError(t, err)
+		owners = append(owners, owner{user.ID, account.Id})
+	}
+	t.Setenv("AS_UNLIMITED_DEVICE_ACCOUNT_IDS", " \t"+owners[1].accountID+"-other "+owners[0].accountID+"\n")
+	for index, owner := range owners {
+		for i := 0; i < 7; i++ {
+			key, err := wgtypes.GeneratePrivateKey()
+			require.NoError(t, err)
+			_, _, _, _, err = manager.AddPeer(ctx, owner.accountID, "", owner.userID, &nbpeer.Peer{Key: key.PublicKey().String(), Meta: nbpeer.PeerSystemMeta{Hostname: fmt.Sprintf("device-%d", i)}}, false)
+			if index == 0 || i < 5 {
+				require.NoError(t, err, "only the explicitly listed account may exceed five devices")
+			} else {
+				quota, ok := status.FromError(err)
+				require.True(t, ok)
+				require.Equal(t, status.PermissionDenied, quota.Type())
+				require.Contains(t, err.Error(), "5 registered devices")
+			}
+		}
+		peers, err := manager.Store.GetAccountPeers(ctx, store.LockingStrengthNone, owner.accountID, "", "")
+		require.NoError(t, err)
+		if index == 0 {
+			require.Len(t, peers, 7)
+		} else {
+			require.Len(t, peers, 5)
+		}
+	}
+	// Removing the explicit exception must restore the same quota for further enrollment.
+	t.Setenv("AS_UNLIMITED_DEVICE_ACCOUNT_IDS", "")
+	key, err := wgtypes.GeneratePrivateKey()
+	require.NoError(t, err)
+	_, _, _, _, err = manager.AddPeer(ctx, owners[0].accountID, "", owners[0].userID, &nbpeer.Peer{Key: key.PublicKey().String(), Meta: nbpeer.PeerSystemMeta{Hostname: "after-removal"}}, false)
+	require.ErrorContains(t, err, "5 registered devices")
+	peers, err := manager.Store.GetAccountPeers(ctx, store.LockingStrengthNone, owners[0].accountID, "", "")
+	require.NoError(t, err)
+	require.Len(t, peers, 7, "removing the exception must not delete existing devices")
 }
