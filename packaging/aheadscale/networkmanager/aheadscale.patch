@@ -981,6 +981,49 @@ index 0000000..ff975cf
 +		t.Fatal("connection defaults must belong to Aheadscale")
 +	}
 +}
+diff --git a/internal/nmplugin/config.go b/internal/nmplugin/config.go
+index 4501be7..9ca6b40 100644
+--- a/internal/nmplugin/config.go
++++ b/internal/nmplugin/config.go
+@@ -131,7 +131,7 @@ func gatewayVariantForAddr(addr netip.Addr) (dbus.Variant, bool) {
+ 	}
+ 	if addr.Is4() {
+ 		bytes := addr.As4()
+-		return dbus.MakeVariant(binary.BigEndian.Uint32(bytes[:])), true
++		return dbus.MakeVariant(binary.NativeEndian.Uint32(bytes[:])), true
+ 	}
+ 	if addr.Is6() {
+ 		bytes := addr.As16()
+diff --git a/internal/nmplugin/config_abi_test.go b/internal/nmplugin/config_abi_test.go
+new file mode 100644
+index 0000000..5280c9a
+--- /dev/null
++++ b/internal/nmplugin/config_abi_test.go
+@@ -0,0 +1,24 @@
++package nmplugin
++
++import (
++	"encoding/binary"
++	"net/netip"
++	"testing"
++)
++
++func TestIPv4GatewayMatchesNetworkManagerInAddrABI(t *testing.T) {
++	// NM consumes the uint32 as struct in_addr.s_addr (network-order bytes
++	// in native integer storage), rather than as a numerical big-endian word.
++	for _, address := range []string{"95.84.192.230", "203.0.113.9", "::ffff:192.0.2.7"} {
++		ip := netip.MustParseAddr(address).Unmap()
++		value, ok := gatewayVariantForAddr(ip)
++		if !ok {
++			t.Fatal("valid gateway was rejected")
++		}
++		var memory [4]byte
++		binary.NativeEndian.PutUint32(memory[:], value.Value().(uint32))
++		if actual := netip.AddrFrom4(memory); actual != ip {
++			t.Fatalf("NetworkManager sees %s instead of %s", actual, ip)
++		}
++	}
++}
 diff --git a/internal/nmplugin/prompts.go b/internal/nmplugin/prompts.go
 index c8905d0..5a07836 100644
 --- a/internal/nmplugin/prompts.go
@@ -1396,7 +1439,7 @@ index fce6c37..ce6624d 100644
 +	s.failActivation(failure, err)
 +}
 diff --git a/internal/nmplugin/service_test.go b/internal/nmplugin/service_test.go
-index d7f1bf0..87c2fde 100644
+index d7f1bf0..06dd3b8 100644
 --- a/internal/nmplugin/service_test.go
 +++ b/internal/nmplugin/service_test.go
 @@ -21,6 +21,7 @@ import (
@@ -1531,6 +1574,15 @@ index d7f1bf0..87c2fde 100644
  			}),
  		},
  	}
+@@ -1220,7 +1224,7 @@ func networkIPv4(t *testing.T, value string) uint32 {
+ 	addr, err := netip.ParseAddr(value)
+ 	require.NoError(t, err)
+ 	bytes := addr.As4()
+-	return binary.BigEndian.Uint32(bytes[:])
++	return binary.NativeEndian.Uint32(bytes[:])
+ }
+ 
+ func assertState(t *testing.T, obj dbus.BusObject, want nmplugin.ServiceState) {
 @@ -1345,11 +1349,11 @@ func activationIDFromHints(t *testing.T, hints []string) string {
  
  	for _, hint := range hints {
