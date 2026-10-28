@@ -6,6 +6,7 @@
 
 | Отчёт | Подтверждённое | Ограничение |
 | --- | --- | --- |
+| [28.10 Linux `.26`: lifecycle](2026-10-28-linux26-lifecycle.md) | Headless reboot ON/OFF; Desktop ↔ CLI и OFF remove/reinstall на Ubuntu/Fedora ARM64; 42 HTTP/DNS; настройки и исходный ON сохранены | Graceful reboot Ubuntu Desktop не доказан; выключенный GUI autostart/новый вход после reinstall, полный R05/UI/CLI и подписи открыты |
 | [28.10 Linux-пакеты `.26`](2026-10-28-linux26-packages.md) | Два CI, 16 SHA256, upgrade четырёх ВМ, настоящий системный Disconnect трёх Desktop, GUI/CLI/restart, 72 HTTP/DNS | Частичный smoke public-пакетов; новый reboot/lifecycle, полный R05/UI/CLI и подписи открыты |
 | [28.10 RG42 `.26`](2026-10-28-rg42-networkmanager-disconnect.md) | Два системных OFF Fedora x64, GUI/CLI Down/Up, restart, 36 HTTP/DNS и race-тесты; Linux без NM работает | Локальная замена демона, GUI `.24`; новые пакеты/Ubuntu Desktop/Fedora ARM64 и полный R05 открыты |
 | [28.10 Fedora 44 x64 `.24.1`](2026-10-28-fedora44-x64-acceptance24-1.md) | Чистый Desktop, базовые GUI/CLI, 78 HTTP/DNS, legacy-переходы, состояния службы, reinstall и CLI/Desktop reboot | RG42 системного Disconnect FAIL, RG38; полный прогон/подписи открыты |

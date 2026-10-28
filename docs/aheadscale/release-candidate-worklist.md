@@ -94,4 +94,6 @@
 
 [Linux-пакеты `.26`](smoke-results/2026-10-28-linux26-packages.md): оба CI успешны, все 16 пакетов сверены. Public Desktop установлен на Fedora x64/ARM64 и Ubuntu ARM64, public CLI — на Ubuntu Server 24 x64; GUI/CLI согласованы, RG42 Disconnect принят на трёх Desktop, 72 HTTP/DNS PASS. На чистом CLI x64 выполнены upgrade/статусы/положительные health-check/restart и реальный трафик; это не Ubuntu 26 Desktop x64. Internal runtime и полная матрица не приняты.
 
-Следующий Linux-этап — reboot/автоподключение и lifecycle именно `.26` (Desktop ARM64 и headless CLI x64), затем варианты/переустановка с сохранением OFF. Полный R05, RG38 и подписи остаются открытыми; RG39 не исправляется.
+[Lifecycle Linux `.26`](smoke-results/2026-10-28-linux26-lifecycle.md): headless reboot ON/OFF, переходы Desktop ↔ CLI Ubuntu/Fedora ARM64, сохранение OFF при remove/reinstall и 42 HTTP/DNS приняты. Исходные ON, Desktop и настройки возвращены, временные файлы убраны. Самостоятельное завершение graceful reboot Ubuntu Desktop не доказано.
+
+Следующий Linux-этап — полный системный R05 (Connect/Cancel/NetworkManager restart), затем отдельный выключенный GUI autostart и новый вход после переустановки. Полный UI/CLI, RG38, остальные ОС и подписи остаются открытыми; RG39 не исправляется.
