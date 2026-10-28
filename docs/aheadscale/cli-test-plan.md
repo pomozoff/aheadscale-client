@@ -71,3 +71,7 @@ C15/RG39: фиксировать поведение up с параметрами
 [Windows 11 ARM64 `.23.1`](smoke-results/2026-10-27-windows11-arm64-acceptance23-1.md): 30 локальных CLI-команд без тайм-аутов, JSON/IPv4 и health-check, 18 двусторонних HTTP/DNS, GUI off/on и восстановление службы с прежней идентичностью. C13: upgrade с исходным OFF и полный enabled remove/reinstall сохраняют настройки/данные; функциональный reboot принят без ручного Connect/SSO, бюджет скорости не измерялся. Native desktop не объявляется headless; весь C01–C24 открыт.
 
 [ARM64 .23.1, завершение C13/R05](smoke-results/2026-10-27-windows11-arm64-final.md): системные on/off/cancel согласованы с CLI и интерфейсом; disabled remove/reinstall и новая загрузка с входом сохраняют выключенный GUI. Отдельный GUI ON / Connect on Startup OFF проверен через GUI, overlay и новую загрузку; финальный двусторонний T01 и возврат исходных переключателей прошли. Это конкретный native desktop backend, не новый полный CLI-прогон/headless PASS.
+
+## Fedora x64: 28 октября
+
+[Прогон `.24.1`](smoke-results/2026-10-28-fedora44-x64-acceptance24-1.md): версия/справки, Device Authorization вход, статусы JSON/YAML/адреса, три положительных health-check, start/stop/restart, upgrade/варианты/reinstall, headless reboot и 78 HTTP/DNS проверены в описанных случаях. Непривилегированный service start воспроизводит RG38; после системного Disconnect status даёт ложный Connected (RG42). Это не полный C01–C24 и не чистая CLI-установка. Команды update в справке этой preview-сборки нет.
