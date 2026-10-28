@@ -43,11 +43,13 @@ def copy(source, target):
 
 if args.platform == 'linux':
     copy(binaries / 'aheadscale', staging / 'usr/bin/aheadscale')
+    staging.joinpath('usr/bin/aheadscale').chmod(0o755)
     cleanup = staging / 'usr/lib/aheadscale/cleanup-networkmanager'
     copy(scripts / 'cleanup-networkmanager', cleanup)
     cleanup.chmod(0o755)
     if not args.cli_only:
         copy(binaries / 'aheadscale-ui', staging / 'usr/bin/aheadscale-ui')
+        staging.joinpath('usr/bin/aheadscale-ui').chmod(0o755)
         copy(root / 'packaging/aheadscale/icon.png', staging / 'usr/share/icons/hicolor/512x512/apps/aheadscale.png')
         desktop = staging / 'usr/share/applications/org.wails.aheadscale.desktop'
         desktop.parent.mkdir(parents=True, exist_ok=True)
