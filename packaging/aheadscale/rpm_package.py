@@ -9,9 +9,9 @@ from networkmanager_package import PAYLOAD, prepare_hook, normalize_directories
 
 
 def package_rpm(root, binaries, staging, output, version, arch, cli_only):
-    match = re.fullmatch(r"(\d+\.\d+\.\d+)-aheadscale\.(\d+)", version)
+    match = re.fullmatch(r"(\d+\.\d+\.\d+)-aheadscale\.(\d+(?:\.\d+)?)", version)
     if not match:
-        raise SystemExit("Для RPM нужна версия вида 0.80.0-aheadscale.7")
+        raise SystemExit("Для RPM нужна версия вида 0.80.0-aheadscale.7 или 0.80.0-aheadscale.7.1")
     target = {"amd64": "x86_64", "arm64": "aarch64"}[arch]
     package_name = "aheadscale-cli" if cli_only else "aheadscale"
     conflict = "aheadscale" if cli_only else "aheadscale-cli"
