@@ -103,6 +103,7 @@ ARM64 ОС. Down/Up восстановил стенд; 36/36 положител�
 
 Следующий этап — [полная интеграция NetworkManager](../superpowers/specs/2026-10-28-linux-networkmanager-design.md):
 владелец подтвердил системные Connect/Disconnect/Cancel для первого выпуска
-и адаптацию upstream v0.1.12. Дизайн для согласования; затем план, регрессия RG43,
-реализация/пакеты и R05. GUI autostart OFF/вход после reinstall, полный UI/CLI,
+и адаптацию upstream v0.1.12. Дизайн и план согласованы, 16 пакетов собраны;
+[native `.31`](smoke-results/2026-10-28-linux-native31.md) прошёл частичную живую
+проверку. Полные R05/C13 и RG43 открыты. GUI autostart OFF/вход после reinstall, полный UI/CLI,
 RG38, остальные ОС и подписи открыты; RG39 и задержки не менять.
