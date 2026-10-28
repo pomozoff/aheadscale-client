@@ -96,4 +96,6 @@
 
 [Lifecycle Linux `.26`](smoke-results/2026-10-28-linux26-lifecycle.md): headless reboot ON/OFF, переходы Desktop ↔ CLI Ubuntu/Fedora ARM64, сохранение OFF при remove/reinstall и 42 HTTP/DNS приняты. Исходные ON, Desktop и настройки возвращены, временные файлы убраны. Самостоятельное завершение graceful reboot Ubuntu Desktop не доказано.
 
-Следующий Linux-этап — полный системный R05 (Connect/Cancel/NetworkManager restart), затем отдельный выключенный GUI autostart и новый вход после переустановки. Полный UI/CLI, RG38, остальные ОС и подписи остаются открытыми; RG39 не исправляется.
+[R05 Linux `.26`](smoke-results/2026-10-28-linux26-r05.md): restart NetworkManager на обеих ARM64 ОС и 24 HTTP/DNS с baseline PASS. Полный R05 открыт: постоянного системного Connect/Cancel нет; OFF после смены владельца D-Bus требует фактической проверки.
+
+Следующий шаг — системный OFF после restart и сопоставление GUI/CLI/трафика; при воспроизведении дефекта сначала регрессионный тест и исправление. Реализация постоянного системного Connect/Cancel, отдельный GUI autostart OFF/новый вход после reinstall, полный UI/CLI, RG38, остальные ОС и подписи остаются открытыми; RG39 не исправляется.
