@@ -309,7 +309,12 @@ class Installer:
             for gui in transaction['gui']:
                 account = pwd.getpwuid(gui['uid'])
                 environment = dict(gui['environment'], HOME=account.pw_dir, PATH='/usr/bin:/bin')
-                subprocess.Popen(['runuser', '-u', account.pw_name, '--', '/usr/bin/env', *[key + '=' + value for key, value in environment.items()], '/usr/bin/aheadscale-ui'], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+                # A long-lived runuser child inherits the installer's SSH PAM
+                # session. Polkit then treats the GUI as a remote process and
+                # asks for admin credentials even with an active local desktop.
+                # Only the short launcher uses runuser; the GUI belongs to the
+                # user's manager and retains the captured display environment.
+                subprocess.Popen(['runuser', '-u', account.pw_name, '--', '/usr/bin/env', *[key + '=' + value for key, value in environment.items()], '/usr/bin/systemd-run', '--user', '--collect', '--quiet', '--unit=aheadscale-ui-' + uuid.uuid4().hex, *['--setenv=' + key for key in environment], '/usr/bin/aheadscale-ui'], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         self.path(TRANSACTION).unlink()
     def remove(self):
         receipt = self.receipt()
