@@ -135,6 +135,19 @@ class LifecycleTests(unittest.TestCase):
         self.assertEqual((self.root / lifecycle.PRIVATE.lstrip('/')).stat().st_mode & 0o777, 0o600)
 
 class PackagingTests(unittest.TestCase):
+    def test_manifest_permissions_do_not_inherit_group_writable_umask(self):
+        import os
+        import networkmanager_package as packaging
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(__file__).parent.resolve().parents[1]
+            staging = Path(tmp) / 'staging'
+            old = os.umask(0o002)
+            try:
+                packaging.stage_networkmanager(root, Path(tmp) / 'binaries', staging, True, 'deb', 'public')
+            finally:
+                os.umask(old)
+            path = staging / 'usr/share/aheadscale/networkmanager-files.json'
+            self.assertEqual(path.stat().st_mode & 0o777, 0o644)
     def test_sixteen_variants_keep_cli_independent(self):
         import networkmanager_package as packaging
         import itertools

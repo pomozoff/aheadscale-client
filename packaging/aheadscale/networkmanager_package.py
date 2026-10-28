@@ -50,7 +50,10 @@ def stage_networkmanager(root, binaries, staging, cli_only, package_format, chan
 def normalize_directories(staging):
     for directory in [staging, *staging.rglob('*')]:
         if directory.is_symlink(): raise ValueError('Символическая ссылка в payload пакета')
-        if directory.is_dir(): directory.chmod(0o755)
+        if directory.is_dir():
+            directory.chmod(0o755)
+        elif directory.is_file():
+            directory.chmod(0o755 if directory.stat().st_mode & 0o111 else 0o644)
 
 
 def prepare_hook(root, manifest):
