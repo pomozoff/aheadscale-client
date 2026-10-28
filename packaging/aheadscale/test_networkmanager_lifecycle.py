@@ -111,6 +111,24 @@ class LifecycleTests(unittest.TestCase):
             self.assertIn(['systemctl', expected, 'aheadscale.service'], calls)
             state = json.loads((self.root / lifecycle.STATE.lstrip('/')).read_text())
             self.assertEqual(state['Intent']['Connected'], on)
+    def test_standalone_upgrade_ignores_retired_native_intent(self):
+        from types import SimpleNamespace
+        self.put('/usr/lib/systemd/system/aheadscale.service', '[Unit]\nDescription=Aheadscale private network\n[Service]\nExecStart=/usr/bin/aheadscale service run\n')
+        for retired_receipt in (False, True):
+            if retired_receipt:
+                import uuid
+                self.installer.write_json(lifecycle.PRIVATE, dict(self.manifest, uuid=str(uuid.uuid4()), installed=False), 0o600)
+            for connected in (True, False):
+                with self.subTest(retired_receipt=retired_receipt, connected=connected):
+                    self.installer.transfer_intent(not connected)
+                    def run(args):
+                        output = 'active' if args[:2] == ['systemctl', 'is-active'] else 'enabled' if args[:2] == ['systemctl', 'is-enabled'] else json.dumps({'daemonStatus': 'Connected' if connected else 'Idle'})
+                        return SimpleNamespace(returncode=0, stdout=output, stderr='')
+                    self.installer.runner = run
+                    self.installer.prepare('cli')
+                    self.installer.install('cli')
+                    marker = json.loads((self.root / lifecycle.HANDOVER.lstrip('/')).read_text())
+                    self.assertEqual(marker['connected'], connected)
     def test_changed_selinux_module_is_refused_before_cleanup(self):
         from types import SimpleNamespace
         policy = '/usr/share/selinux/packages/nm_aheadscale.pp'

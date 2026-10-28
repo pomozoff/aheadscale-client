@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/netbirdio/netbird/client/internal/daemonaddr"
 	"github.com/netbirdio/netbird/client/internal/linuxvpn"
+	"github.com/netbirdio/netbird/client/internal/profilemanager"
 	"github.com/netbirdio/netbird/client/proto"
 	"google.golang.org/grpc"
 	"log"
@@ -59,7 +60,7 @@ func run() error {
 	if !features.GetNativeNetworkmanager() || !features.GetDisableProfiles() {
 		return fmt.Errorf("полный Desktop native-режим службы Aheadscale не включён")
 	}
-	config, err := daemon.GetConfig(start, &proto.GetConfigRequest{})
+	config, err := daemonConfig(start, daemon)
 	if err != nil {
 		return err
 	}
@@ -86,4 +87,8 @@ func run() error {
 	}
 	controller.Configure(manager, daemon)
 	return controller.Run(ctx)
+}
+
+func daemonConfig(ctx context.Context, daemon proto.DaemonServiceClient) (*proto.GetConfigResponse, error) {
+	return daemon.GetConfig(ctx, &proto.GetConfigRequest{ProfileName: profilemanager.DefaultProfileName})
 }

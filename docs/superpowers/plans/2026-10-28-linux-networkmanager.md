@@ -46,7 +46,7 @@
 | GUI/CLI | Новый `client/ui/services/linux_vpn_controller_linux.go`, существующие `windows_vpn_controller_other.go`, `connection.go`; новые `client/cmd/native_vpn_linux.go`, `native_vpn_other.go`, изменения `up.go`, `down.go` |
 | Установщики | `packaging/aheadscale/{package.py,rpm_package.py,aheadscale.spec.in}`, `scripts/{postinst,prerm,rpm-lifecycle,cleanup-networkmanager}`; новые `scripts/networkmanager-lifecycle`, `networkmanager_lifecycle_test.go`, `networkmanager/` — unit/policy/метаданные/квитанция |
 | Воспроизводимость | `.github/workflows/aheadscale-client.yml`, новый `packaging/aheadscale/networkmanager-source.json` — два коммита, инструменты, артефакты и лицензии |
-| Приёмка | Существующие мастер-план, UI/CLI-планы, таблица регрессий и новый `docs/aheadscale/smoke-results/2026-10-28-linux27-networkmanager.md`; общий roadmap в репозитории headscale |
+| Приёмка | Существующие мастер-план, UI/CLI-планы, таблица регрессий и новый `docs/aheadscale/smoke-results/2026-10-28-linux28-networkmanager.md`; общий roadmap в репозитории headscale |
 
 Контракт контроллера: `Intent{Connected bool, Generation uint64}` и `State{Generation uint64, Phase Phase, Error string}`; фазы `Disconnected/Connecting/Connected/NeedsLogin/Failed`. `Controller.Request(ctx context.Context, connected bool) (uint64, error)`, `Controller.Run(ctx context.Context) error`. Намерение/поколение хранятся атомарно в root-only `/run/aheadscale/networkmanager-state.json`; boot ID отличает restart от reboot.
 
@@ -131,7 +131,7 @@
 
 ## Задача 8. Живой R05 и lifecycle новой сборки
 
-**Файлы:** отчёт `.27`, существующие UI/CLI тест-планы/матрица/регрессии, общий roadmap headscale. Новую универсальную тестовую систему не создавать: использовать существующие сценарии и сохранять первичные свидетельства приватно.
+**Файлы:** отчёт текущего кандидата, существующие UI/CLI тест-планы/матрица/регрессии, общий roadmap headscale. Новую универсальную тестовую систему не создавать: использовать существующие сценарии и сохранять первичные свидетельства приватно.
 **Вход:** пакеты и manifest задачи 7. **Выход:** отдельный фактический результат на каждой проверенной комбинации; RG43 закрывается только на живых ВМ.
 
 - [ ] Зафиксировать исходные версии/хеши/UUID/IP/FQDN/ON/OFF; незавершённые сценарии считать NOT RUN. На Ubuntu ARM64 Plasma и Fedora ARM64 GNOME воспроизвести исходный RG43, затем обновить до кандидата без ручных правок системы.
@@ -146,4 +146,8 @@
 
 Следующий этап общего плана — оставшиеся GUI/CLI проверки остальных платформ, NAT/Relay и изоляция аккаунтов; затем подтверждение email, масштабирование, лендинг и собственные обновления/CDN. Подписи установщиков и Apple Developer Program остаются отдельными условиями публичного выпуска.
 
-Самопроверка плана: требования дизайна распределены по задачам 1–8; пять классов отказов закреплены тестами; интерфейсы задач согласованы. Независимое review не выполнялось по указанию работать одним агентом. Реализация ещё не начата.
+Самопроверка плана: требования дизайна распределены по задачам 1–8; пять классов отказов закреплены тестами; интерфейсы задач согласованы. Независимое review не выполнялось по указанию работать одним агентом. Код контроллера, native-режима и GUI/CLI проверен изолированными автотестами; упаковка и живая приёмка выполняются. Текущий кандидат — `.30`; незавершённые проверки не считаются PASS.
+
+## Журнал выполнения
+
+Подробный рабочий ledger находится в изолированном implementation-worktree. Проверено кодом и автотестами: wire-контракт `.73.2` ↔ `.80.0`, RG43 rebind на private D-Bus, поколения/Cancel, native startup/DNS mode, GUI/CLI routing, receipt/transaction/UUID и состав всех 16 сочетаний. Дополнительно исправлены гонка gRPC-журнала, late Begin при NM deactivation и конфликт GObject-типов с установленным NetBird. Source pin, локальные builder и подготовленный CI зафиксированы. Собраны 16 диагностических пакетов `.29`. CLI x64 и Ubuntu ARM64 установлены, но приёмка отклонена из-за stale native intent при обновлении CLI и пустого profile handle контроллера. Оба дефекта воспроизведены тестами и исправлены; следующий кандидат `.30`. Fedora ARM64 пока на `.26`; R05/T01/C13 нового плагина остаются открытыми.

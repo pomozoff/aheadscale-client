@@ -239,7 +239,9 @@ class Installer:
         boot = self.path('/proc/sys/kernel/random/boot_id').read_text().strip()
         state = self.read_json(STATE, private=True)
         on = None
-        if state and state['BootID'] == boot: on = state['Intent']['Connected']
+        # A standalone CLI can leave an old native intent behind after migration.
+        # Only a currently installed Desktop controller owns that saved intent.
+        if receipt and receipt.get('installed', True) and state and state['BootID'] == boot: on = state['Intent']['Connected']
         elif existing:
             on = False
             if active in ('active', 'activating'):
