@@ -21,13 +21,19 @@ const ControlSocket = "/run/aheadscale/networkmanager-control.sock"
 
 // Configure binds the runtime once, before Run or serving broker requests.
 func (c *Controller) Configure(manager *Manager, daemon proto.DaemonServiceClient) {
+	c.prepare = func(ctx context.Context, generation uint64) error {
+		ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+		defer cancel()
+		_, err := daemon.NativeBegin(ctx, &proto.NativeBeginRequest{Generation: generation})
+		return err
+	}
 	c.manager = manager
 	c.daemon = daemon
 	c.track = manager.trackCurrentSession
 	c.down = func(ctx context.Context) error {
 		ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 		defer cancel()
-		_, err := daemon.Down(ctx, &proto.DownRequest{})
+		_, err := daemon.NativeStop(ctx, &proto.NativeStopRequest{})
 		return err
 	}
 	c.ready = func(ctx context.Context) error {
@@ -122,12 +128,14 @@ func (c *Controller) Run(ctx context.Context) error {
 	}
 	initial, err := c.manager.Snapshot(ctx)
 	if err == nil {
+		if err = c.recoverInitialObservation(initial); err != nil {
+			return err
+		}
 		c.mu.Lock()
-		c.owner = initial.Owner
 		generation := c.saved.ActivationGeneration
 		c.mu.Unlock()
 		if generation != 0 && (initial.VPNActive || initial.VPNConnecting) {
-			_, _ = c.manager.trackCurrentSession(ctx, generation)
+			_, _ = c.manager.trackCurrentSession(ctx, generation, c.Intent())
 		}
 	}
 	listener, err := listenControlSocket()
@@ -168,23 +176,25 @@ func (c *Controller) Run(ctx context.Context) error {
 			}
 		case <-poll.C:
 			queryCtx, stop := context.WithTimeout(ctx, 4*time.Second)
+			generation := c.Intent().Generation
 			observation, snapshotErr := c.manager.Snapshot(queryCtx)
 			if snapshotErr != nil {
 				observation = Observation{}
 			}
 			observation = c.observeEngine(queryCtx, observation)
+			observation.Generation = generation
 			action := c.Reconcile(observation)
 			err = nil
 			switch action {
 			case Activate:
 				if time.Now().After(nextActivation) {
 					nextActivation = time.Now().Add(5 * time.Second)
-					err = c.manager.SetConnected(queryCtx, true)
+					err = c.executeAction(queryCtx, generation, Activate)
 				}
 			case Deactivate:
-				err = c.manager.SetConnected(queryCtx, false)
+				err = c.executeAction(queryCtx, generation, Deactivate)
 			case StopEngine:
-				err = c.down(queryCtx)
+				err = c.executeAction(queryCtx, generation, StopEngine)
 			default:
 				err = nil
 			}
@@ -194,4 +204,55 @@ func (c *Controller) Run(ctx context.Context) error {
 			}
 		}
 	}
+}
+
+func (c *Controller) executeAction(ctx context.Context, generation uint64, action Action) error {
+	select {
+	case c.gate <- struct{}{}:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	defer func() { <-c.gate }()
+	c.mu.Lock()
+	intent := c.saved.Intent
+	pending := c.saved.PendingCancel
+	c.mu.Unlock()
+	if intent.Generation != generation {
+		return nil
+	}
+	switch action {
+	case Activate:
+		if !intent.Connected || pending {
+			return nil
+		}
+		return c.manager.activateAutomatically(ctx, generation)
+	case Deactivate:
+		if intent.Connected {
+			return c.manager.failConnection(ctx)
+		}
+		return c.manager.SetConnected(ctx, false)
+	case StopEngine:
+		return c.down(ctx)
+	}
+	return nil
+}
+
+// Run calls this once before opening the broker, so no new activation can race
+// a recovery decision. A missed stop cannot leave a durable binding forever.
+func (c *Controller) recoverInitialObservation(initial Observation) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.owner = initial.Owner
+	if initial.VPNActive || initial.VPNConnecting {
+		return nil
+	}
+	next := c.saved
+	next.PendingCancel = false
+	next.ActivationGeneration = 0
+	next.ActivationOwner = initial.Owner
+	if err := saveIntent(c.path, next); err != nil {
+		return err
+	}
+	c.saved = next
+	return nil
 }

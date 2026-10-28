@@ -108,6 +108,9 @@ service DaemonService {
   rpc Logout(LogoutRequest) returns (LogoutResponse) {}
 
   rpc GetFeatures(GetFeaturesRequest) returns (GetFeaturesResponse) {}
+  // Root-only local control; unavailable outside installed native mode.
+  rpc NativeBegin(NativeBeginRequest) returns (NativeBeginResponse) {}
+  rpc NativeStop(NativeStopRequest) returns (NativeStopResponse) {}
 
   // TriggerUpdate initiates installation of the pending enforced version.
   // Called when the user clicks the install button in the UI (Mode 2 / enforced update).
@@ -1079,3 +1082,8 @@ message StartBundleCaptureRequest {
 message StartBundleCaptureResponse {}
 message StopBundleCaptureRequest {}
 message StopBundleCaptureResponse {}
+
+message NativeBeginRequest { uint64 generation = 1; }
+message NativeBeginResponse {}
+message NativeStopRequest {}
+message NativeStopResponse {}

@@ -80,7 +80,16 @@ func (s *Connection) Login(ctx context.Context, p LoginParams) (LoginResult, err
 	// Native RAS may still own a CLI WaitSSOLogin from an earlier Connect.
 	// Finish its cancellation/cleanup before the GUI creates the browser flow;
 	// otherwise the old command can cancel the new callback or open a second tab.
-	if s.nativeVPN != nil {
+	native, nativeErr := s.nativeEnabled(ctx)
+	if nativeErr != nil {
+		return LoginResult{}, nativeErr
+	}
+	if native {
+		if login, ok := s.nativeVPN.(interface {
+			Login(context.Context, LoginParams) (LoginResult, error)
+		}); ok {
+			return login.Login(ctx, p)
+		}
 		if err := s.nativeVPN.SetConnected(ctx, false); err != nil {
 			return LoginResult{}, fmt.Errorf("остановить предыдущую попытку системного VPN: %w", err)
 		}
@@ -160,7 +169,11 @@ func (s *Connection) Login(ctx context.Context, p LoginParams) (LoginResult, err
 }
 
 func (s *Connection) Up(ctx context.Context, p UpParams) error {
-	if s.nativeVPN != nil {
+	native, err := s.nativeEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	if native {
 		// Опытный пакет обслуживает только выбранную учётку; другой профиль
 		// нельзя незаметно подменить активным при передаче команды RAS.
 		if p.ProfileName != "" || p.Username != "" {
@@ -227,7 +240,11 @@ func (s *Connection) WaitSSOLoginAndUp(ctx context.Context, wait WaitSSOParams, 
 }
 
 func (s *Connection) Down(ctx context.Context) error {
-	if s.nativeVPN != nil {
+	native, err := s.nativeEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	if native {
 		return s.nativeVPN.SetConnected(ctx, false)
 	}
 	cli, err := s.conn.Client()
@@ -379,4 +396,18 @@ func (s *Connection) nativeDaemonRecovery() func(context.Context) error {
 		}
 		return controller.ResumeAfterDaemonRestart(ctx, snapshot.Generation)
 	}
+}
+
+// Linux decides from the installed service capability on every operation; a
+// transient RPC error must not switch Desktop into standalone engine control.
+func (s *Connection) nativeEnabled(ctx context.Context) (bool, error) {
+	if s.nativeVPN == nil {
+		return false, nil
+	}
+	if controller, ok := s.nativeVPN.(interface {
+		Enabled(context.Context) (bool, error)
+	}); ok {
+		return controller.Enabled(ctx)
+	}
+	return true, nil
 }

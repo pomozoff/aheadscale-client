@@ -42,7 +42,7 @@ func (c *Controller) Handle(peerUID uint32, message Message) (State, error) {
 		next.ActivationGeneration = next.Intent.Generation
 		if c.track != nil {
 			c.mu.Unlock()
-			owner, err := c.track(context.Background(), next.Intent.Generation)
+			owner, err := c.track(context.Background(), next.Intent.Generation, c.saved.Intent)
 			c.mu.Lock()
 			if err != nil {
 				return State{}, err
@@ -54,6 +54,16 @@ func (c *Controller) Handle(peerUID uint32, message Message) (State, error) {
 		}
 		c.saved = next
 		c.state = State{Generation: next.Intent.Generation, Phase: Connecting}
+		if c.prepare != nil {
+			c.mu.Unlock()
+			err := c.prepare(context.Background(), next.Intent.Generation)
+			c.mu.Lock()
+			if err != nil {
+				c.state.Phase = Failed
+				c.state.Error = err.Error()
+				return State{}, err
+			}
+		}
 	case "Cancel":
 		if message.Generation != c.saved.Intent.Generation {
 			return State{}, fmt.Errorf("устаревшая отмена подключения")

@@ -5,6 +5,7 @@ package linuxvpn
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -138,9 +139,7 @@ func TestBrokerTransportRejectsUnprivilegedPeer(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = connection.SetDeadline(time.Now().Add(time.Second))
-	if err = json.NewEncoder(connection).Encode(Message{Version: 1, Operation: "Begin"}); err != nil {
-		t.Fatal(err)
-	}
+	// The server rejects the kernel UID before reading any request bytes.
 	var reply BrokerReply
 	if err = json.NewDecoder(connection).Decode(&reply); err != nil {
 		t.Fatal(err)
@@ -301,5 +300,129 @@ func TestOnlyCurrentNMSessionCanSetOff(t *testing.T) {
 	_ = c.Reconcile(Observation{Owner: ":1.2", EngineAvailable: true})
 	if c.Intent().Connected {
 		t.Fatal("restart revived explicit OFF")
+	}
+}
+
+func TestOwnerReplacementRejectsLateCompletionWithoutPluginCancel(t *testing.T) {
+	c, err := NewController(filepath.Join(t.TempDir(), "state"), "boot", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = c.Reconcile(Observation{Owner: ":1.1", EngineAvailable: true})
+	active, err := c.Handle(0, Message{Version: 1, Operation: "Begin"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = c.Reconcile(Observation{Owner: ":1.2", EngineReady: true})
+	if err = c.Complete(active.Generation, Connected); err == nil {
+		t.Fatal("accepted completion from previous NM owner")
+	}
+	if !c.Intent().Connected {
+		t.Fatal("lost original ON intent")
+	}
+}
+
+func TestSameOwnerStopWaitsForClassification(t *testing.T) {
+	c, err := NewController(filepath.Join(t.TempDir(), "state"), "boot", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = c.Reconcile(Observation{Owner: ":1.1", EngineAvailable: true})
+	active, err := c.Handle(0, Message{Version: 1, Operation: "Begin"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = c.Reconcile(Observation{Owner: ":1.1", EngineReady: true, VPNActive: true})
+	if action := c.Reconcile(Observation{Owner: ":1.1", EngineAvailable: true}); action != NoAction {
+		t.Fatal("reconnected before stop classification")
+	}
+	if err = c.ObserveNMStop(context.Background(), ":1.1", active.Generation, false); err != nil {
+		t.Fatal(err)
+	}
+	if action := c.Reconcile(Observation{Owner: ":1.1", EngineAvailable: true}); action != Activate {
+		t.Fatal("failed to recover confirmed service failure")
+	}
+}
+func TestStaleObservationCannotStopNewAttempt(t *testing.T) {
+	c, err := NewController(filepath.Join(t.TempDir(), "state"), "boot", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	previous := c.Intent().Generation
+	if _, err = c.Handle(0, Message{Version: 1, Operation: "Begin"}); err != nil {
+		t.Fatal(err)
+	}
+	if action := c.Reconcile(Observation{Generation: previous, Owner: ":1.1", VPNActive: true}); action != NoAction {
+		t.Fatal("accepted observation from preceding generation")
+	}
+}
+
+func TestBeginPersistsBeforeEngineLease(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state")
+	c, err := NewController(path, "boot", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var failed uint64
+	c.prepare = func(_ context.Context, generation uint64) error {
+		saved, err := loadIntent(path)
+		if err != nil {
+			return err
+		}
+		if saved.Intent.Generation != generation {
+			t.Fatal("engine lease precedes durable generation")
+		}
+		failed = generation
+		return fmt.Errorf("engine unavailable")
+	}
+	if _, err = c.Handle(0, Message{Version: 1, Operation: "Begin"}); err == nil {
+		t.Fatal("ignored engine preparation error")
+	}
+	c.prepare = nil
+	next, err := c.Handle(0, Message{Version: 1, Operation: "Begin"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if next.Generation <= failed {
+		t.Fatal("reused generation after lost preparation reply")
+	}
+}
+
+func TestNeedsLoginDoesNotAutoRetryAfterCleanup(t *testing.T) {
+	c, err := NewController(filepath.Join(t.TempDir(), "state"), "boot", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = c.Reconcile(Observation{Owner: ":1.1", EngineAvailable: true})
+	active, err := c.Handle(0, Message{Version: 1, Operation: "Begin"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = c.Complete(active.Generation, NeedsLogin); err != nil {
+		t.Fatal(err)
+	}
+	if err = c.ObserveNMStop(context.Background(), ":1.1", active.Generation, false); err != nil {
+		t.Fatal(err)
+	}
+	if action := c.Reconcile(Observation{Owner: ":1.1", EngineAvailable: true}); action != NoAction {
+		t.Fatal("keeps starting new SSO instead of waiting for user")
+	}
+}
+
+func TestStartupDropsMissedStopBindingWithoutChangingIntent(t *testing.T) {
+	for _, on := range []bool{false, true} {
+		c, err := NewController(filepath.Join(t.TempDir(), "state"), "boot", on)
+		if err != nil {
+			t.Fatal(err)
+		}
+		c.saved.ActivationOwner = ":1.5"
+		c.saved.ActivationGeneration = 1
+		c.saved.PendingCancel = true
+		if err = c.recoverInitialObservation(Observation{Owner: ":1.5"}); err != nil {
+			t.Fatal(err)
+		}
+		if c.Intent().Connected != on || c.saved.PendingCancel || c.saved.ActivationGeneration != 0 {
+			t.Fatalf("missed stop stuck or intent lost: %+v", c.saved)
+		}
 	}
 }

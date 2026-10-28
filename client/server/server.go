@@ -124,6 +124,10 @@ type Server struct {
 
 	profileManager         *profilemanager.ServiceManager
 	nativeNetworkManager   bool
+	nativeLeaseGate        sync.Mutex
+	nativeGeneration       uint64
+	nativeHighWater        uint64
+	nativePendingCleanup   <-chan struct{}
 	profilesDisabled       bool
 	updateSettingsDisabled bool
 	captureEnabled         bool
@@ -913,7 +917,7 @@ func (s *Server) WaitSSOLogin(callerCtx context.Context, msg *proto.WaitSSOLogin
 
 	md, ok := metadata.FromIncomingContext(callerCtx)
 	if ok {
-		ctx = metadata.NewOutgoingContext(ctx, md)
+		ctx = metadata.NewOutgoingContext(ctx, withoutNativeMetadata(md))
 	}
 
 	if msg.Hostname != "" {
@@ -1012,6 +1016,14 @@ func (s *Server) WaitSSOLogin(callerCtx context.Context, msg *proto.WaitSSOLogin
 
 // Up starts engine work in the daemon.
 func (s *Server) Up(callerCtx context.Context, msg *proto.UpRequest) (*proto.UpResponse, error) {
+	release, err := s.enterNativeRequest(callerCtx)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+	return s.up(callerCtx, msg, release)
+}
+func (s *Server) up(callerCtx context.Context, msg *proto.UpRequest, release func()) (*proto.UpResponse, error) {
 	log.Infof("up request received")
 	s.mutex.Lock()
 	// clientRunning is the daemon-intent flag (set by previous Up/Start, cleared
@@ -1032,6 +1044,7 @@ func (s *Server) Up(callerCtx context.Context, msg *proto.UpRequest) (*proto.UpR
 		}
 		s.mutex.Unlock()
 
+		release()
 		return s.waitForUp(callerCtx)
 	}
 	if err := RestoreResidualState(callerCtx, s.profileManager.GetStatePath()); err != nil {
@@ -1077,7 +1090,7 @@ func (s *Server) Up(callerCtx context.Context, msg *proto.UpRequest) (*proto.UpR
 	ctx, cancel := context.WithCancel(s.rootCtx)
 	md, ok := metadata.FromIncomingContext(callerCtx)
 	if ok {
-		ctx = metadata.NewOutgoingContext(ctx, md)
+		ctx = metadata.NewOutgoingContext(ctx, withoutNativeMetadata(md))
 	}
 
 	s.actCancel = cancel
@@ -1134,6 +1147,7 @@ func (s *Server) Up(callerCtx context.Context, msg *proto.UpRequest) (*proto.UpR
 	if msg.GetAsync() {
 		return &proto.UpResponse{}, nil
 	}
+	release()
 	return s.waitForUp(callerCtx)
 }
 
@@ -1312,6 +1326,17 @@ func (s *Server) SwitchProfile(callerCtx context.Context, msg *proto.SwitchProfi
 
 // Down engine work in the daemon.
 func (s *Server) Down(ctx context.Context, _ *proto.DownRequest) (*proto.DownResponse, error) {
+	release, err := s.enterNativeRequest(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+	if s.nativeNetworkManager {
+		if err := s.stopNativeLocked(ctx); err != nil {
+			return nil, err
+		}
+		return &proto.DownResponse{}, nil
+	}
 	return s.down(nil, nil)
 }
 
@@ -2533,7 +2558,7 @@ func (s *Server) GetFeatures(ctx context.Context, msg *proto.GetFeaturesRequest)
 
 	features := &proto.GetFeaturesResponse{
 		NativeNetworkmanager:  s.nativeNetworkManager,
-		DisableProfiles:       s.checkProfilesDisabled(),
+		DisableProfiles:       s.nativeNetworkManager || s.checkProfilesDisabled(),
 		DisableUpdateSettings: s.checkUpdateSettingsDisabled(),
 		DisableNetworks:       s.checkNetworksDisabled(),
 		DisableAdvancedView:   s.checkDisableAdvancedView(),
@@ -2592,6 +2617,9 @@ func (s *Server) connect(ctx context.Context, config *profilemanager.Config, sta
 // disableX=false via MDM explicitly re-enables the feature even on a
 // box installed with --disable-X.
 func (s *Server) checkProfilesDisabled() bool {
+	if s.nativeNetworkManager {
+		return true
+	}
 	if s.config != nil {
 		if v, ok := s.config.Policy().GetBool(mdm.KeyDisableProfiles); ok {
 			return v
@@ -2750,7 +2778,7 @@ func (s *Server) authorizeAndPrepareLogin(callerCtx context.Context, msg *proto.
 	}
 	ctx, cancel := context.WithCancel(callerCtx)
 	if md, ok := metadata.FromIncomingContext(callerCtx); ok {
-		ctx = metadata.NewOutgoingContext(ctx, md)
+		ctx = metadata.NewOutgoingContext(ctx, withoutNativeMetadata(md))
 	}
 	s.actCancel = cancel
 	s.mutex.Unlock()

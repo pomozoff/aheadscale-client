@@ -47,6 +47,9 @@ var loginCmd = &cobra.Command{
 			return fmt.Errorf("set env and flags: %v", err)
 		}
 
+		if handled, err := nativeDesktopCommand(cmd, true); handled {
+			return err
+		}
 		ctx := internal.CtxInitState(context.Background())
 
 		if hostName != "" {

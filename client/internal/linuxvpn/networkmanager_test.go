@@ -14,6 +14,8 @@ import (
 )
 
 type fixtureNM struct {
+	missing  bool
+	creates  int
 	mu       sync.Mutex
 	settings connectionSettings
 	active   bool
@@ -21,6 +23,11 @@ type fixtureNM struct {
 }
 
 func (f *fixtureNM) GetConnectionByUuid(id string) (dbus.ObjectPath, *dbus.Error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.missing {
+		return "", dbus.NewError(nmDest+".Settings.InvalidConnection", []interface{}{"not found"})
+	}
 	return "/settings/aheadscale", nil
 }
 func (f *fixtureNM) GetSettings() (connectionSettings, *dbus.Error) {
@@ -82,7 +89,7 @@ func TestManagerCommandsUseOwnedNMProfile(t *testing.T) {
 	}
 	defer conn.Close()
 	id := "aabbccdd-1111-4222-8333-001122334455"
-	f := &fixtureNM{settings: profileSettings(id, "https://aheadscale.ru", "https://aheadscale.ru")}
+	f := &fixtureNM{missing: true, settings: profileSettings(id, "https://aheadscale.ru", "https://aheadscale.ru")}
 	for _, export := range []struct {
 		path  dbus.ObjectPath
 		iface string
@@ -95,7 +102,13 @@ func TestManagerCommandsUseOwnedNMProfile(t *testing.T) {
 		t.Fatal(err)
 	}
 	m := &Manager{receipt: Receipt{UUID: id, ManagementURL: "https://aheadscale.ru", AdminURL: "https://aheadscale.ru"}}
-	if err = m.SetConnected(context.Background(), true); err != nil {
+	if err = m.EnsureProfile(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err = m.EnsureProfile(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err = m.Connect(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	snapshot, err := m.Snapshot(context.Background())
@@ -108,6 +121,15 @@ func TestManagerCommandsUseOwnedNMProfile(t *testing.T) {
 	if err = m.SetConnected(context.Background(), false); err != nil {
 		t.Fatal(err)
 	}
+	if err = m.activateAutomatically(context.Background(), 1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = m.trackCurrentSession(context.Background(), 3, Intent{Connected: false, Generation: 2}); err == nil {
+		t.Fatal("stale automatic path overrode OFF")
+	}
+	if err = m.SetConnected(context.Background(), false); err != nil {
+		t.Fatal(err)
+	}
 	f.mu.Lock()
 	f.settings["vpn"]["service-type"] = dbus.MakeVariant("foreign")
 	f.mu.Unlock()
@@ -116,7 +138,19 @@ func TestManagerCommandsUseOwnedNMProfile(t *testing.T) {
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if len(f.calls) != 2 || f.calls[0] != "activate" || f.calls[1] != "deactivate" {
+	if f.creates != 1 {
+		t.Fatalf("profile recreated %d times", f.creates)
+	}
+	if len(f.calls) != 4 || f.calls[0] != "activate" || f.calls[1] != "deactivate" || f.calls[2] != "activate" || f.calls[3] != "deactivate" {
 		t.Fatalf("wrong commands: %v", f.calls)
 	}
+}
+
+func (f *fixtureNM) AddConnection(settings connectionSettings) (dbus.ObjectPath, *dbus.Error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.creates++
+	f.settings = settings
+	f.missing = false
+	return "/settings/aheadscale", nil
 }

@@ -13,8 +13,9 @@ import (
 )
 
 const (
-	ServiceType = "org.freedesktop.NetworkManager.aheadscale"
-	ReceiptPath = "/var/lib/aheadscale/networkmanager-install.json"
+	ServiceType       = "org.freedesktop.NetworkManager.aheadscale"
+	ReceiptPath       = "/var/lib/aheadscale/networkmanager-install.json"
+	PublicReceiptPath = "/etc/aheadscale-desktop/networkmanager-profile.json"
 )
 
 type Receipt struct {

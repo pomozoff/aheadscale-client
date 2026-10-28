@@ -31,7 +31,7 @@ func parseNMStop(signal *dbus.Signal, owner string, path dbus.ObjectPath, genera
 	}
 	return NMEvent{Owner: owner, Generation: generation, UserRequested: reason == 2}, true
 }
-func (m *Manager) trackCurrentSession(ctx context.Context, generation uint64) (string, error) {
+func (m *Manager) trackCurrentSession(ctx context.Context, generation uint64, intent Intent) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	conn, err := dbus.ConnectSystemBus(dbus.WithContext(ctx))
@@ -61,7 +61,15 @@ func (m *Manager) trackCurrentSession(ctx context.Context, generation uint64) (s
 	for key := range m.tracked {
 		if key.owner != owner {
 			delete(m.tracked, key)
+			delete(m.automatic, key)
 		}
+	}
+	key := sessionKey{owner, path}
+	if source, automatic := m.automatic[key]; automatic {
+		if !intent.Connected || source != intent.Generation {
+			return "", fmt.Errorf("отменённая автоматическая активация Aheadscale")
+		}
+		delete(m.automatic, key)
 	}
 	m.tracked[sessionKey{owner, path}] = generation
 	return owner, nil
@@ -102,6 +110,9 @@ func (m *Manager) Watch(ctx context.Context) (<-chan NMEvent, error) {
 				key := sessionKey{owner, signal.Path}
 				m.trackingMu.Lock()
 				generation, tracked := m.tracked[key]
+				if !tracked {
+					generation, tracked = m.automatic[key]
+				}
 				m.trackingMu.Unlock()
 				if !tracked {
 					continue
@@ -112,6 +123,7 @@ func (m *Manager) Watch(ctx context.Context) (<-chan NMEvent, error) {
 				}
 				m.trackingMu.Lock()
 				delete(m.tracked, key)
+				delete(m.automatic, key)
 				m.trackingMu.Unlock()
 				select {
 				case events <- event:

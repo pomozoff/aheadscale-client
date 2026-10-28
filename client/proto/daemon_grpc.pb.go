@@ -53,6 +53,8 @@ const (
 	DaemonService_GetActiveProfile_FullMethodName           = "/daemon.DaemonService/GetActiveProfile"
 	DaemonService_Logout_FullMethodName                     = "/daemon.DaemonService/Logout"
 	DaemonService_GetFeatures_FullMethodName                = "/daemon.DaemonService/GetFeatures"
+	DaemonService_NativeBegin_FullMethodName                = "/daemon.DaemonService/NativeBegin"
+	DaemonService_NativeStop_FullMethodName                 = "/daemon.DaemonService/NativeStop"
 	DaemonService_TriggerUpdate_FullMethodName              = "/daemon.DaemonService/TriggerUpdate"
 	DaemonService_GetPeerSSHHostKey_FullMethodName          = "/daemon.DaemonService/GetPeerSSHHostKey"
 	DaemonService_RequestJWTAuth_FullMethodName             = "/daemon.DaemonService/RequestJWTAuth"
@@ -135,6 +137,9 @@ type DaemonServiceClient interface {
 	// Logout disconnects from the network and deletes the peer from the management server
 	Logout(ctx context.Context, in *LogoutRequest, opts ...grpc.CallOption) (*LogoutResponse, error)
 	GetFeatures(ctx context.Context, in *GetFeaturesRequest, opts ...grpc.CallOption) (*GetFeaturesResponse, error)
+	// Root-only local control; unavailable outside installed native mode.
+	NativeBegin(ctx context.Context, in *NativeBeginRequest, opts ...grpc.CallOption) (*NativeBeginResponse, error)
+	NativeStop(ctx context.Context, in *NativeStopRequest, opts ...grpc.CallOption) (*NativeStopResponse, error)
 	// TriggerUpdate initiates installation of the pending enforced version.
 	// Called when the user clicks the install button in the UI (Mode 2 / enforced update).
 	TriggerUpdate(ctx context.Context, in *TriggerUpdateRequest, opts ...grpc.CallOption) (*TriggerUpdateResponse, error)
@@ -548,6 +553,26 @@ func (c *daemonServiceClient) GetFeatures(ctx context.Context, in *GetFeaturesRe
 	return out, nil
 }
 
+func (c *daemonServiceClient) NativeBegin(ctx context.Context, in *NativeBeginRequest, opts ...grpc.CallOption) (*NativeBeginResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(NativeBeginResponse)
+	err := c.cc.Invoke(ctx, DaemonService_NativeBegin_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *daemonServiceClient) NativeStop(ctx context.Context, in *NativeStopRequest, opts ...grpc.CallOption) (*NativeStopResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(NativeStopResponse)
+	err := c.cc.Invoke(ctx, DaemonService_NativeStop_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *daemonServiceClient) TriggerUpdate(ctx context.Context, in *TriggerUpdateRequest, opts ...grpc.CallOption) (*TriggerUpdateResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(TriggerUpdateResponse)
@@ -745,6 +770,9 @@ type DaemonServiceServer interface {
 	// Logout disconnects from the network and deletes the peer from the management server
 	Logout(context.Context, *LogoutRequest) (*LogoutResponse, error)
 	GetFeatures(context.Context, *GetFeaturesRequest) (*GetFeaturesResponse, error)
+	// Root-only local control; unavailable outside installed native mode.
+	NativeBegin(context.Context, *NativeBeginRequest) (*NativeBeginResponse, error)
+	NativeStop(context.Context, *NativeStopRequest) (*NativeStopResponse, error)
 	// TriggerUpdate initiates installation of the pending enforced version.
 	// Called when the user clicks the install button in the UI (Mode 2 / enforced update).
 	TriggerUpdate(context.Context, *TriggerUpdateRequest) (*TriggerUpdateResponse, error)
@@ -892,6 +920,12 @@ func (UnimplementedDaemonServiceServer) Logout(context.Context, *LogoutRequest) 
 }
 func (UnimplementedDaemonServiceServer) GetFeatures(context.Context, *GetFeaturesRequest) (*GetFeaturesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetFeatures not implemented")
+}
+func (UnimplementedDaemonServiceServer) NativeBegin(context.Context, *NativeBeginRequest) (*NativeBeginResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method NativeBegin not implemented")
+}
+func (UnimplementedDaemonServiceServer) NativeStop(context.Context, *NativeStopRequest) (*NativeStopResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method NativeStop not implemented")
 }
 func (UnimplementedDaemonServiceServer) TriggerUpdate(context.Context, *TriggerUpdateRequest) (*TriggerUpdateResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method TriggerUpdate not implemented")
@@ -1541,6 +1575,42 @@ func _DaemonService_GetFeatures_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DaemonService_NativeBegin_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NativeBeginRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DaemonServiceServer).NativeBegin(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DaemonService_NativeBegin_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DaemonServiceServer).NativeBegin(ctx, req.(*NativeBeginRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DaemonService_NativeStop_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NativeStopRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DaemonServiceServer).NativeStop(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DaemonService_NativeStop_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DaemonServiceServer).NativeStop(ctx, req.(*NativeStopRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _DaemonService_TriggerUpdate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(TriggerUpdateRequest)
 	if err := dec(in); err != nil {
@@ -1880,6 +1950,14 @@ var DaemonService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetFeatures",
 			Handler:    _DaemonService_GetFeatures_Handler,
+		},
+		{
+			MethodName: "NativeBegin",
+			Handler:    _DaemonService_NativeBegin_Handler,
+		},
+		{
+			MethodName: "NativeStop",
+			Handler:    _DaemonService_NativeStop_Handler,
 		},
 		{
 			MethodName: "TriggerUpdate",

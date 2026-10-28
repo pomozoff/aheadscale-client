@@ -27,6 +27,9 @@ var downCmd = &cobra.Command{
 			return err
 		}
 
+		if handled, err := nativeDesktopCommand(cmd, false); handled {
+			return err
+		}
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*20)
 		defer cancel()
 

@@ -14,10 +14,11 @@ import (
 // Controller holds the session intention independently of the desktop process.
 // The gate keeps new attempts behind the previous engine cleanup.
 type Controller struct {
+	prepare func(context.Context, uint64) error
 	manager *Manager
 	daemon  proto.DaemonServiceClient
 	ready   func(context.Context) error
-	track   func(context.Context, uint64) (string, error)
+	track   func(context.Context, uint64, Intent) (string, error)
 	owner   string
 	mu      sync.Mutex
 	gate    chan struct{}
@@ -115,6 +116,7 @@ func (c *Controller) ObserveNMStop(ctx context.Context, owner string, generation
 	}
 	next := c.saved
 	next.PendingCancel = false
+	next.ActivationGeneration = 0
 	if userRequested {
 		next.Intent.Connected = false
 		next.Intent.Generation++
@@ -128,7 +130,7 @@ func (c *Controller) ObserveNMStop(ctx context.Context, owner string, generation
 		c.state = State{Generation: next.Intent.Generation, Phase: Connecting}
 	}
 	c.mu.Unlock()
-	if userRequested && c.down != nil {
+	if c.down != nil {
 		if err := c.down(ctx); err != nil {
 			return err
 		}
