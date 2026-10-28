@@ -1,0 +1,122 @@
+//go:build linux && !android
+
+package linuxvpn
+
+import (
+	"bufio"
+	"context"
+	"fmt"
+	"github.com/godbus/dbus/v5"
+	"os/exec"
+	"path/filepath"
+	"sync"
+	"testing"
+)
+
+type fixtureNM struct {
+	mu       sync.Mutex
+	settings connectionSettings
+	active   bool
+	calls    []string
+}
+
+func (f *fixtureNM) GetConnectionByUuid(id string) (dbus.ObjectPath, *dbus.Error) {
+	return "/settings/aheadscale", nil
+}
+func (f *fixtureNM) GetSettings() (connectionSettings, *dbus.Error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.settings, nil
+}
+func (f *fixtureNM) ActivateConnection(profile, device, specific dbus.ObjectPath) (dbus.ObjectPath, *dbus.Error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if profile != "/settings/aheadscale" || device != "/" || specific != "/" {
+		return "", dbus.MakeFailedError(fmt.Errorf("wrong activation"))
+	}
+	f.active = true
+	f.calls = append(f.calls, "activate")
+	return "/active/aheadscale", nil
+}
+func (f *fixtureNM) DeactivateConnection(active dbus.ObjectPath) *dbus.Error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if active != "/active/aheadscale" {
+		return dbus.MakeFailedError(fmt.Errorf("wrong deactivation"))
+	}
+	f.active = false
+	f.calls = append(f.calls, "deactivate")
+	return nil
+}
+func (f *fixtureNM) GetAll(iface string) (map[string]dbus.Variant, *dbus.Error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if iface == nmDest {
+		paths := []dbus.ObjectPath{}
+		if f.active {
+			paths = append(paths, "/active/aheadscale")
+		}
+		return map[string]dbus.Variant{"ActiveConnections": dbus.MakeVariant(paths)}, nil
+	}
+	return map[string]dbus.Variant{"Uuid": f.settings["connection"]["uuid"], "State": dbus.MakeVariant(uint32(2))}, nil
+}
+func TestManagerCommandsUseOwnedNMProfile(t *testing.T) {
+	cmd := exec.Command("dbus-daemon", "--session", "--nofork", "--print-address=1", "--address=unix:path="+filepath.Join(t.TempDir(), "bus"))
+	out, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = cmd.Process.Kill(); _ = cmd.Wait() })
+	scanner := bufio.NewScanner(out)
+	if !scanner.Scan() {
+		t.Fatal("no bus address")
+	}
+	address := scanner.Text()
+	t.Setenv("DBUS_SYSTEM_BUS_ADDRESS", address)
+	conn, err := dbus.Connect(address)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	id := "aabbccdd-1111-4222-8333-001122334455"
+	f := &fixtureNM{settings: profileSettings(id, "https://aheadscale.ru", "https://aheadscale.ru")}
+	for _, export := range []struct {
+		path  dbus.ObjectPath
+		iface string
+	}{{nmPath, nmDest}, {settingsPath, nmDest + ".Settings"}, {"/settings/aheadscale", nmDest + ".Settings.Connection"}, {nmPath, "org.freedesktop.DBus.Properties"}, {"/active/aheadscale", "org.freedesktop.DBus.Properties"}} {
+		if err = conn.Export(f, export.path, export.iface); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err = conn.RequestName(nmDest, dbus.NameFlagDoNotQueue); err != nil {
+		t.Fatal(err)
+	}
+	m := &Manager{receipt: Receipt{UUID: id, ManagementURL: "https://aheadscale.ru", AdminURL: "https://aheadscale.ru"}}
+	if err = m.SetConnected(context.Background(), true); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := m.Snapshot(context.Background())
+	if err != nil || !snapshot.VPNActive {
+		t.Fatalf("no active snapshot: %+v %v", snapshot, err)
+	}
+	if err = m.SetConnected(context.Background(), true); err != nil {
+		t.Fatal(err)
+	}
+	if err = m.SetConnected(context.Background(), false); err != nil {
+		t.Fatal(err)
+	}
+	f.mu.Lock()
+	f.settings["vpn"]["service-type"] = dbus.MakeVariant("foreign")
+	f.mu.Unlock()
+	if err = m.SetConnected(context.Background(), true); err == nil {
+		t.Fatal("activated foreign profile")
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if len(f.calls) != 2 || f.calls[0] != "activate" || f.calls[1] != "deactivate" {
+		t.Fatalf("wrong commands: %v", f.calls)
+	}
+}
