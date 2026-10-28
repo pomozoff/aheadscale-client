@@ -1,0 +1,352 @@
+#!/usr/bin/python3
+"""Квитанция нативного Desktop: только собственные ресурсы, без чтения ключей."""
+import hashlib
+import json
+import os
+from pathlib import Path
+import shlex
+import signal
+import select
+import pwd
+import stat
+import subprocess
+import sys
+import tempfile
+import uuid
+
+SERVICE = 'org.freedesktop.NetworkManager.aheadscale'
+PRIVATE = '/var/lib/aheadscale/networkmanager-install.json'
+PUBLIC = '/etc/aheadscale-desktop/networkmanager-profile.json'
+STATE = '/run/aheadscale/networkmanager-state.json'
+HANDOVER = '/run/aheadscale/standalone-handover.json'
+POLICY = '/usr/share/selinux/packages/nm_aheadscale.pp'
+MANIFEST = '/usr/share/aheadscale/networkmanager-files.json'
+TRANSACTION = '/run/aheadscale/networkmanager-transaction.json'
+OWNED = {
+    '/usr/libexec/nm-aheadscale-service', '/usr/libexec/nm-aheadscale-auth-dialog',
+    '/usr/libexec/aheadscale-nm-controller',
+    '/usr/lib/NetworkManager/VPN/nm-aheadscale-service.name',
+    '/usr/lib/NetworkManager/libnm-vpn-plugin-aheadscale.so',
+    '/usr/lib/NetworkManager/libnm-vpn-plugin-aheadscale-editor.so',
+    '/usr/lib/NetworkManager/libnm-gtk4-vpn-plugin-aheadscale-editor.so',
+    '/usr/share/dbus-1/system.d/nm-aheadscale-service.conf',
+    '/usr/lib/systemd/system/aheadscale-nm-controller.service',
+    '/usr/lib/systemd/system/aheadscale.service.d/20-networkmanager.conf',
+    '/usr/share/selinux/packages/nm_aheadscale.pp', PUBLIC,
+}
+
+class Installer:
+    def __init__(self, root, manifest, runner=None):
+        self.root = Path(root)
+        self.manifest = manifest
+        self.runner = runner or self._run
+    @staticmethod
+    def _run(args):
+        return subprocess.run(args, check=False, timeout=45, stdin=subprocess.DEVNULL,
+                              capture_output=True, text=True)
+    def path(self, absolute):
+        path = self.root / absolute.lstrip('/')
+        for parent in [path, *path.parents]:
+            if parent == self.root: break
+            if parent.is_symlink(): raise ValueError('Символическая ссылка в служебном пути Aheadscale: ' + str(parent))
+            if parent.exists() and (parent.stat().st_uid != os.geteuid() or parent.stat().st_mode & 0o022):
+                raise ValueError('Чужой владелец служебного пути Aheadscale: ' + str(parent))
+        return path
+    def read_json(self, absolute, private=False):
+        path = self.path(absolute)
+        if not path.exists(): return None
+        info = path.stat()
+        if not stat.S_ISREG(info.st_mode) or info.st_mode & (0o077 if private else 0o022):
+            raise ValueError('Небезопасный файл Aheadscale: ' + absolute)
+        return json.loads(path.read_text())
+    def write_json(self, absolute, value, mode):
+        path = self.path(absolute)
+        # Create each missing component explicitly: parents=True inherits the
+        # invoking shell's umask for intermediate directories.
+        missing = []
+        parent = path.parent
+        while not parent.exists():
+            missing.append(parent)
+            parent = parent.parent
+        for parent in reversed(missing): parent.mkdir(mode=0o755)
+        # These are private application directories, never /etc or /run themselves.
+        if absolute == PUBLIC: path.parent.chmod(0o755)
+        if absolute in (PRIVATE, STATE, HANDOVER, TRANSACTION): path.parent.chmod(0o700)
+        fd, temporary = tempfile.mkstemp(prefix='.aheadscale-', dir=path.parent)
+        try:
+            os.fchmod(fd, mode)
+            with os.fdopen(fd, 'w') as out:
+                json.dump(value, out, sort_keys=True)
+                out.write('\n')
+                out.flush()
+                os.fsync(out.fileno())
+            os.replace(temporary, path)
+        finally:
+            if os.path.exists(temporary): os.unlink(temporary)
+    def receipt(self, verify_files=True):
+        value = self.read_json(PRIVATE, private=True)
+        if value is None: return None
+        if value.get('schema_version') != 1 or value.get('service_type') != SERVICE:
+            raise ValueError('Чужая или неподдерживаемая квитанция Aheadscale')
+        uuid.UUID(value['uuid'])
+        if not isinstance(value.get('files'), dict): raise ValueError('Повреждён список собственных ресурсов')
+        for path, digest in value['files'].items():
+            if path not in OWNED or len(digest) != 64:
+                raise ValueError('Чужой ресурс в квитанции Aheadscale')
+            current = self.path(path)
+            if verify_files and current.exists() and (not current.is_file() or hashlib.sha256(current.read_bytes()).hexdigest() != digest):
+                raise ValueError('Собственный ресурс изменён, автоматическая замена запрещена: ' + path)
+        return value
+    def preflight(self, mode):
+        if mode not in ('desktop', 'cli'): raise ValueError('Неизвестный вариант пакета')
+        receipt = self.receipt()
+        self.verify_policy(receipt)
+        owned = receipt['files'] if receipt else {}
+        for path in OWNED:
+            if self.path(path).exists() and path not in owned:
+                raise ValueError('Путь нового компонента уже занят: ' + path)
+        for unit_path in ('/etc/systemd/system/aheadscale.service', '/usr/lib/systemd/system/aheadscale.service'):
+            local_unit = self.path(unit_path)
+            if local_unit.exists():
+                text = local_unit.read_text()
+                starts = [line.partition('=')[2].strip() for line in text.splitlines() if line.startswith('ExecStart=')]
+                if len(starts) != 1 or shlex.split(starts[0])[:3] != ['/usr/bin/aheadscale', 'service', 'run'] or 'Description=Aheadscale' not in text:
+                    raise ValueError('aheadscale.service имеет неизвестное происхождение')
+                args = shlex.split(starts[0])[3:]
+                values = {'--log-level': 'info', '--daemon-addr': 'unix:///var/run/aheadscale.sock', '--log-file': '/var/log/aheadscale/client.log'}
+                while args:
+                    flag = args.pop(0)
+                    if flag in ('--disable-profiles', '--native-networkmanager', '--native-networkmanager=true', '--native-networkmanager=false'): continue
+                    if flag not in values or not args or args.pop(0) != values[flag]:
+                        raise ValueError('Ручные параметры aheadscale.service требуют отдельного переноса')
+        if receipt:
+            for key in ('management_url', 'admin_url'):
+                if receipt[key] != self.manifest[key]: raise ValueError('Смена канала или сервера требует отдельного переноса регистрации')
+        digest = hashlib.sha256(self.path(PRIVATE).read_bytes()).hexdigest() if receipt else None
+        self.write_json(TRANSACTION, {'version': 1, 'receipt_sha256': digest}, 0o600)
+        return receipt
+    def install(self, mode):
+        previous = self.receipt(verify_files=False)
+        transaction = self.read_json(TRANSACTION, private=True)
+        if transaction is not None:
+            current = hashlib.sha256(self.path(PRIVATE).read_bytes()).hexdigest() if previous else None
+            if transaction.get('version') != 1 or transaction['receipt_sha256'] != current:
+                raise ValueError('Квитанция изменилась после preflight; установка остановлена')
+        if mode == 'cli':
+            if previous and previous.get('installed', True): self.remove()
+            state = self.read_json(STATE, private=True)
+            if state is not None:
+                self.write_json(HANDOVER, {'version': 1, 'boot_id': state['BootID'], 'connected': state['Intent']['Connected']}, 0o600)
+            return previous
+        if mode != 'desktop': raise ValueError('Неизвестный вариант пакета')
+        if self.manifest.get('schema_version') != 1 or self.manifest.get('service_type') != SERVICE:
+            raise ValueError('Неверный манифест пакета Aheadscale')
+        files = self.manifest['files'].copy()
+        for path, digest in files.items():
+            if path not in OWNED or path == PUBLIC: raise ValueError('Неожиданный ресурс в манифесте')
+            current = self.path(path)
+            if hashlib.sha256(current.read_bytes()).hexdigest() != digest:
+                raise ValueError('Хеш установленного компонента не совпадает: ' + path)
+        value = {key: self.manifest[key] for key in ('schema_version', 'service_type', 'management_url', 'admin_url')}
+        value['uuid'] = previous['uuid'] if previous else str(uuid.uuid4())
+        self.write_json(PUBLIC, value, 0o644)
+        files[PUBLIC] = hashlib.sha256(self.path(PUBLIC).read_bytes()).hexdigest()
+        value.update(files=files, installed=True)
+        self.write_json(PRIVATE, value, 0o600)
+        transaction_path=self.path(TRANSACTION)
+        if transaction_path.exists(): transaction_path.unlink()
+        return value
+    def transfer_intent(self, connected):
+        if type(connected) is not bool: raise ValueError('Неверное намерение подключения')
+        boot = self.path('/proc/sys/kernel/random/boot_id').read_text().strip()
+        old = self.read_json(STATE, private=True)
+        generation = old['Intent']['Generation'] + 1 if old else 1
+        self.write_json(STATE, {'Version': 1, 'BootID': boot, 'Intent': {'Connected': connected, 'Generation': generation}, 'PendingCancel': False, 'ActivationOwner': '', 'ActivationGeneration': 0}, 0o600)
+    def policy_fingerprint(self):
+        text = self.command(['semodule', '-lfull', '-m'])
+        matches = [' '.join(line.split()) for line in text.splitlines() if len(line.split()) > 1 and line.split()[1] == 'nm_aheadscale']
+        if not matches: return None
+        if len(matches) != 1 or matches[0].split()[0] != '400':
+            raise ValueError('Обнаружены посторонние приоритеты SELinux-модуля Aheadscale')
+        return matches[0]
+    def verify_policy(self, receipt):
+        if POLICY not in self.manifest.get('files', {}) and (not receipt or POLICY not in receipt['files']): return
+        current = self.policy_fingerprint()
+        if receipt and receipt.get('installed', True):
+            if current != receipt.get('selinux_module_fingerprint'):
+                raise ValueError('SELinux-модуль Aheadscale изменён или удалён; автоматическая замена запрещена')
+        elif current is not None:
+            raise ValueError('Имя SELinux-модуля Aheadscale уже занято чужой установкой')
+    def command(self, args, allowed=(0,)):
+        result = self.runner(args)
+        if result is not None and result.returncode not in allowed:
+            raise ValueError('Не выполнена операция установки: ' + ' '.join(args))
+        return result.stdout.strip() if result is not None else ''
+    def owned_processes(self):
+        if self.root != Path('/'): return []
+        targets = {'/usr/bin/aheadscale-ui', '/usr/libexec/nm-aheadscale-service', '/usr/libexec/aheadscale-nm-controller'}
+        processes = []
+        try:
+            for entry in Path('/proc').iterdir():
+                if not entry.name.isdecimal(): continue
+                try:
+                    executable = os.readlink(entry / 'exe')
+                    if executable.removesuffix(' (deleted)') not in targets: continue
+                    if executable.endswith(' (deleted)'):
+                        raise ValueError('Закройте старый процесс Aheadscale перед обновлением: ' + entry.name)
+                    binary = self.path(executable).stat()
+                    running = (entry / 'exe').stat()
+                    if binary.st_mode & 0o022 or (binary.st_dev, binary.st_ino) != (running.st_dev, running.st_ino):
+                        raise ValueError('Не удалось подтвердить исполняемый файл Aheadscale')
+                    fd = os.pidfd_open(int(entry.name))
+                    gui = None
+                    processes.append((fd, None))
+                    if executable == '/usr/bin/aheadscale-ui':
+                        uid = entry.stat().st_uid
+                        allowed = {'DISPLAY', 'WAYLAND_DISPLAY', 'DBUS_SESSION_BUS_ADDRESS', 'XDG_RUNTIME_DIR', 'XDG_SESSION_TYPE', 'XDG_CURRENT_DESKTOP'}
+                        environment = {}
+                        for item in (entry / 'environ').read_bytes().split(b'\0'):
+                            key, _, value = item.partition(b'=')
+                            name = key.decode(errors='replace')
+                            if name in allowed: environment[name] = value.decode(errors='strict')
+                        gui = {'uid': uid, 'environment': environment}
+                    processes[-1] = (fd, gui)
+                except (FileNotFoundError, ProcessLookupError): continue
+            return processes
+        except BaseException:
+            for fd, _ in processes: os.close(fd)
+            raise
+    @staticmethod
+    def stop_processes(processes):
+        for fd, _ in processes:
+            try: signal.pidfd_send_signal(fd, signal.SIGTERM)
+            except ProcessLookupError: pass
+        for fd, _ in processes:
+            try:
+                if not select.select([fd], [], [], 5)[0]:
+                    signal.pidfd_send_signal(fd, signal.SIGKILL)
+                    if not select.select([fd], [], [], 5)[0]: raise ValueError('Процесс Aheadscale не завершился')
+            finally: os.close(fd)
+    def prepare(self, mode):
+        receipt = self.preflight(mode)
+        enabled = self.command(['systemctl', 'is-enabled', 'aheadscale.service'], (0, 1, 3, 4))
+        active = self.command(['systemctl', 'is-active', 'aheadscale.service'], (0, 1, 3, 4))
+        if enabled not in ('enabled', 'enabled-runtime', 'disabled', 'masked', 'masked-runtime', 'static', 'indirect', 'linked', 'linked-runtime', 'not-found'):
+            raise ValueError('Неизвестное состояние автозапуска Aheadscale')
+        if active not in ('active', 'activating', 'inactive', 'failed', 'unknown', 'deactivating'):
+            raise ValueError('Неизвестное состояние службы Aheadscale')
+        existing = self.path('/etc/systemd/system/aheadscale.service').exists() or self.path('/usr/lib/systemd/system/aheadscale.service').exists()
+        boot = self.path('/proc/sys/kernel/random/boot_id').read_text().strip()
+        state = self.read_json(STATE, private=True)
+        on = None
+        if state and state['BootID'] == boot: on = state['Intent']['Connected']
+        elif existing:
+            on = False
+            if active in ('active', 'activating'):
+                status = json.loads(self.command(['/usr/bin/aheadscale', 'status', '--json']))
+                on = status['daemonStatus'] in ('Connected', 'Connecting')
+        processes = self.owned_processes()
+        transaction = self.read_json(TRANSACTION, private=True)
+        transaction.update(mode=mode, existing=existing, enabled=enabled, active=active, gui=[gui for _, gui in processes if gui])
+        self.write_json(TRANSACTION, transaction, 0o600)
+        try:
+            if receipt and receipt.get('installed', True):
+                self.command(['systemctl', 'stop', 'aheadscale-nm-controller.service'])
+                if mode == 'cli': self.command(['systemctl', 'disable', 'aheadscale-nm-controller.service'])
+            self.stop_processes(processes)
+            processes = []
+            if active in ('active', 'activating'): self.command(['systemctl', 'stop', 'aheadscale.service'])
+            if mode == 'cli' and receipt and receipt.get('installed', True): self.remove()
+            if on is not None:
+                self.transfer_intent(on)
+                if mode == 'cli': self.write_json(HANDOVER, {'version': 1, 'boot_id': boot, 'connected': on}, 0o600)
+            current = self.path(PRIVATE)
+            transaction['receipt_sha256'] = hashlib.sha256(current.read_bytes()).hexdigest() if current.exists() else None
+            self.write_json(TRANSACTION, transaction, 0o600)
+        finally:
+            for fd, _ in processes:
+                try: os.close(fd)
+                except OSError: pass
+    def apply(self, mode, package_format):
+        transaction = self.read_json(TRANSACTION, private=True)
+        if not transaction or transaction.get('mode') != mode: raise ValueError('Нет подходящей подготовленной транзакции Aheadscale')
+        self.install(mode)
+        # Retain the recovery snapshot until all service operations succeed.
+        current = self.path(PRIVATE)
+        transaction['receipt_sha256'] = hashlib.sha256(current.read_bytes()).hexdigest() if current.exists() else None
+        self.write_json(TRANSACTION, transaction, 0o600)
+        if package_format == 'deb':
+            if self.path('/etc/systemd/system/aheadscale.service').exists():
+                self.command(['/usr/bin/aheadscale', 'service', 'uninstall'])
+            self.command(['/usr/bin/aheadscale', 'service', 'install', '--disable-profiles', '--native-networkmanager=' + ('true' if mode == 'desktop' else 'false')])
+        elif package_format != 'rpm': raise ValueError('Неизвестный формат пакета')
+        self.command(['systemctl', 'daemon-reload'])
+        self.command(['/usr/lib/aheadscale/cleanup-networkmanager'])
+        if mode == 'desktop':
+            self.command(['systemctl', 'reload', 'dbus.service'])
+            policy = self.path('/usr/share/selinux/packages/nm_aheadscale.pp')
+            if policy.exists():
+                self.command(['semodule', '-i', str(policy)])
+                fingerprint = self.policy_fingerprint()
+                if fingerprint is None: raise ValueError('Установленный SELinux-модуль Aheadscale не найден')
+                receipt = self.receipt(verify_files=False)
+                receipt['selinux_module_fingerprint'] = fingerprint
+                self.write_json(PRIVATE, receipt, 0o600)
+                transaction['receipt_sha256'] = hashlib.sha256(self.path(PRIVATE).read_bytes()).hexdigest()
+                self.write_json(TRANSACTION, transaction, 0o600)
+                self.command(['restorecon', '-RF', '/usr/libexec/nm-aheadscale-service', '/usr/libexec/nm-aheadscale-auth-dialog', '/run/aheadscale'])
+            self.command(['systemctl', 'enable', 'aheadscale-nm-controller.service'])
+        enabled = transaction['enabled'] if transaction['existing'] else 'enabled'
+        if enabled in ('enabled', 'disabled', 'masked'):
+            self.command(['systemctl', {'enabled': 'enable', 'disabled': 'disable', 'masked': 'mask'}[enabled], 'aheadscale.service'])
+        elif enabled in ('enabled-runtime', 'masked-runtime'):
+            self.command(['systemctl', 'enable' if enabled == 'enabled-runtime' else 'mask', '--runtime', 'aheadscale.service'])
+        run = not transaction['existing'] or transaction['active'] in ('active', 'activating')
+        self.command(['systemctl', 'restart' if run else 'stop', 'aheadscale.service'])
+        if mode == 'desktop' and self.root == Path('/'):
+            for gui in transaction['gui']:
+                account = pwd.getpwuid(gui['uid'])
+                environment = dict(gui['environment'], HOME=account.pw_dir, PATH='/usr/bin:/bin')
+                subprocess.Popen(['runuser', '-u', account.pw_name, '--', '/usr/bin/env', *[key + '=' + value for key, value in environment.items()], '/usr/bin/aheadscale-ui'], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        self.path(TRANSACTION).unlink()
+    def remove(self):
+        receipt = self.receipt()
+        if not receipt or not receipt.get('installed', True): return
+        self.verify_policy(receipt)
+        self.command(['/usr/libexec/aheadscale-nm-controller', '--remove-profile'])
+        if POLICY in receipt['files']:
+            self.command(['semodule', '-r', 'nm_aheadscale'])
+            if self.path('/run/aheadscale').exists(): self.command(['restorecon', '-RF', '/run/aheadscale'])
+        public = self.path(PUBLIC)
+        if public.exists(): public.unlink()
+        receipt.update(installed=False)
+        self.write_json(PRIVATE, receipt, 0o600)
+
+
+def main():
+    if os.geteuid() != 0: raise ValueError('Установка системных компонентов требует root')
+    os.umask(0o077)
+    if len(sys.argv) not in (2, 3, 4): raise ValueError('Нужны операция и вариант пакета')
+    action = sys.argv[1]
+    mode = sys.argv[2] if len(sys.argv) >= 3 else None
+    manifest = globals().get('BUILD_MANIFEST')
+    installer = Installer('/', manifest or {})
+    if manifest is None: manifest = installer.read_json(MANIFEST) or {}
+    installer.manifest = manifest
+    if action == 'prepare': installer.prepare(mode)
+    elif action == 'preflight': installer.preflight(mode)
+    elif action == 'apply': installer.apply(mode, sys.argv[3])
+    elif action == 'remove':
+        receipt = installer.receipt()
+        installer.verify_policy(receipt)
+        if receipt and receipt.get('installed', True):
+            installer.command(['systemctl', 'disable', '--now', 'aheadscale-nm-controller.service'])
+            installer.stop_processes(installer.owned_processes())
+        installer.remove()
+    else: raise ValueError('Неизвестная операция')
+
+if __name__ == '__main__':
+    try: main()
+    except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
+        print('Aheadscale: ' + str(error), file=sys.stderr)
+        sys.exit(1)

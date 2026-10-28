@@ -12,6 +12,8 @@ BuildRequires: systemd-rpm-macros
 %{?systemd_requires}
 Requires: iproute
 Requires: iptables-nft
+Requires: python3
+Requires(pre): python3
 @GUI_REQUIRES@
 Conflicts: @CONFLICT@
 
@@ -38,6 +40,7 @@ fi
 if [ -d "%{_rundir}/systemd/system" ]; then
 @RPM_LIFECYCLE@
     aheadscale_rpm_snapshot "%{_rundir}/aheadscale-rpm/transaction" || exit 1
+@NM_PREPARE@
 fi
 
 %post
@@ -47,9 +50,13 @@ fi
 if [ -d "%{_rundir}/systemd/system" ]; then
 @RPM_LIFECYCLE@
     aheadscale_rpm_restore "%{_rundir}/aheadscale-rpm/transaction" || exit 1
+@NM_APPLY@
 fi
 
 %preun
+if [ "$1" -eq 0 ]; then
+    /usr/lib/aheadscale/networkmanager-lifecycle remove || exit 1
+fi
 %systemd_preun aheadscale.service
 if [ "$1" -eq 0 ]; then
     /usr/lib/aheadscale/cleanup-networkmanager || :

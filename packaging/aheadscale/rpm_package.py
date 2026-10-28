@@ -4,6 +4,8 @@ import re
 import shutil
 import subprocess
 import tarfile
+import json
+from networkmanager_package import PAYLOAD, prepare_hook, normalize_directories
 
 
 def package_rpm(root, binaries, staging, output, version, arch, cli_only):
@@ -29,6 +31,7 @@ def package_rpm(root, binaries, staging, output, version, arch, cli_only):
         info.mtime = int(os.environ.get("SOURCE_DATE_EPOCH", "0"))
         return info
 
+    normalize_directories(staging)
     with tarfile.open(work / "SOURCES/payload.tar.gz", "w:gz") as archive:
         archive.add(staging / "usr", arcname="usr", filter=metadata)
     files = ["%{_bindir}/aheadscale", "%{_unitdir}/aheadscale.service",
@@ -37,10 +40,16 @@ def package_rpm(root, binaries, staging, output, version, arch, cli_only):
     if not cli_only:
         files += ["%{_bindir}/aheadscale-ui", "%{_datadir}/applications/org.wails.aheadscale.desktop",
                   "%{_datadir}/icons/hicolor/512x512/apps/aheadscale.png"]
+    files += ["%{_prefix}/lib/aheadscale/networkmanager-lifecycle", "%dir %{_datadir}/aheadscale", "%{_datadir}/aheadscale/networkmanager-files.json"]
+    if not cli_only:
+        files += [*PAYLOAD.values(), "/usr/share/selinux/packages/nm_aheadscale.pp", "%dir /usr/lib/systemd/system/aheadscale.service.d", "%dir /usr/share/doc/aheadscale/networkmanager", "/usr/share/doc/aheadscale/networkmanager/LICENSE", "/usr/share/doc/aheadscale/networkmanager/NOTICES.md", "/usr/share/doc/aheadscale/networkmanager/SOURCE.json"]
+    manifest=json.loads((staging / 'usr/share/aheadscale/networkmanager-files.json').read_text())
     replacements = {
         "@NAME@": package_name, "@VERSION@": match[1], "@RELEASE@": "0.aheadscale." + match[2] + ".1",
         "@CONFLICT@": conflict,
-        "@GUI_REQUIRES@": "" if cli_only else "Requires: gtk4 >= 4.14\nRequires: webkitgtk6.0",
+        "@GUI_REQUIRES@": "" if cli_only else "Requires: gtk4 >= 4.14\nRequires: webkitgtk6.0\nRequires: NetworkManager\nRequires: NetworkManager-libnm\nRequires: systemd-resolved\nRequires: libnma\nRequires: libnma-gtk4\nRequires: gtk3\nRequires: policycoreutils\nRequires(pre): policycoreutils",
+        "@NM_PREPARE@": prepare_hook(root,manifest).replace("%", "%%"),
+        "@NM_APPLY@": "/usr/lib/aheadscale/networkmanager-lifecycle apply " + manifest['variant'] + " rpm",
         "@FILES@": "\n".join(files),
         "@RPM_LIFECYCLE@": (root / "packaging/aheadscale/scripts/rpm-lifecycle").read_text().replace("%", "%%"),
     }

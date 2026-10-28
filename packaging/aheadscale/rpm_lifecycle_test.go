@@ -46,6 +46,9 @@ func TestRPMTransactionPreservesServiceState(t *testing.T) {
 			body := strings.ReplaceAll(string(spec), "%{_rundir}", fixture)
 			body = strings.ReplaceAll(body, "/run/systemd/system", filepath.Join(fixture, "systemd/system"))
 			body = strings.ReplaceAll(body, "%systemd_post aheadscale.service", ":")
+			// Native migration itself is covered by TestNetworkManagerLifecycle.
+			body = strings.ReplaceAll(body, "@NM_PREPARE@", ":")
+			body = strings.ReplaceAll(body, "@NM_APPLY@", ":")
 			helper, readErr := os.ReadFile("scripts/rpm-lifecycle")
 			if readErr != nil && !os.IsNotExist(readErr) {
 				t.Fatal(readErr)

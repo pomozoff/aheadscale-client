@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "upstream_repository": "https://github.com/netbirdio/network-manager-vpn-plugin",
+  "upstream_tag": "v0.1.12",
+  "upstream_commit": "1c1e87d67e2d1e20e52d40a752bae304a7f1d48a",
+  "adapted_commit": "9d0f2619fb573ec288c27ffd4e41b6ba25120fea",
+  "archive_url": "https://github.com/netbirdio/network-manager-vpn-plugin/archive/1c1e87d67e2d1e20e52d40a752bae304a7f1d48a.tar.gz",
+  "archive_sha256": "853fcf726137d99dd79b675097a1b88bdd7ec33be976f4324d64bc6f37b9d70e",
+  "patch_sha256": "38383c78d991b6096745e2703d9cc9c3f68c2a0592f896755ea3d54861da7f1f",
+  "go": "1.26.7",
+  "wails": "v3.0.0-beta.3",
+  "node": "24.19.0",
+  "pnpm": "11.4.0",
+  "license": "BSD-3-Clause",
+  "ubuntu_base": "ubuntu@sha256:24737cef17f4e22b1977df7d9a05e77c4e28b7da5b8911f8d8ccda136bf3573c",
+  "fedora_base": "registry.fedoraproject.org/fedora@sha256:12151022b0ec7cb4d70ae14e4a4d319377323265d7198b69dd53ec92713198d5",
+  "go_linux_archive_sha256": {
+    "amd64": "ffb5f8de10c62550dfddab66b36b57030721e0a44a3218e9e1181d7b59f121ca",
+    "arm64": "5a4ec883379d51ee9ce1040d5e87f8d35e20387574dd8c947feb01eabc3c1b37"
+  },
+  "meson": "1.3.2"
+}

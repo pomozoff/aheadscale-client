@@ -1,0 +1,19 @@
+[Unit]
+Description=Aheadscale NetworkManager controller
+After=NetworkManager.service systemd-resolved.service aheadscale.service
+Requires=aheadscale.service NetworkManager.service systemd-resolved.service
+PartOf=aheadscale.service
+
+[Service]
+Type=simple
+ExecStart=/usr/libexec/aheadscale-nm-controller
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=45
+UMask=0077
+RuntimeDirectory=aheadscale
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=yes
+
+[Install]
+WantedBy=aheadscale.service
