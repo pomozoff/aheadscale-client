@@ -62,23 +62,23 @@ func TestBrokerRejectsNonRootAndStaleGeneration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = c.Handle(1000, Message{Version: 1, Operation: "Begin"}); err == nil {
+	if _, err = c.Handle(1000, Message{Version: 2, Operation: "Begin"}); err == nil {
 		t.Fatal("accepted unprivileged peer")
 	}
-	if _, err = c.Handle(0, Message{Version: 2, Operation: "Begin"}); err == nil {
+	if _, err = c.Handle(0, Message{Version: 3, Operation: "Begin"}); err == nil {
 		t.Fatal("accepted unknown protocol version")
 	}
-	started, err := c.Handle(0, Message{Version: 1, Operation: "Begin"})
+	started, err := c.Handle(0, Message{Version: 2, Operation: "Begin"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = c.Handle(0, Message{Version: 1, Operation: "Complete", Generation: started.Generation + 1}); err == nil {
+	if _, err = c.Handle(0, Message{Version: 2, Operation: "Complete", Generation: started.Generation + 1}); err == nil {
 		t.Fatal("accepted unknown generation")
 	}
-	if _, err = c.Handle(0, Message{Version: 1, Operation: "Cancel", Generation: started.Generation}); err != nil {
+	if _, err = c.Handle(0, Message{Version: 2, Operation: "Cancel", Generation: started.Generation}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = c.Handle(0, Message{Version: 1, Operation: "Complete", Generation: started.Generation}); err == nil {
+	if _, err = c.Handle(0, Message{Version: 2, Operation: "Complete", Generation: started.Generation}); err == nil {
 		t.Fatal("accepted late completion")
 	}
 }
@@ -156,7 +156,7 @@ func TestBrokerTransportRejectsUnprivilegedPeer(t *testing.T) {
 	}
 }
 func TestBrokerRejectsOversizedAndUnknownMessages(t *testing.T) {
-	for _, request := range []string{strings.Repeat("x", 16385), `{"Version":1,"Operation":"Begin","command":"exec"}`} {
+	for _, request := range []string{strings.Repeat("x", 16385), `{"Version":2,"Operation":"Begin","command":"exec"}`} {
 		if _, err := decodeBrokerMessage(strings.NewReader(request)); err == nil {
 			t.Fatal("accepted invalid protocol message")
 		}
@@ -168,7 +168,7 @@ func TestBrokerBeginWaitsForCancelledCleanup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	started, err := c.Handle(0, Message{Version: 1, Operation: "Begin"})
+	started, err := c.Handle(0, Message{Version: 2, Operation: "Begin"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -176,7 +176,7 @@ func TestBrokerBeginWaitsForCancelledCleanup(t *testing.T) {
 	c.down = func(context.Context) error { close(entered); <-release; return nil }
 	cancelled := make(chan error, 1)
 	go func() {
-		_, err := c.Handle(0, Message{Version: 1, Operation: "Cancel", Generation: started.Generation})
+		_, err := c.Handle(0, Message{Version: 2, Operation: "Cancel", Generation: started.Generation})
 		cancelled <- err
 	}()
 	select {
@@ -185,7 +185,7 @@ func TestBrokerBeginWaitsForCancelledCleanup(t *testing.T) {
 		t.Fatal("broker cancel did not clean engine")
 	}
 	next := make(chan error, 1)
-	go func() { _, err := c.Handle(0, Message{Version: 1, Operation: "Begin"}); next <- err }()
+	go func() { _, err := c.Handle(0, Message{Version: 2, Operation: "Begin"}); next <- err }()
 	select {
 	case <-next:
 		t.Fatal("Begin overtook cleanup")
@@ -248,17 +248,44 @@ func TestDaemonLossClearsConnected(t *testing.T) {
 	}
 }
 
+func TestNeedsLoginSurvivesPluginFailureCleanup(t *testing.T) {
+	c, err := NewController(filepath.Join(t.TempDir(), "state"), "boot", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = c.Reconcile(Observation{Owner: ":1.1", EngineAvailable: true})
+	active, err := c.Handle(0, Message{Version: 2, Operation: "Begin"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = c.Complete(active.Generation, NeedsLogin); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = c.Handle(0, Message{Version: 2, Operation: "Cancel", Generation: active.Generation}); err != nil {
+		t.Fatal(err)
+	}
+	if err = c.ObserveNMStop(context.Background(), ":1.1", active.Generation, false); err != nil {
+		t.Fatal(err)
+	}
+	if action := c.Reconcile(Observation{Owner: ":1.1", EngineAvailable: true}); action != NoAction {
+		t.Fatal("automatic retry resumed after an explicit NeedsLogin result")
+	}
+	if c.State().Phase != NeedsLogin || !c.Intent().Connected {
+		t.Fatal("login requirement or saved ON intention was lost during cleanup")
+	}
+}
+
 func TestPluginStopDuringNMRestartPreservesIntent(t *testing.T) {
 	c, err := NewController(filepath.Join(t.TempDir(), "state"), "boot", true)
 	if err != nil {
 		t.Fatal(err)
 	}
 	_ = c.Reconcile(Observation{Owner: ":1.1", EngineReady: true, VPNActive: true})
-	started, err := c.Handle(0, Message{Version: 1, Operation: "Begin"})
+	started, err := c.Handle(0, Message{Version: 2, Operation: "Begin"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = c.Handle(0, Message{Version: 1, Operation: "Cancel", Generation: started.Generation}); err != nil {
+	if _, err = c.Handle(0, Message{Version: 2, Operation: "Cancel", Generation: started.Generation}); err != nil {
 		t.Fatal(err)
 	}
 	if action := c.Reconcile(Observation{Owner: ":1.1", EngineAvailable: true}); action != NoAction {
@@ -275,7 +302,7 @@ func TestOnlyCurrentNMSessionCanSetOff(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = c.Reconcile(Observation{Owner: ":1.1", EngineReady: true, VPNActive: true})
-	active, err := c.Handle(0, Message{Version: 1, Operation: "Begin"})
+	active, err := c.Handle(0, Message{Version: 2, Operation: "Begin"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -309,7 +336,7 @@ func TestOwnerReplacementRejectsLateCompletionWithoutPluginCancel(t *testing.T) 
 		t.Fatal(err)
 	}
 	_ = c.Reconcile(Observation{Owner: ":1.1", EngineAvailable: true})
-	active, err := c.Handle(0, Message{Version: 1, Operation: "Begin"})
+	active, err := c.Handle(0, Message{Version: 2, Operation: "Begin"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -328,7 +355,7 @@ func TestSameOwnerStopWaitsForClassification(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = c.Reconcile(Observation{Owner: ":1.1", EngineAvailable: true})
-	active, err := c.Handle(0, Message{Version: 1, Operation: "Begin"})
+	active, err := c.Handle(0, Message{Version: 2, Operation: "Begin"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -349,7 +376,7 @@ func TestStaleObservationCannotStopNewAttempt(t *testing.T) {
 		t.Fatal(err)
 	}
 	previous := c.Intent().Generation
-	if _, err = c.Handle(0, Message{Version: 1, Operation: "Begin"}); err != nil {
+	if _, err = c.Handle(0, Message{Version: 2, Operation: "Begin"}); err != nil {
 		t.Fatal(err)
 	}
 	if action := c.Reconcile(Observation{Generation: previous, Owner: ":1.1", VPNActive: true}); action != NoAction {
@@ -375,11 +402,11 @@ func TestBeginPersistsBeforeEngineLease(t *testing.T) {
 		failed = generation
 		return fmt.Errorf("engine unavailable")
 	}
-	if _, err = c.Handle(0, Message{Version: 1, Operation: "Begin"}); err == nil {
+	if _, err = c.Handle(0, Message{Version: 2, Operation: "Begin"}); err == nil {
 		t.Fatal("ignored engine preparation error")
 	}
 	c.prepare = nil
-	next, err := c.Handle(0, Message{Version: 1, Operation: "Begin"})
+	next, err := c.Handle(0, Message{Version: 2, Operation: "Begin"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -394,7 +421,7 @@ func TestNeedsLoginDoesNotAutoRetryAfterCleanup(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = c.Reconcile(Observation{Owner: ":1.1", EngineAvailable: true})
-	active, err := c.Handle(0, Message{Version: 1, Operation: "Begin"})
+	active, err := c.Handle(0, Message{Version: 2, Operation: "Begin"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -424,5 +451,40 @@ func TestStartupDropsMissedStopBindingWithoutChangingIntent(t *testing.T) {
 		if c.Intent().Connected != on || c.saved.PendingCancel || c.saved.ActivationGeneration != 0 {
 			t.Fatalf("missed stop stuck or intent lost: %+v", c.saved)
 		}
+	}
+}
+
+func TestBrokerCarriesNonInteractiveActivationPolicy(t *testing.T) {
+	c, err := NewController(filepath.Join(t.TempDir(), "state"), "boot", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.track = func(context.Context, uint64, Intent) (activationSession, error) {
+		return activationSession{owner: ":1.1", automatic: true}, nil
+	}
+	lease, err := c.Handle(0, Message{Version: 2, Operation: "Begin"})
+	if err != nil || !lease.NonInteractive {
+		t.Fatalf("automatic lease permits browser interaction: %+v %v", lease, err)
+	}
+}
+
+func TestAutomaticLeasePolicySurvivesControllerRestart(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state")
+	c, err := NewController(path, "boot", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.track = func(context.Context, uint64, Intent) (activationSession, error) {
+		return activationSession{owner: ":1.1", automatic: true}, nil
+	}
+	if _, err = c.Handle(0, Message{Version: 1, Operation: "Begin"}); err == nil {
+		t.Fatal("accepted obsolete broker contract")
+	}
+	if _, err = c.Handle(0, Message{Version: 2, Operation: "Begin"}); err != nil {
+		t.Fatal(err)
+	}
+	restored, err := NewController(path, "boot", true)
+	if err != nil || !restored.State().NonInteractive {
+		t.Fatalf("lost automatic policy at restart: %+v %v", restored, err)
 	}
 }

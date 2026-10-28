@@ -104,10 +104,10 @@ index 276c0cf..a76b7aa 100644
  }
 diff --git a/internal/aheadscale/broker.go b/internal/aheadscale/broker.go
 new file mode 100644
-index 0000000..aa88edf
+index 0000000..f54cd17
 --- /dev/null
 +++ b/internal/aheadscale/broker.go
-@@ -0,0 +1,98 @@
+@@ -0,0 +1,110 @@
 +//go:build linux
 +
 +package aheadscale
@@ -128,6 +128,11 @@ index 0000000..aa88edf
 +const BrokerPath = "/run/aheadscale/networkmanager-control.sock"
 +
 +type Broker struct{ path string }
++
++type Lease struct {
++	Generation     uint64
++	NonInteractive bool
++}
 +type message struct {
 +	Version    int
 +	Operation  string
@@ -135,9 +140,10 @@ index 0000000..aa88edf
 +	Phase      string
 +}
 +type state struct {
-+	Generation uint64
-+	Phase      string
-+	Error      string
++	NonInteractive *bool
++	Generation     uint64
++	Phase          string
++	Error          string
 +}
 +type reply struct {
 +	State state
@@ -145,16 +151,22 @@ index 0000000..aa88edf
 +}
 +
 +func NewBroker(path string) *Broker { return &Broker{path: path} }
-+func (b *Broker) Begin(ctx context.Context) (uint64, error) {
-+	response, err := b.exchange(ctx, message{Version: 1, Operation: "Begin"})
-+	return response.Generation, err
++func (b *Broker) Begin(ctx context.Context) (Lease, error) {
++	response, err := b.exchange(ctx, message{Version: 2, Operation: "Begin"})
++	if err != nil {
++		return Lease{}, err
++	}
++	if response.Generation == 0 || response.NonInteractive == nil {
++		return Lease{}, fmt.Errorf("%w: отсутствует политика взаимодействия", ErrUnavailable)
++	}
++	return Lease{Generation: response.Generation, NonInteractive: *response.NonInteractive}, nil
 +}
 +func (b *Broker) Complete(ctx context.Context, generation uint64, phase string) error {
-+	_, err := b.exchange(ctx, message{Version: 1, Operation: "Complete", Generation: generation, Phase: phase})
++	_, err := b.exchange(ctx, message{Version: 2, Operation: "Complete", Generation: generation, Phase: phase})
 +	return err
 +}
 +func (b *Broker) Cancel(ctx context.Context, generation uint64) error {
-+	_, err := b.exchange(ctx, message{Version: 1, Operation: "Cancel", Generation: generation})
++	_, err := b.exchange(ctx, message{Version: 2, Operation: "Cancel", Generation: generation})
 +	return err
 +}
 +func (b *Broker) exchange(ctx context.Context, request message) (state, error) {
@@ -994,7 +1006,7 @@ index c8905d0..5a07836 100644
  		parts = append(parts, "Open: "+response.VerificationURIComplete)
  	} else if response.VerificationURI != "" {
 diff --git a/internal/nmplugin/service.go b/internal/nmplugin/service.go
-index fce6c37..7dbd72e 100644
+index fce6c37..ce6624d 100644
 --- a/internal/nmplugin/service.go
 +++ b/internal/nmplugin/service.go
 @@ -5,13 +5,18 @@ import (
@@ -1023,7 +1035,7 @@ index fce6c37..7dbd72e 100644
 +// ActivationController verifies the system controller's generation before Up
 +// and before publishing Started. The production transport is root-only.
 +type ActivationController interface {
-+	Begin(context.Context) (uint64, error)
++	Begin(context.Context) (aheadscale.Lease, error)
 +	Complete(context.Context, uint64, string) error
 +	Cancel(context.Context, uint64) error
 +}
@@ -1179,16 +1191,18 @@ index fce6c37..7dbd72e 100644
  }
  
  type activationStatus struct {
-@@ -340,34 +396,42 @@ func (s *Service) runActivation(
+@@ -340,34 +396,44 @@ func (s *Service) runActivation(
  		s.finishActivationAttempt(activationAttempt, status, client, timeoutCancel)
  	}()
  
 +	if s.activationController != nil {
-+		generation, err := s.activationController.Begin(ctx)
++		lease, err := s.activationController.Begin(ctx)
 +		if err != nil {
 +			s.failAttempt(activationAttempt, PluginFailureConnectFailed, err)
 +			return
 +		}
++		generation := lease.Generation
++		activationAttempt.interactive = activationAttempt.interactive && !lease.NonInteractive
 +		activationAttempt.generation = generation
 +		activationAttempt.ctx = metadata.AppendToOutgoingContext(activationAttempt.ctx, daemonclient.NativeGenerationMetadataKey, strconv.FormatUint(generation, 10))
 +		ctx = metadata.AppendToOutgoingContext(ctx, daemonclient.NativeGenerationMetadataKey, strconv.FormatUint(generation, 10))
@@ -1231,7 +1245,7 @@ index fce6c37..7dbd72e 100644
  		return
  	}
  
-@@ -378,29 +442,41 @@ func (s *Service) runActivation(
+@@ -378,29 +444,41 @@ func (s *Service) runActivation(
  	}
  
  	if err := s.updateDaemonProfile(ctx, client, settings); err != nil {
@@ -1278,7 +1292,7 @@ index fce6c37..7dbd72e 100644
  		return
  	}
  
-@@ -420,6 +496,11 @@ func (s *Service) finishActivationAttempt(
+@@ -420,6 +498,11 @@ func (s *Service) finishActivationAttempt(
  ) {
  	timeoutCancel()
  	s.clearPromptForActivation(activationAttempt.id)
@@ -1290,7 +1304,7 @@ index fce6c37..7dbd72e 100644
  	if !status.success && status.daemonUp && client != nil {
  		downCtx, downCancel := context.WithTimeout(context.Background(), s.operationTimeout)
  		if err := client.Down(downCtx); err != nil {
-@@ -432,10 +513,17 @@ func (s *Service) finishActivationAttempt(
+@@ -432,10 +515,17 @@ func (s *Service) finishActivationAttempt(
  	if status.success {
  		return
  	}
@@ -1309,7 +1323,7 @@ index fce6c37..7dbd72e 100644
  }
  
  func (s *Service) prepareDaemonProfile(ctx context.Context, client daemonclient.Client, settings activationSettings) (activationSettings, error) {
-@@ -516,6 +604,9 @@ func (s *Service) authenticate(
+@@ -516,6 +606,9 @@ func (s *Service) authenticate(
  		return false, nil
  	}
  	if !activationAttempt.interactive {
@@ -1319,7 +1333,7 @@ index fce6c37..7dbd72e 100644
  		return false, errInteractiveSSONeeded
  	}
  
-@@ -599,7 +690,7 @@ func (s *Service) reserveActivation() (context.Context, context.CancelFunc, uint
+@@ -599,7 +692,7 @@ func (s *Service) reserveActivation() (context.Context, context.CancelFunc, uint
  	defer s.lifecycleMu.Unlock()
  
  	if s.activating || s.client != nil {
@@ -1328,7 +1342,7 @@ index fce6c37..7dbd72e 100644
  	}
  
  	ctx, cancel := context.WithCancel(context.Background())
-@@ -607,6 +698,7 @@ func (s *Service) reserveActivation() (context.Context, context.CancelFunc, uint
+@@ -607,6 +700,7 @@ func (s *Service) reserveActivation() (context.Context, context.CancelFunc, uint
  	activationID := s.activationID
  	s.activating = true
  	s.activationCancel = cancel
@@ -1336,7 +1350,7 @@ index fce6c37..7dbd72e 100644
  	s.prompt = nil
  	return ctx, cancel, activationID, nil
  }
-@@ -814,6 +906,8 @@ func (s *Service) failActiveSessionAfterStatusThreshold(sessionID uint64, consec
+@@ -814,6 +908,8 @@ func (s *Service) failActiveSessionAfterStatusThreshold(sessionID uint64, consec
  
  	monitorCancel = s.monitorCancel
  	s.monitorCancel = nil
@@ -1345,7 +1359,7 @@ index fce6c37..7dbd72e 100644
  	client = s.client
  	s.client = nil
  	s.activeProfile = daemonclient.ProfileRef{}
-@@ -823,7 +917,12 @@ func (s *Service) failActiveSessionAfterStatusThreshold(sessionID uint64, consec
+@@ -823,7 +919,12 @@ func (s *Service) failActiveSessionAfterStatusThreshold(sessionID uint64, consec
  	if monitorCancel != nil {
  		monitorCancel()
  	}
@@ -1359,7 +1373,7 @@ index fce6c37..7dbd72e 100644
  	_ = s.EmitFailure(PluginFailureConnectFailed)
  	if changed {
  		s.emitStateChanged(ServiceStateStopped)
-@@ -845,3 +944,21 @@ func (s *Service) failActivation(failure PluginFailure, err error) {
+@@ -845,3 +946,21 @@ func (s *Service) failActivation(failure PluginFailure, err error) {
  	_ = s.EmitFailure(failure)
  	s.setState(ServiceStateStopped)
  }
@@ -1382,7 +1396,7 @@ index fce6c37..7dbd72e 100644
 +	s.failActivation(failure, err)
 +}
 diff --git a/internal/nmplugin/service_test.go b/internal/nmplugin/service_test.go
-index d7f1bf0..fe45b96 100644
+index d7f1bf0..87c2fde 100644
 --- a/internal/nmplugin/service_test.go
 +++ b/internal/nmplugin/service_test.go
 @@ -21,6 +21,7 @@ import (
@@ -1531,7 +1545,7 @@ index d7f1bf0..fe45b96 100644
  	return ""
  }
  
-@@ -1499,10 +1503,11 @@ type fakeDaemonClient struct {
+@@ -1499,10 +1503,12 @@ type fakeDaemonClient struct {
  	profiles             []daemonclient.Profile
  	addProfileID         string
  
@@ -1539,6 +1553,7 @@ index d7f1bf0..fe45b96 100644
 -	waitSSORelease   chan struct{}
 -	getConfigStarted chan struct{}
 -	getConfigRelease chan struct{}
++	waitSSOCalls         int
 +	waitSSOStarted       chan struct{}
 +	waitSSORelease       chan struct{}
 +	waitSSOCancelRelease chan struct{}
@@ -1547,7 +1562,11 @@ index d7f1bf0..fe45b96 100644
  
  	operations            []string
  	loginRequests         []daemonclient.LoginRequest
-@@ -1573,6 +1578,7 @@ func (f *fakeDaemonClient) WaitSSOLogin(ctx context.Context, request daemonclien
+@@ -1570,9 +1576,11 @@ func (f *fakeDaemonClient) UpdateProfile(ctx context.Context, request daemonclie
+ 
+ func (f *fakeDaemonClient) WaitSSOLogin(ctx context.Context, request daemonclient.WaitSSOLoginRequest) (daemonclient.WaitSSOLoginResponse, error) {
+ 	f.mu.Lock()
++	f.waitSSOCalls++
  	started := f.waitSSOStarted
  	f.waitSSOStarted = nil
  	release := f.waitSSORelease
@@ -1555,7 +1574,7 @@ index d7f1bf0..fe45b96 100644
  	f.mu.Unlock()
  
  	if started != nil {
-@@ -1582,6 +1588,9 @@ func (f *fakeDaemonClient) WaitSSOLogin(ctx context.Context, request daemonclien
+@@ -1582,6 +1590,9 @@ func (f *fakeDaemonClient) WaitSSOLogin(ctx context.Context, request daemonclien
  		select {
  		case <-release:
  		case <-ctx.Done():
@@ -1565,7 +1584,7 @@ index d7f1bf0..fe45b96 100644
  			return daemonclient.WaitSSOLoginResponse{}, ctx.Err()
  		}
  	}
-@@ -1730,3 +1739,135 @@ func connectTestBus(t *testing.T, address string) *dbus.Conn {
+@@ -1730,3 +1741,160 @@ func connectTestBus(t *testing.T, address string) *dbus.Conn {
  	})
  	return conn
  }
@@ -1575,11 +1594,11 @@ index d7f1bf0..fe45b96 100644
 +	operations []string
 +}
 +
-+func (c *rejectingActivationController) Begin(context.Context) (uint64, error) {
++func (c *rejectingActivationController) Begin(context.Context) (aheadscale.Lease, error) {
 +	c.mu.Lock()
 +	defer c.mu.Unlock()
 +	c.operations = append(c.operations, "begin")
-+	return 7, nil
++	return aheadscale.Lease{Generation: 7}, nil
 +}
 +func (c *rejectingActivationController) Complete(_ context.Context, generation uint64, phase string) error {
 +	c.mu.Lock()
@@ -1638,9 +1657,7 @@ index d7f1bf0..fe45b96 100644
 +	require.Len(t, fake.upRequests, 1)
 +	require.True(t, fake.upRequests[0].Empty())
 +	require.Empty(t, fake.addProfileRequests)
-+	for _, operation := range fake.operations {
-+		require.NotEqual(t, "wait_sso_login", operation)
-+	}
++	require.Zero(t, fake.waitSSOCalls)
 +}
 +
 +func TestDisconnectWaitsForCancelledActivationCleanup(t *testing.T) {
@@ -1684,7 +1701,9 @@ index d7f1bf0..fe45b96 100644
 +
 +type unavailableCancelController struct{}
 +
-+func (unavailableCancelController) Begin(context.Context) (uint64, error)          { return 7, nil }
++func (unavailableCancelController) Begin(context.Context) (aheadscale.Lease, error) {
++	return aheadscale.Lease{Generation: 7}, nil
++}
 +func (unavailableCancelController) Complete(context.Context, uint64, string) error { return nil }
 +func (unavailableCancelController) Cancel(context.Context, uint64) error {
 +	return aheadscale.ErrUnavailable
@@ -1700,6 +1719,31 @@ index d7f1bf0..fe45b96 100644
 +	defer fake.mu.Unlock()
 +	require.Equal(t, 1, fake.downCalls)
 +	require.True(t, fake.closed)
++}
++
++type automaticActivationController struct{ rejectingActivationController }
++
++func (*automaticActivationController) Begin(context.Context) (aheadscale.Lease, error) {
++	return aheadscale.Lease{Generation: 7, NonInteractive: true}, nil
++}
++
++func TestAutomaticLeaseNeverStartsBrowserEvenWhenNMCallsConnectInteractive(t *testing.T) {
++	controller := &automaticActivationController{}
++	obj, fake, _ := newTestingBusObjectWithServiceOptions(t, func(options *nmplugin.ServiceOptions) { options.ActivationController = controller })
++	fake.mu.Lock()
++	fake.features.DisableProfiles = true
++	fake.loginResponse = daemonclient.LoginResponse{NeedsSSOLogin: true, UserCode: "CODE"}
++	fake.mu.Unlock()
++	settings := setupKeyConnectionSettings(map[string]string{"auth": "sso"})
++	require.NoError(t, obj.Call(nmplugin.Interface+".ConnectInteractive", 0, settings, nmplugin.VariantMap{}).Err)
++	waitForState(t, obj, nmplugin.ServiceStateStopped)
++	fake.mu.Lock()
++	defer fake.mu.Unlock()
++	require.Zero(t, fake.waitSSOCalls, "automatic lease started interactive SSO")
++	require.Empty(t, fake.upRequests)
++	controller.mu.Lock()
++	defer controller.mu.Unlock()
++	require.Contains(t, controller.operations, "NeedsLogin")
 +}
 diff --git a/internal/nmplugin/settings.go b/internal/nmplugin/settings.go
 index ea0dba9..f315ec0 100644

@@ -26,17 +26,19 @@ type Intent struct {
 	Generation uint64
 }
 type State struct {
-	Generation uint64
-	Phase      Phase
-	Error      string
+	NonInteractive bool
+	Generation     uint64
+	Phase          Phase
+	Error          string
 }
 type savedIntent struct {
-	PendingCancel        bool
-	ActivationOwner      string
-	ActivationGeneration uint64
-	Version              int
-	BootID               string
-	Intent               Intent
+	ActivationNonInteractive bool
+	PendingCancel            bool
+	ActivationOwner          string
+	ActivationGeneration     uint64
+	Version                  int
+	BootID                   string
+	Intent                   Intent
 }
 
 func loadIntent(path string) (savedIntent, error) {

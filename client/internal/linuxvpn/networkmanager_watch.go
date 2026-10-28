@@ -14,6 +14,11 @@ type sessionKey struct {
 	owner string
 	path  dbus.ObjectPath
 }
+type activationSession struct {
+	owner     string
+	automatic bool
+}
+
 type NMEvent struct {
 	Owner         string
 	Generation    uint64
@@ -31,36 +36,36 @@ func parseNMStop(signal *dbus.Signal, owner string, path dbus.ObjectPath, genera
 	}
 	return NMEvent{Owner: owner, Generation: generation, UserRequested: reason == 2}, true
 }
-func (m *Manager) trackCurrentSession(ctx context.Context, generation uint64, intent Intent) (string, error) {
-	return m.trackSession(ctx, generation, intent, false)
+func (m *Manager) trackCurrentSession(ctx context.Context, generation uint64, intent Intent) (activationSession, error) {
+	return m.trackSession(ctx, generation, intent, false, false)
 }
-func (m *Manager) reattachCurrentSession(ctx context.Context, generation uint64, intent Intent) (string, error) {
-	return m.trackSession(ctx, generation, intent, true)
+func (m *Manager) reattachCurrentSession(ctx context.Context, generation uint64, intent Intent, automatic bool) (activationSession, error) {
+	return m.trackSession(ctx, generation, intent, true, automatic)
 }
-func (m *Manager) trackSession(ctx context.Context, generation uint64, intent Intent, reattach bool) (string, error) {
+func (m *Manager) trackSession(ctx context.Context, generation uint64, intent Intent, reattach bool, restoreAutomatic bool) (activationSession, error) {
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	conn, err := dbus.ConnectSystemBus(dbus.WithContext(ctx))
 	if err != nil {
-		return "", err
+		return activationSession{}, err
 	}
 	defer conn.Close()
 	owner, err := getOwner(ctx, conn)
 	if err != nil {
-		return "", err
+		return activationSession{}, err
 	}
 	if _, err = m.profile(ctx, conn, owner); err != nil {
-		return "", err
+		return activationSession{}, err
 	}
 	path, state, err := m.active(ctx, conn, owner)
 	if err != nil {
-		return "", err
+		return activationSession{}, err
 	}
 	if path == "" {
-		return "", fmt.Errorf("нет собственного активируемого NM-сеанса Aheadscale")
+		return activationSession{}, fmt.Errorf("нет собственного активируемого NM-сеанса Aheadscale")
 	}
 	if state != 1 && state != 2 && !(reattach && state == 3) {
-		return "", fmt.Errorf("NM-сеанс Aheadscale уже отключается; новый Begin отклонён")
+		return activationSession{}, fmt.Errorf("NM-сеанс Aheadscale уже отключается; новый Begin отклонён")
 	}
 	m.trackingMu.Lock()
 	defer m.trackingMu.Unlock()
@@ -74,14 +79,25 @@ func (m *Manager) trackSession(ctx context.Context, generation uint64, intent In
 		}
 	}
 	key := sessionKey{owner, path}
-	if source, automatic := m.automatic[key]; automatic {
-		if !intent.Connected || source != intent.Generation {
-			return "", fmt.Errorf("отменённая автоматическая активация Aheadscale")
+	if restoreAutomatic {
+		if m.automatic == nil {
+			m.automatic = make(map[sessionKey]uint64)
 		}
-		delete(m.automatic, key)
+		m.automatic[key] = intent.Generation
+	}
+	source, automatic := m.automatic[key]
+	if automatic {
+		if !intent.Connected || source != intent.Generation {
+			return activationSession{}, fmt.Errorf("отменённая автоматическая активация Aheadscale")
+		}
+		if reattach {
+			m.automatic[key] = intent.Generation
+		} else {
+			m.automatic[key] = generation
+		}
 	}
 	m.tracked[sessionKey{owner, path}] = generation
-	return owner, nil
+	return activationSession{owner: owner, automatic: automatic}, nil
 }
 func (m *Manager) Watch(ctx context.Context) (<-chan NMEvent, error) {
 	conn, err := dbus.ConnectSystemBus(dbus.WithContext(ctx))

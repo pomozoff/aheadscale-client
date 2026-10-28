@@ -133,9 +133,10 @@ func (c *Controller) Run(ctx context.Context) error {
 		}
 		c.mu.Lock()
 		generation := c.saved.ActivationGeneration
+		automatic := c.saved.ActivationNonInteractive
 		c.mu.Unlock()
 		if generation != 0 && (initial.VPNActive || initial.VPNConnecting) {
-			_, _ = c.manager.reattachCurrentSession(ctx, generation, c.Intent())
+			_, _ = c.manager.reattachCurrentSession(ctx, generation, c.Intent(), automatic)
 		}
 	}
 	listener, err := listenControlSocket()

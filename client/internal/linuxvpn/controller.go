@@ -18,7 +18,7 @@ type Controller struct {
 	manager *Manager
 	daemon  proto.DaemonServiceClient
 	ready   func(context.Context) error
-	track   func(context.Context, uint64, Intent) (string, error)
+	track   func(context.Context, uint64, Intent) (activationSession, error)
 	owner   string
 	mu      sync.Mutex
 	gate    chan struct{}
@@ -44,7 +44,7 @@ func NewController(path, bootID string, autoConnect bool) (*Controller, error) {
 	if err = saveIntent(path, saved); err != nil {
 		return nil, err
 	}
-	c := &Controller{path: path, saved: saved, gate: make(chan struct{}, 1), state: State{Generation: saved.Intent.Generation, Phase: Disconnected}}
+	c := &Controller{path: path, saved: saved, gate: make(chan struct{}, 1), state: State{Generation: saved.Intent.Generation, Phase: Disconnected, NonInteractive: saved.ActivationNonInteractive}}
 	if saved.Intent.Connected {
 		c.state.Phase = Connecting
 	}
@@ -96,7 +96,7 @@ func (c *Controller) Complete(generation uint64, phase Phase) error {
 	default:
 		return fmt.Errorf("неизвестное состояние подключения")
 	}
-	c.state = State{Generation: generation, Phase: phase}
+	c.state = State{Generation: generation, Phase: phase, NonInteractive: c.state.NonInteractive}
 	return nil
 }
 

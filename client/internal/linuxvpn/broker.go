@@ -19,7 +19,7 @@ func (c *Controller) Handle(peerUID uint32, message Message) (State, error) {
 	if peerUID != 0 {
 		return State{}, fmt.Errorf("служебный канал Aheadscale доступен только root")
 	}
-	if message.Version != 1 {
+	if message.Version != 2 {
 		return State{}, fmt.Errorf("неподдерживаемая версия служебного протокола")
 	}
 	c.gate <- struct{}{}
@@ -40,6 +40,7 @@ func (c *Controller) Handle(peerUID uint32, message Message) (State, error) {
 		next.PendingCancel = false
 		next.ActivationOwner = c.owner
 		next.ActivationGeneration = next.Intent.Generation
+		automatic := false
 		if c.track != nil {
 			c.mu.Unlock()
 			owner, err := c.track(context.Background(), next.Intent.Generation, c.saved.Intent)
@@ -47,13 +48,15 @@ func (c *Controller) Handle(peerUID uint32, message Message) (State, error) {
 			if err != nil {
 				return State{}, err
 			}
-			next.ActivationOwner = owner
+			next.ActivationOwner = owner.owner
+			automatic = owner.automatic
 		}
+		next.ActivationNonInteractive = automatic
 		if err := saveIntent(c.path, next); err != nil {
 			return State{}, err
 		}
 		c.saved = next
-		c.state = State{Generation: next.Intent.Generation, Phase: Connecting}
+		c.state = State{Generation: next.Intent.Generation, Phase: Connecting, NonInteractive: automatic}
 		if c.prepare != nil {
 			c.mu.Unlock()
 			err := c.prepare(context.Background(), next.Intent.Generation)
@@ -68,6 +71,10 @@ func (c *Controller) Handle(peerUID uint32, message Message) (State, error) {
 		if message.Generation != c.saved.Intent.Generation {
 			return State{}, fmt.Errorf("устаревшая отмена подключения")
 		}
+		phase := Connecting
+		if c.state.Phase == NeedsLogin {
+			phase = NeedsLogin
+		}
 		next := c.saved
 		// Disconnect() also runs while NetworkManager itself shuts down.
 		// Invalidate the attempt, but only a verified NM user event changes intent.
@@ -77,7 +84,7 @@ func (c *Controller) Handle(peerUID uint32, message Message) (State, error) {
 			return State{}, err
 		}
 		c.saved = next
-		c.state = State{Generation: next.Intent.Generation, Phase: Connecting}
+		c.state = State{Generation: next.Intent.Generation, Phase: phase, NonInteractive: c.state.NonInteractive}
 		if c.down != nil {
 			c.mu.Unlock()
 			err := c.down(context.Background())
@@ -87,7 +94,9 @@ func (c *Controller) Handle(peerUID uint32, message Message) (State, error) {
 				return State{}, err
 			}
 		}
-		c.state.Phase = Disconnected
+		if phase != NeedsLogin {
+			c.state.Phase = Disconnected
+		}
 	case "Complete":
 		if message.Phase == Connected && c.ready != nil {
 			c.mu.Unlock()
@@ -105,7 +114,7 @@ func (c *Controller) Handle(peerUID uint32, message Message) (State, error) {
 		default:
 			return State{}, fmt.Errorf("неизвестное состояние подключения")
 		}
-		c.state = State{Generation: message.Generation, Phase: message.Phase}
+		c.state = State{Generation: message.Generation, Phase: message.Phase, NonInteractive: c.state.NonInteractive}
 	default:
 		return State{}, fmt.Errorf("неизвестная служебная операция")
 	}

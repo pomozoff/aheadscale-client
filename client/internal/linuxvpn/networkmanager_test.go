@@ -123,10 +123,10 @@ func TestManagerCommandsUseOwnedNMProfile(t *testing.T) {
 		t.Fatal(createErr)
 	}
 	controller.track = m.trackCurrentSession
-	if _, lateErr := controller.Handle(0, Message{Version: 1, Operation: "Begin"}); lateErr == nil || controller.Intent().Connected {
+	if _, lateErr := controller.Handle(0, Message{Version: 2, Operation: "Begin"}); lateErr == nil || controller.Intent().Connected {
 		t.Fatal("late Begin revived a deactivating connection")
 	}
-	if _, reattachErr := m.reattachCurrentSession(context.Background(), 1, controller.Intent()); reattachErr != nil {
+	if _, reattachErr := m.reattachCurrentSession(context.Background(), 1, controller.Intent(), false); reattachErr != nil {
 		t.Fatalf("startup cannot reattach for final OFF classification: %v", reattachErr)
 	}
 	f.mu.Lock()
@@ -151,6 +151,10 @@ func TestManagerCommandsUseOwnedNMProfile(t *testing.T) {
 	}
 	if _, err = m.trackCurrentSession(context.Background(), 3, Intent{Connected: false, Generation: 2}); err == nil {
 		t.Fatal("stale automatic path overrode OFF")
+	}
+	lease, err := m.trackCurrentSession(context.Background(), 4, Intent{Connected: true, Generation: 1})
+	if err != nil || !lease.automatic {
+		t.Fatalf("automatic activation lost trusted provenance: %+v %v", lease, err)
 	}
 	if err = m.SetConnected(context.Background(), false); err != nil {
 		t.Fatal(err)
