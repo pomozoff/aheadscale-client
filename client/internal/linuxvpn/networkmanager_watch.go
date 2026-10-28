@@ -32,6 +32,12 @@ func parseNMStop(signal *dbus.Signal, owner string, path dbus.ObjectPath, genera
 	return NMEvent{Owner: owner, Generation: generation, UserRequested: reason == 2}, true
 }
 func (m *Manager) trackCurrentSession(ctx context.Context, generation uint64, intent Intent) (string, error) {
+	return m.trackSession(ctx, generation, intent, false)
+}
+func (m *Manager) reattachCurrentSession(ctx context.Context, generation uint64, intent Intent) (string, error) {
+	return m.trackSession(ctx, generation, intent, true)
+}
+func (m *Manager) trackSession(ctx context.Context, generation uint64, intent Intent, reattach bool) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	conn, err := dbus.ConnectSystemBus(dbus.WithContext(ctx))
@@ -46,12 +52,15 @@ func (m *Manager) trackCurrentSession(ctx context.Context, generation uint64, in
 	if _, err = m.profile(ctx, conn, owner); err != nil {
 		return "", err
 	}
-	path, _, err := m.active(ctx, conn, owner)
+	path, state, err := m.active(ctx, conn, owner)
 	if err != nil {
 		return "", err
 	}
 	if path == "" {
 		return "", fmt.Errorf("нет собственного активируемого NM-сеанса Aheadscale")
+	}
+	if state != 1 && state != 2 && !(reattach && state == 3) {
+		return "", fmt.Errorf("NM-сеанс Aheadscale уже отключается; новый Begin отклонён")
 	}
 	m.trackingMu.Lock()
 	defer m.trackingMu.Unlock()

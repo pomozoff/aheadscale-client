@@ -135,7 +135,7 @@ func (c *Controller) Run(ctx context.Context) error {
 		generation := c.saved.ActivationGeneration
 		c.mu.Unlock()
 		if generation != 0 && (initial.VPNActive || initial.VPNConnecting) {
-			_, _ = c.manager.trackCurrentSession(ctx, generation, c.Intent())
+			_, _ = c.manager.reattachCurrentSession(ctx, generation, c.Intent())
 		}
 	}
 	listener, err := listenControlSocket()

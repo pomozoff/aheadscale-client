@@ -19,6 +19,7 @@ type fixtureNM struct {
 	mu       sync.Mutex
 	settings connectionSettings
 	active   bool
+	state    uint32
 	calls    []string
 }
 
@@ -65,7 +66,11 @@ func (f *fixtureNM) GetAll(iface string) (map[string]dbus.Variant, *dbus.Error) 
 		}
 		return map[string]dbus.Variant{"ActiveConnections": dbus.MakeVariant(paths)}, nil
 	}
-	return map[string]dbus.Variant{"Uuid": f.settings["connection"]["uuid"], "State": dbus.MakeVariant(uint32(2))}, nil
+	state := f.state
+	if state == 0 {
+		state = 2
+	}
+	return map[string]dbus.Variant{"Uuid": f.settings["connection"]["uuid"], "State": dbus.MakeVariant(state)}, nil
 }
 func TestManagerCommandsUseOwnedNMProfile(t *testing.T) {
 	cmd := exec.Command("dbus-daemon", "--session", "--nofork", "--print-address=1", "--address=unix:path="+filepath.Join(t.TempDir(), "bus"))
@@ -108,6 +113,26 @@ func TestManagerCommandsUseOwnedNMProfile(t *testing.T) {
 	if err = m.EnsureProfile(context.Background()); err != nil {
 		t.Fatal(err)
 	}
+	// A delayed plugin Begin must not turn a user-cancelled NM session ON.
+	f.mu.Lock()
+	f.active = true
+	f.state = 3
+	f.mu.Unlock()
+	controller, createErr := NewController(filepath.Join(t.TempDir(), "intent"), "boot", false)
+	if createErr != nil {
+		t.Fatal(createErr)
+	}
+	controller.track = m.trackCurrentSession
+	if _, lateErr := controller.Handle(0, Message{Version: 1, Operation: "Begin"}); lateErr == nil || controller.Intent().Connected {
+		t.Fatal("late Begin revived a deactivating connection")
+	}
+	if _, reattachErr := m.reattachCurrentSession(context.Background(), 1, controller.Intent()); reattachErr != nil {
+		t.Fatalf("startup cannot reattach for final OFF classification: %v", reattachErr)
+	}
+	f.mu.Lock()
+	f.active = false
+	f.state = 0
+	f.mu.Unlock()
 	if err = m.Connect(context.Background()); err != nil {
 		t.Fatal(err)
 	}
