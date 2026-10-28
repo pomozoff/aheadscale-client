@@ -290,3 +290,26 @@ func (m *Manager) Connect(ctx context.Context) error {
 }
 
 func (m *Manager) ManagementURL() string { return m.receipt.ManagementURL }
+
+// RemoveProfile never selects by display name. Missing owned UUID is harmless;
+// an edited service, endpoint, or UUID is an explicit refusal before Delete.
+func (m *Manager) RemoveProfile(ctx context.Context) error {
+	conn, err := dbus.ConnectSystemBus(dbus.WithContext(ctx))
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	owner, err := getOwner(ctx, conn)
+	if err != nil {
+		return err
+	}
+	profile, err := m.profile(ctx, conn, owner)
+	if err != nil {
+		var missing dbus.Error
+		if errors.As(err, &missing) && missing.Name == nmDest+".Settings.InvalidConnection" {
+			return nil
+		}
+		return err
+	}
+	return conn.Object(owner, profile).CallWithContext(ctx, nmDest+".Settings.Connection.Delete", 0).Err
+}

@@ -1,4 +1,4 @@
-//go:build !windows || !windowsvpnprototype
+//go:build (!linux || android) && (!windows || !windowsvpnprototype)
 
 package server
 

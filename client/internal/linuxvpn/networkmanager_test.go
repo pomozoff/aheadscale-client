@@ -136,8 +136,20 @@ func TestManagerCommandsUseOwnedNMProfile(t *testing.T) {
 	if err = m.SetConnected(context.Background(), true); err == nil {
 		t.Fatal("activated foreign profile")
 	}
+	if err = m.RemoveProfile(context.Background()); err == nil {
+		t.Fatal("removed foreign profile")
+	}
+	f.mu.Lock()
+	f.settings = profileSettings(id, "https://aheadscale.ru", "https://aheadscale.ru")
+	f.mu.Unlock()
+	if err = m.RemoveProfile(context.Background()); err != nil {
+		t.Fatal(err)
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if !f.missing {
+		t.Fatal("profile not deleted")
+	}
 	if f.creates != 1 {
 		t.Fatalf("profile recreated %d times", f.creates)
 	}
@@ -153,4 +165,11 @@ func (f *fixtureNM) AddConnection(settings connectionSettings) (dbus.ObjectPath,
 	f.settings = settings
 	f.missing = false
 	return "/settings/aheadscale", nil
+}
+
+func (f *fixtureNM) Delete() *dbus.Error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.missing = true
+	return nil
 }

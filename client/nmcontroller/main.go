@@ -28,6 +28,18 @@ func run() error {
 	if os.Geteuid() != 0 {
 		return fmt.Errorf("контроллер Aheadscale требует root")
 	}
+	if len(os.Args) > 1 {
+		if len(os.Args) != 2 || os.Args[1] != "--remove-profile" {
+			return fmt.Errorf("неизвестная операция контроллера Aheadscale")
+		}
+		manager, err := linuxvpn.NewInstalledManager()
+		if err != nil {
+			return err
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		return manager.RemoveProfile(ctx)
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 	target, options := daemonaddr.DialTarget("unix:///var/run/aheadscale.sock")

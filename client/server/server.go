@@ -1021,6 +1021,11 @@ func (s *Server) Up(callerCtx context.Context, msg *proto.UpRequest) (*proto.UpR
 		return nil, err
 	}
 	defer release()
+	if !s.nativeNetworkManager {
+		if err := clearStartupHandover(); err != nil {
+			return nil, err
+		}
+	}
 	return s.up(callerCtx, msg, release)
 }
 func (s *Server) up(callerCtx context.Context, msg *proto.UpRequest, release func()) (*proto.UpResponse, error) {
