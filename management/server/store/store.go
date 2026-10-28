@@ -80,6 +80,7 @@ type Store interface {
 	GetAccountByPrivateDomain(ctx context.Context, domain string) (*types.Account, error)
 	GetAccountIDByPrivateDomain(ctx context.Context, lockStrength LockingStrength, domain string) (string, error)
 	GetAccountSettings(ctx context.Context, lockStrength LockingStrength, accountID string) (*types.Settings, error)
+	GetAccountDeviceQuota(ctx context.Context, lockStrength LockingStrength, accountID string) (*types.AccountDeviceQuota, error)
 	GetAccountDNSSettings(ctx context.Context, lockStrength LockingStrength, accountID string) (*types.DNSSettings, error)
 	GetAccountCreatedBy(ctx context.Context, lockStrength LockingStrength, accountID string) (string, error)
 	SaveAccount(ctx context.Context, account *types.Account) error

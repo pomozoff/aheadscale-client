@@ -74,7 +74,7 @@ func (s *SqlStore) SaveAccount(ctx context.Context, account *types.Account) erro
 		if result.Error != nil {
 			return result.Error
 		}
-		return nil
+		return initializeAccountDeviceQuota(ctx, tx, account.Id)
 	})
 
 	took := time.Since(start)
@@ -147,6 +147,10 @@ func (s *SqlStore) DeleteAccount(ctx context.Context, account *types.Account) er
 	start := time.Now()
 
 	err := s.transaction(func(tx *gorm.DB) error {
+		if err := tx.Where(accountIDCondition, account.Id).Delete(&types.AccountDeviceQuota{}).Error; err != nil {
+			return err
+		}
+
 		result := tx.Select(clause.Associations).Delete(account.Policies, "account_id = ?", account.Id)
 		if result.Error != nil {
 			return result.Error

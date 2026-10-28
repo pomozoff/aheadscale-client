@@ -1149,6 +1149,21 @@ func (mr *MockStoreMockRecorder) GetAccountDNSSettings(ctx, lockStrength, accoun
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAccountDNSSettings", reflect.TypeOf((*MockStore)(nil).GetAccountDNSSettings), ctx, lockStrength, accountID)
 }
 
+// GetAccountDeviceQuota mocks base method.
+func (m *MockStore) GetAccountDeviceQuota(ctx context.Context, lockStrength LockingStrength, accountID string) (*types3.AccountDeviceQuota, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAccountDeviceQuota", ctx, lockStrength, accountID)
+	ret0, _ := ret[0].(*types3.AccountDeviceQuota)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAccountDeviceQuota indicates an expected call of GetAccountDeviceQuota.
+func (mr *MockStoreMockRecorder) GetAccountDeviceQuota(ctx, lockStrength, accountID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAccountDeviceQuota", reflect.TypeOf((*MockStore)(nil).GetAccountDeviceQuota), ctx, lockStrength, accountID)
+}
+
 // GetAccountDomainAndCategory mocks base method.
 func (m *MockStore) GetAccountDomainAndCategory(ctx context.Context, lockStrength LockingStrength, accountID string) (string, string, error) {
 	m.ctrl.T.Helper()
@@ -2177,7 +2192,7 @@ func (m *MockStore) GetNetworkResourceByIDOrPublicID(ctx context.Context, lockSt
 }
 
 // GetNetworkResourceByIDOrPublicID indicates an expected call of GetNetworkResourceByIDOrPublicID.
-func (mr *MockStoreMockRecorder) GetNetworkResourceByIDOrPublicID(ctx, lockStrength, accountID, resourceID interface{}) *gomock.Call {
+func (mr *MockStoreMockRecorder) GetNetworkResourceByIDOrPublicID(ctx, lockStrength, accountID, resourceID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworkResourceByIDOrPublicID", reflect.TypeOf((*MockStore)(nil).GetNetworkResourceByIDOrPublicID), ctx, lockStrength, accountID, resourceID)
 }
@@ -2522,7 +2537,7 @@ func (m *MockStore) GetPolicyByIDOrPublicID(ctx context.Context, lockStrength Lo
 }
 
 // GetPolicyByIDOrPublicID indicates an expected call of GetPolicyByIDOrPublicID.
-func (mr *MockStoreMockRecorder) GetPolicyByIDOrPublicID(ctx, lockStrength, accountID, policyID interface{}) *gomock.Call {
+func (mr *MockStoreMockRecorder) GetPolicyByIDOrPublicID(ctx, lockStrength, accountID, policyID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPolicyByIDOrPublicID", reflect.TypeOf((*MockStore)(nil).GetPolicyByIDOrPublicID), ctx, lockStrength, accountID, policyID)
 }
@@ -2717,7 +2732,7 @@ func (m *MockStore) GetRouteByIDOrPublicID(ctx context.Context, lockStrength Loc
 }
 
 // GetRouteByIDOrPublicID indicates an expected call of GetRouteByIDOrPublicID.
-func (mr *MockStoreMockRecorder) GetRouteByIDOrPublicID(ctx, lockStrength, accountID, routeID interface{}) *gomock.Call {
+func (mr *MockStoreMockRecorder) GetRouteByIDOrPublicID(ctx, lockStrength, accountID, routeID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRouteByIDOrPublicID", reflect.TypeOf((*MockStore)(nil).GetRouteByIDOrPublicID), ctx, lockStrength, accountID, routeID)
 }

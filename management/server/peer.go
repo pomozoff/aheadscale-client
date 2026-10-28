@@ -895,8 +895,12 @@ func (am *DefaultAccountManager) AddPeer(ctx context.Context, accountID, setupKe
 				if err != nil {
 					return err
 				}
-				if len(registered) >= 5 && !slices.Contains(strings.Fields(os.Getenv("AS_UNLIMITED_DEVICE_ACCOUNT_IDS")), accountID) {
-					return status.Errorf(status.PermissionDenied, "Aheadscale Free supports up to 5 registered devices; remove a device before adding another")
+				quota, err := transaction.GetAccountDeviceQuota(ctx, store.LockingStrengthUpdate, accountID)
+				if err != nil {
+					return err
+				}
+				if quota.MaxDevices != nil && int64(len(registered)) >= *quota.MaxDevices {
+					return status.Errorf(status.PermissionDenied, "Aheadscale account supports up to %d registered devices; remove a device before adding another", *quota.MaxDevices)
 				}
 			}
 			err = transaction.AddPeerToAccount(ctx, newPeer)

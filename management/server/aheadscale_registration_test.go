@@ -25,6 +25,7 @@ func TestAheadscaleRegistrationIsolation(t *testing.T) {
 	t.Setenv("AS_SELF_REGISTRATION", "true")
 	manager, _, err := createManagerWithEmbeddedIdPMode(t, "netbird.selfhosted")
 	require.NoError(t, err)
+	configureRegistrationDeviceQuota(t, manager, 5)
 	require.False(t, manager.singleAccountMode, "public signup must never join the self-hosted owner account")
 	embedded := manager.idpManager.(*idp.EmbeddedIdPManager)
 	handler := registration.NewHandler("https://aheadscale.ru/oauth2", embedded, func(ctx context.Context, user *idp.UserData) error {
@@ -80,6 +81,7 @@ func TestAheadscaleDeviceLimit(t *testing.T) {
 	t.Setenv("AS_SELF_REGISTRATION", "true")
 	manager, _, err := createManagerWithEmbeddedIdPMode(t, "")
 	require.NoError(t, err)
+	configureRegistrationDeviceQuota(t, manager, 5)
 	user, err := manager.idpManager.(*idp.EmbeddedIdPManager).CreateUserWithPassword(context.Background(), "quota@example.com", "correct-horse-123", "quota")
 	require.NoError(t, err)
 	account, err := manager.GetOrCreateAccountByUser(context.Background(), auth.UserAuth{UserId: user.ID, Email: user.Email, Name: user.Name})
@@ -119,6 +121,7 @@ func TestAheadscaleSocialAccountIsolation(t *testing.T) {
 	t.Setenv("AS_SELF_REGISTRATION", "true")
 	manager, _, err := createManagerWithEmbeddedIdPMode(t, "")
 	require.NoError(t, err)
+	configureRegistrationDeviceQuota(t, manager, 5)
 	accounts := make(map[string]bool)
 	for _, provider := range []string{"local", "vkid", "mailru", "ok", "yandex"} {
 		claims := auth.UserAuth{UserId: dex.EncodeDexUserID("same-provider-id", provider), Email: "same@example.test", Name: provider}
@@ -133,11 +136,12 @@ func TestAheadscaleSocialAccountIsolation(t *testing.T) {
 	require.Len(t, accounts, 5)
 }
 
-// Guards against granting an unlimited quota to every account or matching an ID prefix.
-func TestAheadscaleUnlimitedDeviceAccountIsolation(t *testing.T) {
+// Guards against leaking an operator quota to another account or honoring the obsolete env.
+func TestAheadscaleAccountDeviceQuotaIsolation(t *testing.T) {
 	t.Setenv("AS_SELF_REGISTRATION", "true")
 	manager, _, err := createManagerWithEmbeddedIdPMode(t, "")
 	require.NoError(t, err)
+	configureRegistrationDeviceQuota(t, manager, 5)
 	ctx := context.Background()
 	type owner struct{ userID, accountID string }
 	var owners []owner
@@ -148,7 +152,8 @@ func TestAheadscaleUnlimitedDeviceAccountIsolation(t *testing.T) {
 		require.NoError(t, err)
 		owners = append(owners, owner{user.ID, account.Id})
 	}
-	t.Setenv("AS_UNLIMITED_DEVICE_ACCOUNT_IDS", " \t"+owners[1].accountID+"-other "+owners[0].accountID+"\n")
+	require.NoError(t, manager.Store.(*store.SqlStore).GetDB().Exec("UPDATE account_device_quotas SET max_devices=NULL WHERE account_id=?", owners[0].accountID).Error)
+	t.Setenv("AS_UNLIMITED_DEVICE_ACCOUNT_IDS", owners[1].accountID)
 	for index, owner := range owners {
 		for i := 0; i < 7; i++ {
 			key, err := wgtypes.GeneratePrivateKey()
@@ -171,8 +176,8 @@ func TestAheadscaleUnlimitedDeviceAccountIsolation(t *testing.T) {
 			require.Len(t, peers, 5)
 		}
 	}
-	// Removing the explicit exception must restore the same quota for further enrollment.
-	t.Setenv("AS_UNLIMITED_DEVICE_ACCOUNT_IDS", "")
+	// Lowering the database quota blocks new enrollment without deleting existing devices.
+	require.NoError(t, manager.Store.(*store.SqlStore).GetDB().Exec("UPDATE account_device_quotas SET max_devices=? WHERE account_id=?", 5, owners[0].accountID).Error)
 	key, err := wgtypes.GeneratePrivateKey()
 	require.NoError(t, err)
 	_, _, _, _, err = manager.AddPeer(ctx, owners[0].accountID, "", owners[0].userID, &nbpeer.Peer{Key: key.PublicKey().String(), Meta: nbpeer.PeerSystemMeta{Hostname: "after-removal"}}, false)
@@ -180,4 +185,55 @@ func TestAheadscaleUnlimitedDeviceAccountIsolation(t *testing.T) {
 	peers, err := manager.Store.GetAccountPeers(ctx, store.LockingStrengthNone, owners[0].accountID, "", "")
 	require.NoError(t, err)
 	require.Len(t, peers, 7, "removing the exception must not delete existing devices")
+}
+
+// A database quota must replace both the fixed free limit and the legacy env exception.
+func TestAheadscaleDatabaseDeviceLimit(t *testing.T) {
+	t.Setenv("AS_SELF_REGISTRATION", "true")
+	manager, _, err := createManagerWithEmbeddedIdPMode(t, "")
+	require.NoError(t, err)
+	ctx := context.Background()
+	db := manager.Store.(*store.SqlStore).GetDB()
+	require.NoError(t, db.Exec("CREATE TABLE IF NOT EXISTS device_quota_policies (id TEXT NOT NULL PRIMARY KEY, max_devices INTEGER CONSTRAINT device_quota_policy_nonnegative CHECK (max_devices IS NULL OR max_devices >= 0))").Error)
+	require.NoError(t, db.Exec("CREATE TABLE IF NOT EXISTS account_device_quotas (account_id TEXT NOT NULL PRIMARY KEY, max_devices INTEGER CONSTRAINT account_device_quota_nonnegative CHECK (max_devices IS NULL OR max_devices >= 0))").Error)
+	require.NoError(t, db.Exec("INSERT INTO device_quota_policies (id,max_devices) VALUES (?,?)", "registration", 2).Error)
+	user, err := manager.idpManager.(*idp.EmbeddedIdPManager).CreateUserWithPassword(ctx, "database-quota@example.test", "correct-horse-123", "database quota")
+	require.NoError(t, err)
+	account, err := manager.GetOrCreateAccountByUser(ctx, auth.UserAuth{UserId: user.ID, Email: user.Email, Name: user.Name})
+	require.NoError(t, err)
+	require.NoError(t, db.Exec("INSERT INTO account_device_quotas (account_id,max_devices) VALUES (?,?) ON CONFLICT(account_id) DO UPDATE SET max_devices=excluded.max_devices", account.Id, 2).Error)
+	t.Setenv("AS_UNLIMITED_DEVICE_ACCOUNT_IDS", account.Id)
+	add := func(index int) error {
+		key, err := wgtypes.GeneratePrivateKey()
+		if err != nil {
+			return err
+		}
+		_, _, _, _, err = manager.AddPeer(ctx, account.Id, "", user.ID, &nbpeer.Peer{Key: key.PublicKey().String(), Meta: nbpeer.PeerSystemMeta{Hostname: fmt.Sprintf("database-device-%d", index)}}, false)
+		return err
+	}
+	require.NoError(t, add(0))
+	require.NoError(t, add(1))
+	require.ErrorContains(t, add(2), "2 registered devices")
+	require.NoError(t, db.Exec("UPDATE account_device_quotas SET max_devices=? WHERE account_id=?", 4, account.Id).Error)
+	require.NoError(t, add(2))
+	require.NoError(t, add(3))
+	require.ErrorContains(t, add(4), "4 registered devices")
+	require.NoError(t, db.Exec("UPDATE account_device_quotas SET max_devices=NULL WHERE account_id=?", account.Id).Error)
+	require.NoError(t, add(4))
+	require.NoError(t, add(5))
+	require.NoError(t, db.Exec("UPDATE account_device_quotas SET max_devices=0 WHERE account_id=?", account.Id).Error)
+	require.ErrorContains(t, add(6), "0 registered devices")
+	peers, err := manager.Store.GetAccountPeers(ctx, store.LockingStrengthNone, account.Id, "", "")
+	require.NoError(t, err)
+	require.Len(t, peers, 6)
+	require.NoError(t, db.Exec("DELETE FROM account_device_quotas WHERE account_id=?", account.Id).Error)
+	require.ErrorContains(t, add(6), "device quota")
+	peers, err = manager.Store.GetAccountPeers(ctx, store.LockingStrengthNone, account.Id, "", "")
+	require.NoError(t, err)
+	require.Len(t, peers, 6)
+}
+
+func configureRegistrationDeviceQuota(t *testing.T, manager *DefaultAccountManager, maximum int64) {
+	t.Helper()
+	require.NoError(t, manager.Store.(*store.SqlStore).GetDB().Exec("INSERT INTO device_quota_policies (id,max_devices) VALUES (?,?) ON CONFLICT(id) DO UPDATE SET max_devices=excluded.max_devices", "registration", maximum).Error)
 }
