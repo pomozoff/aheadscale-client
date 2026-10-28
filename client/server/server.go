@@ -1308,8 +1308,23 @@ func (s *Server) SwitchProfile(callerCtx context.Context, msg *proto.SwitchProfi
 
 // Down engine work in the daemon.
 func (s *Server) Down(ctx context.Context, _ *proto.DownRequest) (*proto.DownResponse, error) {
-	s.mutex.Lock()
+	return s.down(nil, nil)
+}
 
+// onSystemDisconnect accepts only the currently running ConnectClient. An event
+// queued by a previous engine must never stop a subsequent Up or profile switch,
+// including the window before its goroutine installs a new client pointer.
+func (s *Server) onSystemDisconnect(client *internal.ConnectClient, generation <-chan struct{}) error {
+	_, err := s.down(client, generation)
+	return err
+}
+
+func (s *Server) down(expected *internal.ConnectClient, generation <-chan struct{}) (*proto.DownResponse, error) {
+	s.mutex.Lock()
+	if expected != nil && (s.connectClient != expected || !s.clientRunning || s.clientRunningChan != generation) {
+		s.mutex.Unlock()
+		return &proto.DownResponse{}, nil
+	}
 	giveUpChan := s.clientGiveUpChan
 
 	if err := s.cleanupConnection(); err != nil {
@@ -1342,6 +1357,13 @@ func (s *Server) Down(ctx context.Context, _ *proto.DownRequest) (*proto.DownRes
 	// Setting it earlier races with the goroutine's own Set(StatusConnecting)
 	// at the top of each retry attempt, which would leave the snapshot
 	// stuck at Connecting long after the user asked to disconnect.
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	// A concurrent Up owns a new retry goroutine; the old Down must not clear
+	// its Connected/Connecting state after waiting for the previous goroutine.
+	if s.clientRunning || s.clientGiveUpChan != giveUpChan {
+		return &proto.DownResponse{}, nil
+	}
 	internal.CtxGetState(s.rootCtx).Set(internal.StatusIdle)
 
 	// Clear stale management/signal errors so the next Up() (typically for a
@@ -2538,7 +2560,12 @@ func (s *Server) checkDisableAdvancedView() *bool {
 
 func (s *Server) connect(ctx context.Context, config *profilemanager.Config, statusRecorder *peer.Status, runningChan chan struct{}) error {
 	log.Tracef("running client connection")
-	client := internal.NewConnectClient(ctx, config, statusRecorder)
+	var client *internal.ConnectClient
+	client = internal.NewConnectClient(ctx, config, statusRecorder, internal.WithSystemDisconnect(func() {
+		if err := s.onSystemDisconnect(client, runningChan); err != nil {
+			log.Warnf("system disconnect cleanup: %v", err)
+		}
+	}))
 	client.SetUpdateManager(s.updateManager)
 	client.SetSyncResponsePersistence(s.persistSyncResponse)
 

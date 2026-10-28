@@ -31,7 +31,7 @@ jobs:
       - name: Проверки DNS и остановки Linux-клиента
         env:
           DBUS_SYSTEM_BUS_ADDRESS: unix:path=/tmp/aheadscale-unit-no-system-bus
-        run: go test -race -tags devcert ./client/internal/dns ./client/internal
+        run: go test -race -tags devcert ./client/internal/dns ./client/internal ./client/server
       - name: Preview updater policy
         run: go test ./client/internal/updater -run TestAheadscale -count=1
       - name: Регрессия завершения GUI при обновлении macOS

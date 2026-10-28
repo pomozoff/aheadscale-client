@@ -72,6 +72,7 @@ type ConnectClient struct {
 	updateManager *updater.Manager
 
 	persistSyncResponse bool
+	onSystemDisconnect  func()
 
 	// netMgr gates every reconnection loop on OS-reported network
 	// availability and sweeps connections on network change.
@@ -84,6 +85,13 @@ type ConnectClientOption func(*ConnectClient)
 // WithNetEvents injects the OS network event handling.
 func WithNetEvents(events *netevents.Manager) ConnectClientOption {
 	return func(c *ConnectClient) { c.netMgr = events }
+}
+
+// WithSystemDisconnect notifies the daemon owner after a system VPN OFF command.
+// It must be supplied before Run and is invoked asynchronously to allow Down
+// to wait for Run's teardown without waiting on its own goroutine.
+func WithSystemDisconnect(handler func()) ConnectClientOption {
+	return func(c *ConnectClient) { c.onSystemDisconnect = handler }
 }
 
 func NewConnectClient(
@@ -479,7 +487,11 @@ func (c *ConnectClient) run(mobileDependency MobileDependency, runningChan chan 
 			}
 		}
 
-		<-engineCtx.Done()
+		systemDisconnect, err := dns.WatchNetworkManagerDisconnect(engineCtx, c.config.WgIface)
+		if err != nil {
+			log.Warnf("watch NetworkManager disconnect: %v", err)
+		}
+		systemDisconnected := c.waitForEngine(engineCtx, systemDisconnect)
 
 		c.engineMutex.Lock()
 		c.engine = nil
@@ -491,6 +503,9 @@ func (c *ConnectClient) run(mobileDependency MobileDependency, runningChan chan 
 			log.Errorf("Failed to stop engine: %v", err)
 		}
 		c.statusRecorder.ClientTeardown()
+		if systemDisconnected && c.onSystemDisconnect == nil {
+			state.Set(StatusIdle)
+		}
 
 		backOff.Reset()
 
@@ -528,6 +543,26 @@ func (c *ConnectClient) run(mobileDependency MobileDependency, runningChan chan 
 		return err
 	}
 	return nil
+}
+
+// waitForEngine translates a system OFF command into cancellation of all retry
+// loops. An already-cancelled engine belongs to normal teardown/restart and must
+// not change the daemon's connection intent.
+func (c *ConnectClient) waitForEngine(engineCtx context.Context, systemDisconnect <-chan struct{}) bool {
+	select {
+	case <-engineCtx.Done():
+		return false
+	case <-systemDisconnect:
+		if engineCtx.Err() != nil {
+			return false
+		}
+		log.Info("Aheadscale disconnected from the system network menu")
+		c.runCancel()
+		if c.onSystemDisconnect != nil {
+			go c.onSystemDisconnect()
+		}
+		return true
+	}
 }
 
 func parseRelayInfo(loginResp *mgmProto.LoginResponse) ([]string, *hmac.Token) {

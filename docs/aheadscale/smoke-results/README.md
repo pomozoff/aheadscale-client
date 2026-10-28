@@ -6,6 +6,7 @@
 
 | Отчёт | Подтверждённое | Ограничение |
 | --- | --- | --- |
+| [28.10 RG42 `.26`](2026-10-28-rg42-networkmanager-disconnect.md) | Два системных OFF Fedora x64, GUI/CLI Down/Up, restart, 36 HTTP/DNS и race-тесты; Linux без NM работает | Локальная замена демона, GUI `.24`; новые пакеты/Ubuntu Desktop/Fedora ARM64 и полный R05 открыты |
 | [28.10 Fedora 44 x64 `.24.1`](2026-10-28-fedora44-x64-acceptance24-1.md) | Чистый Desktop, базовые GUI/CLI, 78 HTTP/DNS, legacy-переходы, состояния службы, reinstall и CLI/Desktop reboot | RG42 системного Disconnect FAIL, RG38; полный прогон/подписи открыты |
 | [Ранние сборки](../preview-report.md), [исходные CI](../acceptance.md) | Компиляция/архитектура/упаковка; частичный Ubuntu GNOME | CI не заменяет чистую ВМ |
 | [19.10 Ubuntu KDE](2026-10-19-ubuntu26-arm64-kde.md) | Ubuntu 26 ARM64, локальный цикл; повтор оформления `.7` | Сеанс общей Ubuntu; сначала без второго узла |

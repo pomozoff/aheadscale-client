@@ -75,3 +75,5 @@ C15/RG39: фиксировать поведение up с параметрами
 ## Fedora x64: 28 октября
 
 [Прогон `.24.1`](smoke-results/2026-10-28-fedora44-x64-acceptance24-1.md): версия/справки, Device Authorization вход, статусы JSON/YAML/адреса, три положительных health-check, start/stop/restart, upgrade/варианты/reinstall, headless reboot и 78 HTTP/DNS проверены в описанных случаях. Непривилегированный service start воспроизводит RG38; после системного Disconnect status даёт ложный Connected (RG42). Это не полный C01–C24 и не чистая CLI-установка. Команды update в справке этой preview-сборки нет.
+
+Продолжение 28 октября: [исправление RG42 `.26`](smoke-results/2026-10-28-rg42-networkmanager-disconnect.md) — системный OFF согласован с GUI/CLI на Fedora x64, два повтора, обычные Down/Up и restart прошли; 36 HTTP/DNS. Демон `.26`, прежний GUI `.24`. R05 целиком и новый установщик этим прогоном не приняты.
