@@ -167,7 +167,7 @@ func newRotatedOutput(logPath string) io.Writer {
 func setGRPCLibLogger(logger *log.Logger) {
 	logOut := logger.Writer()
 	if os.Getenv("GRPC_GO_LOG_SEVERITY_LEVEL") != "info" {
-		grpclog.SetLoggerV2(grpclog.NewLoggerV2(io.Discard, logOut, logOut))
+		runtimeGRPCLogger.replace(grpclog.NewLoggerV2(io.Discard, logOut, logOut), logOut)
 		return
 	}
 
@@ -177,7 +177,7 @@ func setGRPCLibLogger(logger *log.Logger) {
 		v = vl
 	}
 
-	grpclog.SetLoggerV2(grpclog.NewLoggerV2WithVerbosity(logOut, logOut, logOut, v))
+	runtimeGRPCLogger.replace(grpclog.NewLoggerV2WithVerbosity(logOut, logOut, logOut, v), logOut)
 }
 
 func getLogMaxSize() int {
