@@ -12,6 +12,12 @@ import (
 
 // ConfigureNetworkManagerInterface waits for desktop network visibility before applying DNS.
 func ConfigureNetworkManagerInterface(ifaceName string) error {
+	return ConfigureNetworkManagerInterfaceForMode(ifaceName, false)
+}
+func ConfigureNetworkManagerInterfaceForMode(ifaceName string, native bool) error {
+	if native {
+		return nil
+	}
 	running, err := networkManagerIsRunning()
 	if err != nil {
 		return err

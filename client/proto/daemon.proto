@@ -859,6 +859,8 @@ message WailsUIReadyResponse {}
 message GetFeaturesRequest{}
 
 message GetFeaturesResponse{
+  // Installed Linux Desktop service delegates activation to NetworkManager.
+  bool native_networkmanager = 5;
   bool disable_profiles = 1;
   bool disable_update_settings = 2;
   bool disable_networks = 3;

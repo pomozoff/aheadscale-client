@@ -51,6 +51,9 @@ func buildServiceArguments() []string {
 		args = append(args, "--log-file", logFile)
 	}
 
+	if nativeNetworkManager {
+		args = append(args, "--native-networkmanager")
+	}
 	if profilesDisabled {
 		args = append(args, "--disable-profiles")
 	}

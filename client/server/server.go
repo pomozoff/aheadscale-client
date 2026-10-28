@@ -123,6 +123,7 @@ type Server struct {
 	cpuProfiling  bool
 
 	profileManager         *profilemanager.ServiceManager
+	nativeNetworkManager   bool
 	profilesDisabled       bool
 	updateSettingsDisabled bool
 	captureEnabled         bool
@@ -175,7 +176,7 @@ type oauthAuthFlow struct {
 }
 
 // New server instance constructor.
-func New(ctx context.Context, logFile string, configFile string, profilesDisabled bool, updateSettingsDisabled bool, captureEnabled bool, networksDisabled bool) *Server {
+func New(ctx context.Context, logFile string, configFile string, profilesDisabled bool, updateSettingsDisabled bool, captureEnabled bool, networksDisabled bool, options ...ServerOption) *Server {
 	s := &Server{
 		rootCtx:                ctx,
 		logFile:                logFile,
@@ -189,6 +190,9 @@ func New(ctx context.Context, logFile string, configFile string, profilesDisable
 		jwtCache:               newJWTCache(),
 		extendAuthSessionFlow:  auth.NewPendingFlow(),
 		probeThrottle:          newProbeThrottle(probeThreshold),
+	}
+	for _, option := range options {
+		option(s)
 	}
 	agent := &serverAgent{s}
 	s.sleepHandler = sleephandler.New(agent)
@@ -322,7 +326,7 @@ func (s *Server) Start() error {
 
 	// В опытном Windows VPN движок запускается посредником после запроса
 	// системного профиля. До этого служба должна отвечать GUI, а не ждать TUN.
-	if !connectOnServiceStart() {
+	if !s.connectOnStart() {
 		state.Set(internal.StatusIdle)
 		return nil
 	}
@@ -2528,6 +2532,7 @@ func (s *Server) GetFeatures(ctx context.Context, msg *proto.GetFeaturesRequest)
 	defer s.mutex.Unlock()
 
 	features := &proto.GetFeaturesResponse{
+		NativeNetworkmanager:  s.nativeNetworkManager,
 		DisableProfiles:       s.checkProfilesDisabled(),
 		DisableUpdateSettings: s.checkUpdateSettingsDisabled(),
 		DisableNetworks:       s.checkNetworksDisabled(),
