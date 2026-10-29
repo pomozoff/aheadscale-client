@@ -35,8 +35,6 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-      - name: Диагностика прав системных каталогов runner
-        run: stat -c '%a %u %g %n' /usr /usr/share /usr/share/dbus-1 /usr/share/dbus-1/system.d
       - name: Контракт отчётов и запуска выбранных проверок
         run: python3 -B -m unittest discover -s testing/aheadscale -p 'test_*.py' -v
   unit:
@@ -427,6 +425,23 @@ jobs:
       - name: Linux preview installation and removal
         if: matrix.platform == 'linux'
         run: |
+          # Hosted image makes /usr/share directories world-writable. Preserve
+          # the installer's production checks; harden only this disposable VM.
+          sudo python3 - <<'PYHOST'
+          import importlib.machinery, os, pathlib, stat
+          m = importlib.machinery.SourceFileLoader('nm_lifecycle', 'packaging/aheadscale/scripts/networkmanager-lifecycle').load_module()
+          paths = set()
+          for name in m.OWNED | {m.PRIVATE, m.STATE, m.HANDOVER, m.TRANSACTION}:
+              paths.update(pathlib.Path(name).parents)
+          for path in sorted(paths):
+              if not path.exists(): continue
+              info = path.lstat()
+              if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0:
+                  raise SystemExit('Unexpected runner system directory: ' + str(path))
+              if info.st_mode & 0o022:
+                  print('Harden disposable runner directory:', path)
+                  path.chmod(stat.S_IMODE(info.st_mode) & ~0o022)
+          PYHOST
           sudo apt-get install -y ./dist/aheadscale_*_linux_${{ matrix.arch }}_internal.deb
           sudo systemctl is-active --quiet aheadscale
           aheadscale status
