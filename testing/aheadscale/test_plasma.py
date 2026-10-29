@@ -74,3 +74,24 @@ class PlasmaContract(unittest.TestCase):
                     self.builder.verify_provenance(pin,meta|changed,p,'amd64')
             p.write_bytes(bytes(header)+b'tampered')
             with self.assertRaises(ValueError):self.builder.verify_provenance(pin,meta,p,'amd64')
+
+
+class ProducerRunContract(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        spec=importlib.util.spec_from_file_location('producer',ROOT/'testing/aheadscale/plasma.py')
+        cls.builder=importlib.util.module_from_spec(spec);spec.loader.exec_module(cls.builder)
+
+    def test_only_completed_own_producer_workflow_is_accepted(self):
+        self.assertTrue(hasattr(self.builder,'validate_run'),'Нет проверки выбранного Actions run')
+        good={'id':123,'status':'completed','conclusion':'success','event':'workflow_dispatch',
+              'path':'.github/workflows/aheadscale-client.yml','head_sha':'a'*40,
+              'head_repository':{'full_name':'pomozoff/aheadscale-client'}}
+        self.assertEqual(self.builder.validate_run(good,'123'),'a'*40)
+        for changed in ({'id':124},{'status':'in_progress'},{'conclusion':'failure'},
+                        {'path':'.github/workflows/foreign.yml'},{'event':'pull_request'},
+                        {'head_sha':'latest'},{'head_repository':{'full_name':'foreign/fork'}}):
+            with self.subTest(changed=changed),self.assertRaises(ValueError):
+                self.builder.validate_run(good|changed,'123')
+        for bad in ('0','-1','123;whoami'):
+            with self.subTest(bad=bad),self.assertRaises(ValueError):self.builder.validate_run(good,bad)
