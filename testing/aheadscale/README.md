@@ -18,7 +18,9 @@ Auth-набор создаёт собственных пользователей
 proto-fixture клиента; это не имитация рабочего VPN. Plasma/GTK CTest и live lab
 добавляются отдельным этапом. `build` — явная сборка
 с предварительными проверками; её готовность не доказывается `packaging`.
-Обычный push запускает только быстрый `ci-contract`.
+Обычный push запускает только быстрый `ci-contract`. Pull request дополнительно
+запускает unit/packaging/networkmanager/auth и Windows identity; GUI-сборки
+остаются явным выбранным запуском.
 
 Для выбранного run читать `summary.md` / `results.json` из артефакта
 `test-results-<suite>`. `sourceCommit` обязан совпасть с проверяемым SHA.

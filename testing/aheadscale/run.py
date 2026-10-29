@@ -91,6 +91,7 @@ def execute_checks(checks, output, source_sha, suite, secrets=()):
         env.update(check.env)
         start = time.monotonic()
         timed_out = False
+        cancelled = False
         process = None
         try:
             process = subprocess.Popen(check.argv, cwd=ROOT, env=env,
@@ -102,7 +103,11 @@ def execute_checks(checks, output, source_sha, suite, secrets=()):
                 timed_out = True
                 stop_process(process)
                 data, _ = process.communicate()
-            code = process.returncode
+            except KeyboardInterrupt:
+                cancelled = True
+                stop_process(process)
+                data, _ = process.communicate()
+            code = 130 if cancelled else process.returncode
         except OSError as exc:
             data, code = str(exc).encode(), 127
         finally:
@@ -112,10 +117,12 @@ def execute_checks(checks, output, source_sha, suite, secrets=()):
         log = "logs/" + check.id + ".log"
         (output / log).write_text(text)
         row = {"id": check.id, "status": "PASS" if code == 0 and not timed_out else "FAIL",
-               "exitCode": code, "timedOut": timed_out, "seconds": round(time.monotonic() - start, 3), "log": log}
+               "exitCode": code, "timedOut": timed_out, "cancelled": cancelled, "seconds": round(time.monotonic() - start, 3), "log": log}
         result["checks"].append(row)
         result["status"] = "PASS" if len(result["checks"]) == result["plannedChecks"] and all(c["status"] == "PASS" for c in result["checks"]) else "FAIL"
         write_reports(output, result)
+        if cancelled:
+            break
     return result
 
 
@@ -128,7 +135,7 @@ def write_reports(output, result):
     for check in result["checks"]:
         case = ET.SubElement(junit, "testcase", name=check["id"], time=str(check["seconds"]))
         if check["status"] != "PASS":
-            ET.SubElement(case, "failure", message="timeout" if check["timedOut"] else "exit=" + str(check["exitCode"])).text = "Диагностика: " + check["log"]
+            ET.SubElement(case, "failure", message="cancelled" if check["cancelled"] else "timeout" if check["timedOut"] else "exit=" + str(check["exitCode"])).text = "Диагностика: " + check["log"]
     ET.ElementTree(junit).write(output / "junit.xml", encoding="unicode", xml_declaration=True)
     lines = ["## Aheadscale: " + result["suite"] + " — " + result["status"],
              "", "Исходники: `" + result["sourceCommit"] + "`", "",
@@ -147,8 +154,16 @@ def main():
     secrets = json.loads(os.environ.get("AHEADSCALE_TEST_SECRET_VALUES", "[]"))
     if not isinstance(secrets, list) or any(not isinstance(s, str) for s in secrets):
         parser.error("Список скрываемых значений должен быть JSON-массивом строк")
-    result = execute_checks(suite_checks(args.suite), args.output, sha, args.suite, secrets)
+    def interrupted(signum, frame):
+        raise KeyboardInterrupt
+    previous = signal.signal(signal.SIGTERM, interrupted)
+    try:
+        result = execute_checks(suite_checks(args.suite), args.output, sha, args.suite, secrets)
+    finally:
+        signal.signal(signal.SIGTERM, previous)
     print(result["suite"] + ": " + result["status"] + "; " + str(len(result["checks"])) + " проверок")
+    if any(c["cancelled"] for c in result["checks"]):
+        return 130
     return 0 if result["status"] == "PASS" else 1
 
 

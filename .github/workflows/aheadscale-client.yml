@@ -33,7 +33,7 @@ jobs:
       - name: Контракт отчётов и запуска выбранных проверок
         run: python3 -B -m unittest discover -s testing/aheadscale -p test_run.py -v
   unit:
-    if: github.event_name == 'workflow_dispatch' && contains(fromJSON('["checks","unit","build"]'), inputs.suite)
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && contains(fromJSON('["checks","unit","build"]'), inputs.suite))
     needs: ci-contract
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -56,7 +56,7 @@ jobs:
           retention-days: 7
           if-no-files-found: error
   packaging-tests:
-    if: github.event_name == 'workflow_dispatch' && contains(fromJSON('["checks","packaging","build"]'), inputs.suite)
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && contains(fromJSON('["checks","packaging","build"]'), inputs.suite))
     needs: ci-contract
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -79,7 +79,7 @@ jobs:
           retention-days: 7
           if-no-files-found: error
   networkmanager-tests:
-    if: github.event_name == 'workflow_dispatch' && contains(fromJSON('["checks","networkmanager","build"]'), inputs.suite)
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && contains(fromJSON('["checks","networkmanager","build"]'), inputs.suite))
     needs: ci-contract
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -104,7 +104,7 @@ jobs:
           retention-days: 7
           if-no-files-found: error
   auth-tests:
-    if: github.event_name == 'workflow_dispatch' && contains(fromJSON('["checks","auth"]'), inputs.suite)
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && contains(fromJSON('["checks","auth"]'), inputs.suite))
     needs: ci-contract
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -127,7 +127,7 @@ jobs:
           retention-days: 7
           if-no-files-found: error
   windows-identity:
-    if: github.event_name == 'workflow_dispatch' && contains(fromJSON('["checks","unit","build"]'), inputs.suite)
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && contains(fromJSON('["checks","unit","build"]'), inputs.suite))
     needs: ci-contract
     runs-on: windows-2025
     timeout-minutes: 20
