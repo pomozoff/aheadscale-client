@@ -14,7 +14,7 @@ import time
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
-SUITES = ("ci-contract", "unit", "packaging", "networkmanager", "auth", "gtk-editors", "plasma")
+SUITES = ("ci-contract", "unit", "packaging", "networkmanager", "auth", "gtk-editors", "plasma", "policy")
 
 
 @dataclass
@@ -43,6 +43,8 @@ def suite_checks(suite):
             Check("sh-syntax", ["sh", "-n", "packaging/aheadscale/scripts/postinst", "packaging/aheadscale/scripts/prerm", "packaging/aheadscale/scripts/cleanup-networkmanager"], 30),
             Check("diff-format", ["git", "diff", "--check"], 30),
         ]
+    if suite == "policy":
+        return [Check("selinux-policy-isolated-store", ["sh", "packaging/aheadscale/networkmanager/build-policy.sh", "ci-results/policy/nm_aheadscale.pp"], 600)]
     if suite == "plasma":
         return [Check("plasma-factory-and-dialog", [sys.executable, "-B", "testing/aheadscale/plasma.py", "--output", "ci-results/plasma-component"], 600)]
     if suite == "gtk-editors":
