@@ -105,5 +105,5 @@ ARM64 ОС. Down/Up восстановил стенд; 36/36 положител�
 владелец подтвердил системные Connect/Disconnect/Cancel для первого выпуска
 и адаптацию upstream v0.1.12. Дизайн и план согласованы, 16 пакетов собраны;
 [native `.31`](smoke-results/2026-10-28-linux-native31.md) прошёл частичную живую
-проверку. Полные R05/C13 и RG43 открыты. GUI autostart OFF/вход после reinstall, полный UI/CLI,
+проверку. [Продолжение `.31.3`](smoke-results/2026-10-29-linux-native31-3.md): реальные системные и GUI Connect/Disconnect на Fedora x64, ON/OFF при restart, восстановление ARM после аварии плагина и исправленный RPM-переход RG44. Полные R05/C13 и RG43 открыты. GUI autostart OFF/вход после reinstall, полный UI/CLI,
 RG38, остальные ОС и подписи открыты; RG39 и задержки не менять.
