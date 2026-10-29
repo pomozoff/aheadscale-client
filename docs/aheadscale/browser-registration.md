@@ -1,57 +1,58 @@
-# Aheadscale browser registration
+# Регистрация Aheadscale через браузер
 
-Approved 18 October 2026: use the system browser and complete Aheadscale branding.
+Утверждённый порядок от 29 октября 2026 года:
+**email → ссылка из письма → пароль → подключение клиента**.
+Используется системный браузер и штатный OAuth/Dex с сохранением state,
+redirect URI и PKCE. Отдельного password grant нет.
 
-The existing OAuth/Dex request, state, redirect URI and PKCE challenge are preserved.
-Sign up posts email/password to the same-origin /oauth2/signup, creates a local
-identity and its independent account/network, then submits the original login
-form automatically. The password stays in the page fields for that one request;
-no application storage, URL, token API or custom password grant is introduced.
+## Создание аккаунта
 
-AS_SELF_REGISTRATION=true explicitly enables this prototype mode. It turns off
-single-account email-domain grouping, provides the aheadscale.internal private
-DNS suffix and enforces five registered devices (offline included). Enrollment
-uses the store's global lock and a transaction; the guarantee applies to this
-single-process server. Distributed enrollment needs a database-level quota gate
-before adding replicas. Existing account/device keys and issuer/client IDs stay
-unchanged. Provisioning failure rolls back the local identity and logs failures.
+На вкладке Sign up пользователь вводит только email. Сервер сохраняет заявку
+без пароля и отправляет одноразовую ссылку. До проверки адреса активный
+пользователь и личная сеть не создаются. Обычный GET страницы подтверждения
+не расходует ссылку: сканеры почты не завершают регистрацию.
 
-Signup requires the exact configured Origin, JSON, bounded request size, email
-validation, upstream-compatible 8–72-byte passwords, a bounded worker count and
-rate limiting. This prototype has no mail provider: ownership verification and
-self-service password recovery remain public-service prerequisites. Do not
-represent this operator test as a finished commercial/public pilot.
+Ссылка по умолчанию действует 30 минут. Пароль задаётся после перехода по ней;
+в БД заявки хранится только хеш случайного токена. Повторная отправка доступна
+через минуту и отменяет предыдущую ссылку. Оба интервала настраиваются.
 
-The server uses embedded Aheadscale templates, marks and #2563eb. Dashboard
-v2.94.0 is forked at https://github.com/pomozoff/aheadscale-dashboard. Both retain
-upstream licenses and offer corresponding source. Internal protocol identifiers
-and config keys remain compatible; client installers do not require rebuilding.
+Если письмо открыто в исходном браузере и исходная попытка OAuth ещё действует,
+после регистрации продолжается штатный вход клиента. Если письмо открыто
+в другом браузере, аккаунт создаётся, но инициатор не получает сессию: нужно
+вернуться в приложение и войти обычным способом. Исходная OAuth-попытка
+проверяется в хранилище Dex; произвольный адрес возврата принять нельзя.
 
-Build ./combined with Go 1.26.7, CGO_ENABLED=1, gcc and an Ubuntu 24.04-compatible
-runtime; package with packaging/aheadscale/Dockerfile.server-runtime. Deploy only
-the project's server/dashboard containers, preserving its config and SQLite
-volume. Source, image IDs and browser verification are recorded in the platform
-runbook after deployment. Browser plugin was unavailable; regular Playwright was
-used against an isolated fixture with synthetic data and loopback ports.
+Сбой между созданием личности и сети допускает повтор по той же ссылке
+с зарезервированным идентификатором. Существующий чужой аккаунт или пароль
+по совпадению email не изменяется. Прежние аккаунты сохраняют вход и не
+получают отметку о проверенном адресе задним числом. Восстановление забытого
+пароля — отдельная функция.
 
-Validation on 18 October 2026: real SQLite/embedded-IdP tests cover distinct
-accounts for equal email domains, repeat signup, malformed/cross-origin requests
-and concurrent fifth-device enrollment (RED to GREEN). Existing IdP/Dex/server
-configuration tests pass. The isolated real-browser run registered two users,
-checked separate account/user API views, repeated CLI PKCE login and signed into
-the branded dashboard. Desktop/mobile screenshots and #2563eb were checked.
-The owner explicitly authorized publishing these server changes in the existing
-public fork and updating the live service after the automatic publication gate.
+## Настройки и ограничения
 
-Email validation follow-up: the submit button starts disabled in HTML and is
-updated for input/change/pageshow in both Sign in and Sign up. Native email
-validation, a dotted domain and the 254-character limit must pass before the
-button is enabled. Invalid forms are also rejected in the submit handler; an
-in-flight request stays disabled, and failed signup restores validation-aware
-retry. See social-login.md for the four optional Russian login connectors.
+`AS_SELF_REGISTRATION=true` включает регистрацию с независимыми аккаунтами.
+Лимиты устройств берутся из настроек БД; инструкция проверки лимита пяти
+устройств относится к синтетическому тарифу тестового стенда.
 
-The updated isolated browser check passed empty/malformed/undotted email
-blocking, tab switching, valid email enablement and clearing the field, followed
-by two signups, isolated account/user views, repeat CLI PKCE login and dashboard
-login. The disposable instance was initialized with a synthetic owner before
-registration. Desktop/mobile layout and Aheadscale branding remained correct.
+Почта отправляется стандартным SMTP с обязательным TLS и проверкой сертификата.
+Параметры Postbox, DNS и безопасное хранение ключа описаны в
+[инструкции доставки](email-delivery.md). Если SMTP не настроен или конфигурация
+неверна, регистрация закрыта, обычный вход существующих пользователей работает.
+Ключи не хранятся в репозитории и не нужны обычным Actions.
+
+Signup принимает только JSON с точным Origin, ограничивает размер запроса,
+число одновременных операций и частоту отправки. Пароль имеет длину 8–72 байта
+и скрыт до явного нажатия кнопки показа. Email проверяется до включения кнопки.
+Страница подтверждения не загружает сторонние ресурсы; токен находится во
+фрагменте ссылки и удаляется из адресной строки при открытии.
+
+## Проверка и выпуск
+
+Целевые серверные тесты и браузерный путь запускаются в GitHub Actions:
+[результаты и границы проверки](email-registration-report.md).
+Браузер получает письмо от отдельного SMTP-приёмника с настоящим TLS внутри
+изолированного контейнера. Настоящие учётные записи владельца не используются.
+
+Кандидат не означает включение реальной доставки на aheadscale.ru.
+Перед публикацией нужны подтверждённый домен, ключ почтового сервиса и проверка
+получения писем. Клиентские установщики из-за этого изменения не пересобираются.
