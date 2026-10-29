@@ -68,6 +68,8 @@ class PlasmaContract(unittest.TestCase):
             meta={k:self.pin[k] for k in ('upstream_commit','adapted_commit','archive_sha256','patch_sha256','plasma_sdk','plasma_toolchain')}
             meta.update(architecture='amd64',component_sha256=digest,client_revision='1'*40)
             self.builder.verify_provenance(pin,meta,p,'amd64')
+            with self.assertRaises(ValueError):
+                self.builder.verify_provenance(pin|{'expected_producer_revision':'2'*40},meta,p,'amd64')
             for changed in ({'adapted_commit':'0'*40},{'architecture':'arm64'},
                             {'component_sha256':'0'*64},{'client_revision':'latest'}):
                 with self.subTest(changed=changed),self.assertRaises(ValueError):
