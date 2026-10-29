@@ -19,16 +19,30 @@ func (i *recordingIdentity) CreateUserWithPassword(context.Context, string, stri
 }
 
 func TestHTTPVerificationGETDoesNotConsumeAndOriginIsRequired(t *testing.T) {
-	s,mail,_,_:=newTestService(t)
-	if err:=s.Start(context.Background(),"owner@example.test","browser-a","","192.0.2.1");err!=nil{t.Fatal(err)}
-	token:=tokenFromMail(t,mail)
-	h:=NewHandler("https://aheadscale.ru/oauth2",&recordingIdentity{},func(context.Context,*idp.UserData)error{return nil},http.NotFoundHandler(),s)
-	page:=httptest.NewRecorder();h.ServeHTTP(page,httptest.NewRequest("GET","/oauth2/verify-email",nil))
-	if page.Code!=200||page.Header().Get("Referrer-Policy")!="no-referrer"{t.Fatal("verification page unavailable")}
-	for _,c:=range []struct{origin string;want int}{{"https://evil.example",403},{"https://aheadscale.ru",200},{"https://aheadscale.ru",400}} {
-		body,_:=json.Marshal(map[string]string{"token":token,"password":"correct-horse-123"})
-		r:=httptest.NewRequest("POST","/oauth2/signup/complete",strings.NewReader(string(body)));r.Header.Set("Origin",c.origin);r.Header.Set("Content-Type","application/json")
-		w:=httptest.NewRecorder();h.ServeHTTP(w,r);if w.Code!=c.want{t.Fatalf("origin/replay: HTTP %d, want %d",w.Code,c.want)}
+	s, mail, _, _ := newTestService(t)
+	if err := s.Start(context.Background(), "owner@example.test", "browser-a", "", "192.0.2.1"); err != nil {
+		t.Fatal(err)
+	}
+	token := tokenFromMail(t, mail)
+	h := NewHandler("https://aheadscale.ru/oauth2", &recordingIdentity{}, func(context.Context, *idp.UserData) error { return nil }, http.NotFoundHandler(), s)
+	page := httptest.NewRecorder()
+	h.ServeHTTP(page, httptest.NewRequest("GET", "/oauth2/verify-email", nil))
+	if page.Code != 200 || page.Header().Get("Referrer-Policy") != "no-referrer" {
+		t.Fatal("verification page unavailable")
+	}
+	for _, c := range []struct {
+		origin string
+		want   int
+	}{{"https://evil.example", 403}, {"https://aheadscale.ru", 200}, {"https://aheadscale.ru", 400}} {
+		body, _ := json.Marshal(map[string]string{"token": token, "password": "correct-horse-123"})
+		r := httptest.NewRequest("POST", "/oauth2/signup/complete", strings.NewReader(string(body)))
+		r.Header.Set("Origin", c.origin)
+		r.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		if w.Code != c.want {
+			t.Fatalf("origin/replay: HTTP %d, want %d", w.Code, c.want)
+		}
 	}
 }
 

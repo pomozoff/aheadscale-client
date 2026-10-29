@@ -22,7 +22,11 @@ import (
 )
 
 type registrationTestMail struct{ link string }
-func (m *registrationTestMail) Send(_ context.Context, _ string, link string) error { m.link = link; return nil }
+
+func (m *registrationTestMail) Send(_ context.Context, _ string, link string) error {
+	m.link = link
+	return nil
+}
 
 func TestAheadscaleRegistrationIsolation(t *testing.T) {
 	t.Setenv("AS_SELF_REGISTRATION", "true")
