@@ -58,6 +58,7 @@ callback/state/PKCE подлежат автоматизации на тесто�
 | KDE factory/диалог, arm64, закреплённый Ubuntu 26.04 | 569d047 | [PASS](https://github.com/pomozoff/aheadscale-client/actions/runs/40838793158) |
 | Передача проверенного KDE-артефакта amd64 / arm64 | 36c7029 / 50f3666 | [amd64 PASS](https://github.com/pomozoff/aheadscale-client/actions/runs/40838929799), [arm64 PASS](https://github.com/pomozoff/aheadscale-client/actions/runs/40839141053) |
 | SELinux: компиляция и загрузка в отдельное временное хранилище | 50f3666 | [PASS](https://github.com/pomozoff/aheadscale-client/actions/runs/40839135103) |
+| Полный Linux amd64 build: Desktop/CLI, DEB/RPM, UI tests, установка/удаление DEB | bb25d14 | [PASS](https://github.com/pomozoff/aheadscale-client/actions/runs/40843575305) |
 | Контракт runner, включая прерывание и сохранение FAIL | 3cb2613 | [PASS](https://github.com/pomozoff/aheadscale-client/actions/runs/40829117507) |
 
 Приватный coordinator и изолированный контроллер включены в main через
