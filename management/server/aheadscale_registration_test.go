@@ -21,6 +21,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type registrationTestMail struct{ link string }
+func (m *registrationTestMail) Send(_ context.Context, _ string, link string) error { m.link = link; return nil }
+
 func TestAheadscaleRegistrationIsolation(t *testing.T) {
 	t.Setenv("AS_SELF_REGISTRATION", "true")
 	manager, _, err := createManagerWithEmbeddedIdPMode(t, "netbird.selfhosted")
@@ -28,28 +31,41 @@ func TestAheadscaleRegistrationIsolation(t *testing.T) {
 	configureRegistrationDeviceQuota(t, manager, 5)
 	require.False(t, manager.singleAccountMode, "public signup must never join the self-hosted owner account")
 	embedded := manager.idpManager.(*idp.EmbeddedIdPManager)
-	handler := registration.NewHandler("https://aheadscale.ru/oauth2", embedded, func(ctx context.Context, user *idp.UserData) error {
+	provision := func(ctx context.Context, user *idp.UserData) error {
 		_, err := manager.GetAccountIDByUserID(ctx, auth.UserAuth{UserId: user.ID, Email: user.Email, Name: user.Name})
 		return err
-	}, http.NotFoundHandler())
+	}
+	mailbox := &registrationTestMail{}
+	registrations, err := registration.NewService(manager.Store.(*store.SqlStore).GetDB(), registration.Config{Issuer: "https://aheadscale.ru/oauth2"}, mailbox, embedded, provision)
+	require.NoError(t, err)
+	handler := registration.NewHandler("https://aheadscale.ru/oauth2", embedded, provision, http.NotFoundHandler(), registrations)
 	var accountIDs []string
 	for _, email := range []string{"alice@example.com", "bob@example.com"} {
-		body, err := json.Marshal(map[string]string{"email": email, "password": "correct-horse-123"})
+		body, err := json.Marshal(map[string]string{"email": email})
 		require.NoError(t, err)
 		req := httptest.NewRequest(http.MethodPost, "https://aheadscale.ru/oauth2/signup", strings.NewReader(string(body)))
 		req.Header.Set("Origin", "https://aheadscale.ru")
 		req.Header.Set("Content-Type", "application/json")
 		result := httptest.NewRecorder()
 		handler.ServeHTTP(result, req)
-		require.Equal(t, http.StatusCreated, result.Code, result.Body.String())
+		require.Equal(t, http.StatusAccepted, result.Code, result.Body.String())
 		require.NotContains(t, result.Body.String(), "correct-horse")
-
+		_, token, found := strings.Cut(mailbox.link, "#")
+		require.True(t, found)
+		body, err = json.Marshal(map[string]string{"token": token, "password": "correct-horse-123"})
+		require.NoError(t, err)
+		req = httptest.NewRequest(http.MethodPost, "https://aheadscale.ru/oauth2/signup/complete", strings.NewReader(string(body)))
+		req.Header.Set("Origin", "https://aheadscale.ru")
+		req.Header.Set("Content-Type", "application/json")
+		result = httptest.NewRecorder()
+		handler.ServeHTTP(result, req)
+		require.Equal(t, http.StatusOK, result.Code, result.Body.String())
 	}
 	for _, scenario := range []struct {
 		body, origin, kind string
 		code               int
 	}{
-		{`{"email":"alice@example.com","password":"correct-horse-123"}`, "https://aheadscale.ru", "application/json", 409},
+		{`{"email":"alice@example.com","password":"correct-horse-123"}`, "https://aheadscale.ru", "application/json", 400},
 		{`{"email":"wrong","password":"short"}`, "https://aheadscale.ru", "application/json", 400},
 		{`{"email":"other@example.com","password":"correct-horse-123"}`, "https://evil.example", "application/json", 403},
 		{`{"email":"other@example.com","password":"correct-horse-123"}`, "https://aheadscale.ru", "text/plain", 415},

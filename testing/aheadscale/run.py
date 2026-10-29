@@ -54,6 +54,7 @@ def suite_checks(suite):
         return [Check("gtk-model-and-factories", [sys.executable, "-B", "testing/aheadscale/editors.py"], 300)]
     if suite == "auth":
         return [Check("registration-email-proof", go + ["-race", "./management/server/registration"], 900),
+                Check("registration-idp-recovery", go + ["-race", "./idp/dex", "-run", "^TestVerifiedRegistration"], 600),
                 Check("registration-account-device-isolation", go + ["-race", "-tags", "devcert", "./management/server", "-run", "^TestAheadscale"], 1500)]
     if suite == "networkmanager":
         return [Check("native-controller", go + ["-race", "./client/internal/linuxvpn"], 600),

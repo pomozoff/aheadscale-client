@@ -167,10 +167,20 @@ func (s *BaseServer) IDPHandler() http.Handler {
 	}
 	handler := embeddedIdP.Handler()
 	if os.Getenv("AS_SELF_REGISTRATION") == "true" {
-		handler = registration.NewHandler(s.Config.EmbeddedIdP.Issuer, embeddedIdP, func(ctx context.Context, user *idp.UserData) error {
+		provision := func(ctx context.Context, user *idp.UserData) error {
 			_, err := s.AccountManager().GetOrCreateAccountByUser(ctx, auth.UserAuth{UserId: user.ID, Email: user.Email, Name: user.Name})
 			return err
-		}, handler)
+		}
+		var registrations *registration.Service
+		config, mailer, err := registration.ConfigFromEnvironment(s.Config.EmbeddedIdP.Issuer)
+		if sqlStore, ok := s.Store().(*store.SqlStore); err == nil && ok {
+			config.ValidateContinuation = embeddedIdP.RegistrationContinuation
+			registrations, err = registration.NewService(sqlStore.GetDB(), config, mailer, embeddedIdP, provision)
+		}
+		if err != nil || registrations == nil {
+			log.Warn("Aheadscale email registration is unavailable: check SMTP configuration and database; existing sign-in remains available")
+		}
+		handler = registration.NewHandler(s.Config.EmbeddedIdP.Issuer, embeddedIdP, provision, handler, registrations)
 	}
 	return cors.AllowAll().Handler(handler)
 }

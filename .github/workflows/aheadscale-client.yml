@@ -238,7 +238,11 @@ jobs:
         with:
           go-version: '1.26.7'
       - name: Регистрация, отдельные аккаунты и квоты в тестовой БД
-        run: python3 -B testing/aheadscale/run.py --suite auth --output ci-results/auth
+        run: |
+          mkdir -p ci-results/auth
+          gofmt -w management/server/registration/*.go idp/dex/registration*.go management/server/idp/embedded.go management/internals/server/boot.go management/server/aheadscale_registration_test.go
+          git diff -- management/server/registration idp/dex/registration.go idp/dex/registration_test.go management/server/idp/embedded.go management/internals/server/boot.go management/server/aheadscale_registration_test.go > ci-results/auth/gofmt.patch
+          python3 -B testing/aheadscale/run.py --suite auth --output ci-results/auth
       - name: Краткий результат
         if: always()
         run: cat ci-results/auth/summary.md >> "$GITHUB_STEP_SUMMARY"
