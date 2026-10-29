@@ -1,6 +1,9 @@
 """Контракт CI: настоящий дочерний процесс, без запуска продуктовых наборов."""
 import importlib.util
 import json
+import os
+import signal
+import time
 from pathlib import Path
 import subprocess
 import sys
@@ -47,6 +50,46 @@ class RunnerContract(unittest.TestCase):
         self.assertEqual(result["status"], "FAIL")
         self.assertTrue(result["checks"][0]["timedOut"])
         self.assertTrue((self.out / "results.json").is_file())
+
+    @unittest.skipUnless(os.name == "posix", "Сигнальный контракт Unix runner")
+    def test_interrupted_process_is_reported_and_suite_never_looks_complete(self):
+        marker = self.out / "ready"
+        child = "import os,pathlib,time;pathlib.Path(" + repr(str(marker)) + ").write_text(str(os.getpid()));time.sleep(60)"
+        program = (
+            "import importlib.util,sys,pathlib;"
+            "s=importlib.util.spec_from_file_location('ci'," + repr(str(Path(__file__).with_name("run.py"))) + ");"
+            "ci=importlib.util.module_from_spec(s);sys.modules[s.name]=ci;s.loader.exec_module(ci);"
+            "r=ci.execute_checks([ci.Check('first',[sys.executable,'-c','pass'],3),"
+            "ci.Check('pending',[sys.executable,'-c'," + repr(child) + "],30)],"
+            "pathlib.Path(" + repr(str(self.out)) + "),'a'*40,'contract');"
+            "raise SystemExit(0 if r['status']=='PASS' else 1)"
+        )
+        process = subprocess.Popen([sys.executable, "-c", program], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        def cleanup():
+            if process.poll() is None:
+                process.kill()
+            process.wait()
+            if marker.exists():
+                pid = int(marker.read_text())
+                cmdline = Path('/proc') / str(pid) / 'cmdline'
+                if cmdline.exists() and str(marker).encode() in cmdline.read_bytes():
+                    try:
+                        os.kill(pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+        self.addCleanup(cleanup)
+        deadline = time.monotonic() + 10
+        while not marker.exists() and process.poll() is None and time.monotonic() < deadline:
+            time.sleep(.02)
+        self.assertTrue(marker.exists(), "Дочерний процесс не запустился")
+        partial = json.loads((self.out / 'results.json').read_text())
+        self.assertEqual(partial['status'], 'FAIL')
+        process.send_signal(signal.SIGINT)
+        self.assertNotEqual(process.wait(timeout=5), 0)
+        final = json.loads((self.out / 'results.json').read_text())
+        self.assertEqual(final['status'], 'FAIL')
+        self.assertEqual(len(final['checks']), 2)
+        self.assertTrue(final['checks'][-1]['cancelled'])
 
     def test_missing_program_is_reported_as_failure(self):
         result = self.execute([ci.Check("missing", [str(self.out / "absent")], 1)])
