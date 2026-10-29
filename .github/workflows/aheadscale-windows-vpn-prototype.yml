@@ -1,17 +1,17 @@
 name: Aheadscale Windows VPN prototype
 on:
-  push:
-    branches: [codex/windows-vpn-prototype]
-    paths: ['packaging/windows-vpn-prototype/**', '.github/workflows/aheadscale-windows-vpn-prototype.yml']
   workflow_dispatch:
     inputs:
       architecture:
         description: Архитектура тестового пакета
         type: choice
         options: [all, amd64, arm64]
-        default: all
+        default: amd64
 permissions:
   contents: read
+concurrency:
+  group: windows-vpn-${{ github.ref }}-${{ inputs.architecture }}
+  cancel-in-progress: true
 jobs:
   build:
     strategy:

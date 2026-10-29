@@ -1,5 +1,5 @@
 # Copy the CGO-enabled Ubuntu 24.04 build of ./combined into the pinned upstream runtime.
-ARG BASE_IMAGE=local/aheadscale-server-base@sha256:8eb63a41f572bd11a160c8444d9dbd7178dd1de71965f848cf788991a58a6c16
+ARG BASE_IMAGE=netbirdio/netbird-server:0.80.0@sha256:8eb63a41f572bd11a160c8444d9dbd7178dd1de71965f848cf788991a58a6c16
 FROM ${BASE_IMAGE}
 COPY aheadscale-server /go/bin/netbird-server
 LABEL org.opencontainers.image.source="https://github.com/pomozoff/aheadscale-client" org.opencontainers.image.title="Aheadscale Server"

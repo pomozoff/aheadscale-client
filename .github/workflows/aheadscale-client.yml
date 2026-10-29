@@ -1,4 +1,5 @@
 name: Aheadscale desktop previews
+run-name: ${{ inputs.suite || github.event_name }} · ${{ inputs.targets || 'no-build' }} · ${{ github.ref_name }}
 on:
   push:
     branches: [aheadscale, 'codex/**']
@@ -7,27 +8,61 @@ on:
   workflow_dispatch:
     inputs:
       suite:
-        description: Полный прогон, регистрация или отдельная серверная сборка
+        description: Выбранные проверки; установщики только при build/full
         type: choice
         required: true
-        default: full
-        options: [full, auth, server]
+        default: ci-contract
+        options: [ci-contract, unit, packaging, auth, windows, checks, build, server, full]
       targets:
         description: Платформы сборки (macos-arm64 — только macOS ARM64)
         type: choice
         required: true
-        default: current
-        options: [current, arm64, linux-amd64, linux-arm64, macos-arm64]
+        default: linux-amd64
+        options: [current, all, arm64, linux-amd64, linux-arm64, windows-amd64, windows-arm64, macos-arm64]
 permissions:
   contents: read
 concurrency:
-  group: aheadscale-${{ github.workflow }}-${{ github.ref }}-${{ inputs.targets || 'current' }}
+  group: aheadscale-${{ github.workflow }}-${{ github.ref }}-${{ inputs.suite || github.event_name }}-${{ inputs.targets || 'no-build' }}
   cancel-in-progress: true
 jobs:
+  ci-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      unit: ${{ steps.select.outputs.unit }}
+      packaging: ${{ steps.select.outputs.packaging }}
+      auth: ${{ steps.select.outputs.auth }}
+      windows: ${{ steps.select.outputs.windows }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          fetch-depth: 0
+      - name: Контракт запуска и отчётов
+        run: python3 -B testing/aheadscale/run.py --suite ci-contract --output ci-results/ci-contract
+      - name: Выбрать проверки по изменению
+        id: select
+        env:
+          CI_EVENT: ${{ github.event_name }}
+          CI_SUITE: ${{ inputs.suite }}
+          CI_TARGETS: ${{ inputs.targets }}
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          CI_HEAD_SHA: ${{ github.sha }}
+        run: python3 -B testing/aheadscale/selection.py
+      - name: Сводка
+        if: always()
+        run: cat ci-results/ci-contract/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: test-results-ci-contract
+          path: ci-results/ci-contract/
+          retention-days: 7
+          if-no-files-found: error
   server:
     if: github.event_name == 'workflow_dispatch' && inputs.suite == 'server'
+    needs: ci-contract
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       GOTOOLCHAIN: local
       CGO_ENABLED: '1'
@@ -43,8 +78,17 @@ jobs:
           "$RUNNER_TEMP/aheadscale-server/aheadscale-server" --help > /dev/null
           go version -m "$RUNNER_TEMP/aheadscale-server/aheadscale-server" > "$RUNNER_TEMP/aheadscale-server/build-info.txt"
           git rev-parse HEAD > "$RUNNER_TEMP/aheadscale-server/source.txt"
+      - name: Собрать и проверить готовый контейнер на GitHub
+        run: |
+          image="aheadscale-server:ci-${GITHUB_SHA}"
+          docker build --platform linux/amd64 --label "org.opencontainers.image.revision=${GITHUB_SHA}" -t "$image" -f packaging/aheadscale/Dockerfile.server-runtime "$RUNNER_TEMP/aheadscale-server"
+          docker run --rm --network none --read-only --cap-drop ALL "$image" --help > /dev/null
+          docker image inspect "$image" --format '{{.Id}}' > "$RUNNER_TEMP/aheadscale-server/image-id.txt"
+          docker save "$image" | gzip -1 > "$RUNNER_TEMP/aheadscale-server/aheadscale-server-image.tar.gz"
           cd "$RUNNER_TEMP/aheadscale-server"
-          sha256sum aheadscale-server build-info.txt source.txt > SHA256SUMS
+          sha256sum aheadscale-server build-info.txt source.txt image-id.txt aheadscale-server-image.tar.gz > SHA256SUMS
+          sha256sum --check SHA256SUMS
+          printf '### Серверный образ готов\n\nИсходники: `%s`\n\nОбраз: `%s`\n\nПроверка запуска без сети: PASS. Развёртывание не выполнялось.\n' "$GITHUB_SHA" "$(cat image-id.txt)" >> "$GITHUB_STEP_SUMMARY"
       - name: Сохранить серверный артефакт без секретов
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
@@ -53,7 +97,8 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   auth:
-    if: github.event_name == 'workflow_dispatch' && inputs.suite == 'auth'
+    if: needs.ci-contract.outputs.auth == 'true'
+    needs: ci-contract
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -68,7 +113,8 @@ jobs:
       - name: Отдельные аккаунты, сети и лимиты устройств
         run: go test -race -tags devcert ./management/server -run '^TestAheadscale'
   unit:
-    if: inputs.suite != 'auth' && inputs.suite != 'server'
+    if: needs.ci-contract.outputs.unit == 'true'
+    needs: ci-contract
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -84,17 +130,31 @@ jobs:
         run: go test -race -tags devcert ./client/internal/dns ./client/internal ./client/server
       - name: Preview updater policy
         run: go test ./client/internal/updater -run TestAheadscale -count=1
-      - name: Регрессия завершения GUI при обновлении macOS
-        run: go test -race ./packaging/aheadscale
-      - name: Package source checks
-        run: |
-          python3 -m py_compile packaging/aheadscale/package.py
-          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s packaging/aheadscale -p 'test_*.py' -v
-          bash -n packaging/aheadscale/build.sh packaging/aheadscale/scripts/macos-preinstall packaging/aheadscale/scripts/macos-postinstall packaging/aheadscale/scripts/macos-uninstall.command
-          sh -n packaging/aheadscale/scripts/postinst packaging/aheadscale/scripts/prerm packaging/aheadscale/scripts/cleanup-networkmanager
-          git diff --check
+  packaging-tests:
+    if: needs.ci-contract.outputs.packaging == 'true'
+    needs: ci-contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.7'
+      - name: Упаковка без пересборки приложений
+        run: python3 -B testing/aheadscale/run.py --suite packaging --output ci-results/packaging
+      - name: Сводка
+        if: always()
+        run: cat ci-results/packaging/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: test-results-packaging
+          path: ci-results/packaging/
+          retention-days: 7
+          if-no-files-found: error
   windows-identity:
-    if: inputs.suite != 'auth' && inputs.suite != 'server'
+    if: needs.ci-contract.outputs.windows == 'true'
+    needs: ci-contract
     runs-on: windows-2025
     timeout-minutes: 20
     steps:
@@ -105,14 +165,21 @@ jobs:
       - name: Independent Windows adapter identity
         run: go test ./client/iface/device -run TestAheadscale -count=1
   build:
-    if: inputs.suite != 'auth' && inputs.suite != 'server'
-    needs: [unit, windows-identity]
+    if: >-
+      always() && github.event_name == 'workflow_dispatch' &&
+      contains(fromJSON('["build","full"]'), inputs.suite) &&
+      needs.ci-contract.result == 'success' &&
+      !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
+    needs: [ci-contract, unit, packaging-tests, windows-identity]
     strategy:
       fail-fast: false
       matrix:
         include: >-
           ${{ fromJSON(inputs.targets == 'linux-amd64' &&
-          '[{"platform":"linux","arch":"amd64","runner":"ubuntu-24.04"}]' || inputs.targets == 'macos-arm64' &&
+          '[{"platform":"linux","arch":"amd64","runner":"ubuntu-24.04"}]' || inputs.targets == 'windows-amd64' &&
+          '[{"platform":"windows","arch":"amd64","runner":"ubuntu-24.04"}]' || inputs.targets == 'windows-arm64' &&
+          '[{"platform":"windows","arch":"arm64","runner":"ubuntu-24.04"}]' || inputs.targets == 'all' &&
+          '[{"platform":"linux","arch":"amd64","runner":"ubuntu-24.04"},{"platform":"linux","arch":"arm64","runner":"ubuntu-24.04-arm"},{"platform":"windows","arch":"amd64","runner":"ubuntu-24.04"},{"platform":"windows","arch":"arm64","runner":"ubuntu-24.04"},{"platform":"darwin","arch":"arm64","runner":"macos-26"}]' || inputs.targets == 'macos-arm64' &&
           '[{"platform":"darwin","arch":"arm64","runner":"macos-26"}]' || inputs.targets == 'linux-arm64' &&
           '[{"platform":"linux","arch":"arm64","runner":"ubuntu-24.04-arm"}]' || inputs.targets == 'arm64' &&
           '[{"platform":"linux","arch":"arm64","runner":"ubuntu-24.04-arm"},
