@@ -645,6 +645,10 @@ func (m *EmbeddedIdPManager) RegistrationContinuation(ctx context.Context, value
 	return m.provider.RegistrationContinuation(ctx, value)
 }
 
+func (m *EmbeddedIdPManager) RegistrationRedirectURIs(ctx context.Context) ([]string, error) {
+	return m.provider.RegistrationRedirectURIs(ctx)
+}
+
 // InviteUserByID resends an invitation to a user.
 func (m *EmbeddedIdPManager) InviteUserByID(ctx context.Context, userID string) error {
 	return fmt.Errorf("not implemented")

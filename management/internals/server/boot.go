@@ -175,7 +175,10 @@ func (s *BaseServer) IDPHandler() http.Handler {
 		config, mailer, err := registration.ConfigFromEnvironment(s.Config.EmbeddedIdP.Issuer)
 		if sqlStore, ok := s.Store().(*store.SqlStore); err == nil && ok {
 			config.ValidateContinuation = embeddedIdP.RegistrationContinuation
-			registrations, err = registration.NewService(sqlStore.GetDB(), config, mailer, embeddedIdP, provision)
+			config.RedirectURIs, err = embeddedIdP.RegistrationRedirectURIs(context.Background())
+			if err == nil {
+				registrations, err = registration.NewService(sqlStore.GetDB(), config, mailer, embeddedIdP, provision)
+			}
 		}
 		if err != nil || registrations == nil {
 			log.Warn("Aheadscale email registration is unavailable: check SMTP configuration and database; existing sign-in remains available")

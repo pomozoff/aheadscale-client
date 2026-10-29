@@ -70,3 +70,21 @@ func TestVerifiedRegistrationContinuationRequiresLiveLocalRequest(t *testing.T) 
 		t.Fatal("expired OAuth request accepted")
 	}
 }
+
+func TestVerifiedRegistrationRedirectsExcludeUnrelatedClients(t *testing.T) {
+	p := &Provider{storage: memory.New(slog.New(slog.NewTextHandler(io.Discard, nil)))}
+	ctx := context.Background()
+	for _, c := range []storage.Client{
+		{ID: "netbird-dashboard", RedirectURIs: []string{"https://aheadscale.ru/nb-auth"}},
+		{ID: "netbird-cli", RedirectURIs: []string{"http://localhost:53000/"}},
+		{ID: "unrelated", RedirectURIs: []string{"https://evil.example/"}},
+	} {
+		if err := p.storage.CreateClient(ctx, c); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := p.RegistrationRedirectURIs(ctx)
+	if err != nil || len(got) != 2 || got[0] != "https://aheadscale.ru/nb-auth" || got[1] != "http://localhost:53000/" {
+		t.Fatalf("unexpected application redirect scope: %v %v", got, err)
+	}
+}

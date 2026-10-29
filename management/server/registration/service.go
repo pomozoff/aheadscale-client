@@ -27,6 +27,7 @@ var (
 )
 
 type Config struct {
+	RedirectURIs         []string
 	Issuer               string
 	LinkTTL, ResendAfter time.Duration
 	ValidateContinuation func(context.Context, string) bool
@@ -76,6 +77,15 @@ func NewService(db *gorm.DB, c Config, m Mailer, i Identity, p func(context.Cont
 	}
 	if c.LinkTTL == 0 {
 		c.LinkTTL = 30 * time.Minute
+	}
+	for _, value := range c.RedirectURIs {
+		u, err := url.Parse(value)
+		if err != nil || u.Host == "" || u.User != nil || strings.ContainsAny(u.Host, " \t\r\n;,'\"") {
+			return nil, ErrInvalid
+		}
+		if u.Scheme != "https" && !(u.Scheme == "http" && (u.Hostname() == "localhost" || u.Hostname() == "127.0.0.1" || u.Hostname() == "::1")) {
+			return nil, ErrInvalid
+		}
 	}
 	if c.ResendAfter == 0 {
 		c.ResendAfter = time.Minute

@@ -59,3 +59,19 @@ func (p *Provider) RegistrationContinuation(ctx context.Context, value string) b
 	req, err := p.storage.GetAuthRequest(ctx, q.Get("state"))
 	return err == nil && req.Expiry.After(time.Now()) && req.ConnectorID == LocalConnectorID && !req.LoggedIn
 }
+
+// RegistrationRedirectURIs reads only the two application clients we manage.
+func (p *Provider) RegistrationRedirectURIs(ctx context.Context) ([]string, error) {
+	var uris []string
+	for _, id := range []string{"netbird-dashboard", "netbird-cli"} {
+		client, err := p.storage.GetClient(ctx, id)
+		if errors.Is(err, storage.ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, errors.New("could not read application redirects")
+		}
+		uris = append(uris, client.RedirectURIs...)
+	}
+	return uris, nil
+}

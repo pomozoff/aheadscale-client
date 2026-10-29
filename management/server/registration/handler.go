@@ -46,6 +46,13 @@ func NewHandler(issuer string, _ identityStore, _ func(context.Context, *idp.Use
 	if len(services) == 1 {
 		service = services[0]
 	}
+	formSources := "'self'"
+	if service != nil {
+		for _, value := range service.config.RedirectURIs {
+			u, _ := url.Parse(value) // NewService validated the trusted client configuration.
+			formSources += " " + u.Scheme + "://" + u.Host
+		}
+	}
 	limit := rate.NewLimiter(rate.Every(time.Second), 20)
 	working := make(chan struct{}, 2)
 	cookieName := "as_reg_browser"
@@ -65,6 +72,8 @@ func NewHandler(issuer string, _ identityStore, _ func(context.Context, *idp.Use
 		switch r.URL.Path {
 		case "/oauth2/verify-email", "/oauth2/registration.js", "/oauth2/registration.css":
 			securityHeaders(w)
+			// Chromium applies form-action to the final OAuth redirect as well.
+			w.Header().Set("Content-Security-Policy", strings.Replace(w.Header().Get("Content-Security-Policy"), "form-action 'self'", "form-action "+formSources, 1))
 			if r.Method != http.MethodGet {
 				w.Header().Set("Allow", "GET")
 				http.Error(w, "Method not allowed", 405)
