@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/dexidp/dex/storage"
@@ -71,7 +72,18 @@ func (p *Provider) RegistrationRedirectURIs(ctx context.Context) ([]string, erro
 		if err != nil {
 			return nil, errors.New("could not read application redirects")
 		}
-		uris = append(uris, client.RedirectURIs...)
+		for _, value := range client.RedirectURIs {
+			u, err := url.Parse(value)
+			if err != nil {
+				return nil, errors.New("invalid application redirect")
+			}
+			// Embedded Dex adds relative device callbacks. They are already covered
+			// by 'self' and must not become an empty CSP host source.
+			if !u.IsAbs() && u.Host == "" && strings.HasPrefix(value, "/") && !strings.HasPrefix(value, "//") {
+				continue
+			}
+			uris = append(uris, value)
+		}
 	}
 	return uris, nil
 }

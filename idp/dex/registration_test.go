@@ -76,7 +76,7 @@ func TestVerifiedRegistrationRedirectsExcludeUnrelatedClients(t *testing.T) {
 	ctx := context.Background()
 	for _, c := range []storage.Client{
 		{ID: "netbird-dashboard", RedirectURIs: []string{"https://aheadscale.ru/nb-auth"}},
-		{ID: "netbird-cli", RedirectURIs: []string{"http://localhost:53000/"}},
+		{ID: "netbird-cli", RedirectURIs: []string{"http://localhost:53000/", "/device/callback", "/oauth2/device/callback"}},
 		{ID: "unrelated", RedirectURIs: []string{"https://evil.example/"}},
 	} {
 		if err := p.storage.CreateClient(ctx, c); err != nil {
