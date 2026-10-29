@@ -31,7 +31,7 @@ jobs:
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
       - name: Контракт отчётов и запуска выбранных проверок
-        run: python3 -B -m unittest discover -s testing/aheadscale -p test_run.py -v
+        run: python3 -B -m unittest discover -s testing/aheadscale -p 'test_*.py' -v
   unit:
     if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && contains(fromJSON('["checks","unit","build"]'), inputs.suite))
     needs: ci-contract

@@ -45,7 +45,7 @@ class PlasmaContract(unittest.TestCase):
     def test_component_requires_native_64_bit_shared_elf(self):
         with tempfile.TemporaryDirectory() as d:
             p=Path(d)/'plugin.so'
-            header=bytearray(64);header[:6]=b'\x7fELF\x02\x01';struct.pack_into('<HH',header,16,3,62)
+            header=bytearray(64);header[:7]=b'\x7fELF\x02\x01\x01';struct.pack_into('<HH',header,16,3,62)
             p.write_bytes(header)
             self.builder.check_component(p,'amd64')
             with self.assertRaises(ValueError):self.builder.check_component(p,'arm64')
@@ -62,7 +62,7 @@ class PlasmaContract(unittest.TestCase):
     def test_foreign_provenance_and_changed_blob_are_rejected(self):
         with tempfile.TemporaryDirectory() as d:
             p=Path(d)/'plugin.so'
-            header=bytearray(64);header[:6]=b'\x7fELF\x02\x01';struct.pack_into('<HH',header,16,3,62)
+            header=bytearray(64);header[:7]=b'\x7fELF\x02\x01\x01';struct.pack_into('<HH',header,16,3,62)
             p.write_bytes(header);digest=hashlib.sha256(header).hexdigest()
             pin=dict(self.pin,plasma_component_sha256={'amd64':digest})
             meta={k:self.pin[k] for k in ('upstream_commit','adapted_commit','archive_sha256','patch_sha256','plasma_sdk','plasma_toolchain')}
