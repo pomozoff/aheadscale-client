@@ -83,7 +83,7 @@ def environment():
             'qt': output(['pkg-config', '--modversion', 'Qt6Widgets']),
             'kf': package_version('libkf6coreaddons-dev'),
             'plasma': package_version('plasma-nm'),
-            'cmake': output(['cmake', '--version']).splitlines()[0].split()[-1],
+            'cmake': output(['/usr/bin/cmake', '--version']).splitlines()[0].split()[-1],
             'gcc': output(['g++', '-dumpfullversion'])}
 
 
@@ -116,12 +116,12 @@ def build(pin, destination):
                 body = response.read(1024 * 1024 + 1)
             write_verified(sdk/name, body, digest)
         compiled = work/'build'
-        subprocess.run(['cmake', '-S', str(source/'plasma'), '-B', str(compiled),
+        subprocess.run(['/usr/bin/cmake', '-S', str(source/'plasma'), '-B', str(compiled),
                         '-DCMAKE_BUILD_TYPE=Release', '-DPLASMA_NM_SOURCE=' + str(sdk)], check=True)
-        subprocess.run(['cmake', '--build', str(compiled), '-j2'], check=True)
+        subprocess.run(['/usr/bin/cmake', '--build', str(compiled), '-j2'], check=True)
         report = work/'ctest.xml'
         try:
-            subprocess.run(['ctest', '--test-dir', str(compiled), '--output-on-failure',
+            subprocess.run(['/usr/bin/ctest', '--test-dir', str(compiled), '--output-on-failure',
                             '--no-tests=error', '--output-junit', str(report)], check=True)
         finally:
             if report.exists():
