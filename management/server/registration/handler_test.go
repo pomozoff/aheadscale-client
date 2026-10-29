@@ -65,3 +65,24 @@ func TestLegacySignupCannotActivateAccount(t *testing.T) {
 		t.Fatalf("unverified legacy signup activated an account: HTTP %d, identities %d, provisioned %t", w.Code, identities.created, provisioned)
 	}
 }
+
+func TestVerificationPolicyAllowsOnlyConfiguredApplicationCallbacks(t *testing.T) {
+	s, _, _, _ := newTestService(t)
+	cfg := s.config
+	cfg.RedirectURIs = []string{"http://localhost:53000/auth"}
+	configured, err := NewService(s.db, cfg, s.mailer, s.identities, s.provision)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := NewHandler(cfg.Issuer, &recordingIdentity{}, s.provision, http.NotFoundHandler(), configured)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest("GET", "/oauth2/verify-email", nil))
+	policy := w.Header().Get("Content-Security-Policy")
+	if !strings.Contains(policy, "form-action 'self' http://localhost:53000") || strings.Contains(policy, "evil.example") {
+		t.Fatal("application callback is blocked or an unrelated target is allowed")
+	}
+	cfg.RedirectURIs = []string{"https://aheadscale.ru;form-action *"}
+	if _, err = NewService(s.db, cfg, s.mailer, s.identities, s.provision); err == nil {
+		t.Fatal("CSP injection in callback accepted")
+	}
+}
