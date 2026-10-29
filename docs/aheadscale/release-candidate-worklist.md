@@ -107,3 +107,11 @@ ARM64 ОС. Down/Up восстановил стенд; 36/36 положител�
 [native `.31`](smoke-results/2026-10-28-linux-native31.md) прошёл частичную живую
 проверку. [Продолжение `.31.3`](smoke-results/2026-10-29-linux-native31-3.md): реальные системные и GUI Connect/Disconnect на Fedora x64, ON/OFF при restart, восстановление ARM после аварии плагина и исправленный RPM-переход RG44. Полные R05/C13 и RG43 открыты. GUI autostart OFF/вход после reinstall, полный UI/CLI,
 RG38, остальные ОС и подписи открыты; RG39 и задержки не менять.
+
+[Linux native `.31.6`](smoke-results/2026-10-29-linux-native31-6.md): настоящий
+Cancel до Connected принят на Ubuntu ARM64 Plasma и Fedora ARM64 GNOME;
+GUI, CLI и системное состояние согласованы, позднего Up нет. Быстрое повторное
+подключение RG47 Fedora и 16 положительных/4 отрицательных HTTP прошли.
+Два public Desktop ARM64 пакета обновлены; KDE-зависимости RPM условны.
+Обе ВМ оставлены OFF. Свежий SSO, ARM lifecycle, CLI ARM64, amd64 KDE producer
+и полная матрица остаются открыты.
