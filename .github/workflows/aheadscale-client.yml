@@ -6,6 +6,12 @@ on:
     branches: [aheadscale]
   workflow_dispatch:
     inputs:
+      suite:
+        description: Выбранный набор; сборка только при build
+        type: choice
+        required: true
+        default: checks
+        options: [ci-contract, checks, unit, packaging, networkmanager, build]
       targets:
         description: Платформы сборки (macos-arm64 — только macOS ARM64)
         type: choice
@@ -18,7 +24,16 @@ concurrency:
   group: aheadscale-${{ github.workflow }}-${{ github.ref }}-${{ inputs.targets || 'current' }}
   cancel-in-progress: true
 jobs:
+  ci-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - name: Контракт отчётов и запуска выбранных проверок
+        run: python3 -B -m unittest discover -s testing/aheadscale -p test_run.py -v
   unit:
+    if: github.event_name == 'workflow_dispatch' && contains(fromJSON('["checks","unit","build"]'), inputs.suite)
+    needs: ci-contract
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -44,6 +59,8 @@ jobs:
           sh -n packaging/aheadscale/scripts/postinst packaging/aheadscale/scripts/prerm packaging/aheadscale/scripts/cleanup-networkmanager
           git diff --check
   windows-identity:
+    if: github.event_name == 'workflow_dispatch' && contains(fromJSON('["checks","unit","build"]'), inputs.suite)
+    needs: ci-contract
     runs-on: windows-2025
     timeout-minutes: 20
     steps:
@@ -54,6 +71,7 @@ jobs:
       - name: Independent Windows adapter identity
         run: go test ./client/iface/device -run TestAheadscale -count=1
   build:
+    if: github.event_name == 'workflow_dispatch' && inputs.suite == 'build'
     needs: [unit, windows-identity]
     strategy:
       fail-fast: false
