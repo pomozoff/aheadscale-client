@@ -54,6 +54,10 @@ callback/state/PKCE подлежат автоматизации на тесто�
 | Серверная регистрация / аккаунты / квоты | fc13fd2 | [PASS](https://github.com/pomozoff/aheadscale-client/actions/runs/40826553873) |
 | NM controller и Go/D-Bus закреплённого плагина | b3c4b20 | [PASS](https://github.com/pomozoff/aheadscale-client/actions/runs/40828090874) |
 | C/GTK-модель и обе factory | c6e5dd8 | [PASS](https://github.com/pomozoff/aheadscale-client/actions/runs/40835309010) |
+| KDE factory/диалог, amd64, закреплённый Ubuntu 26.04 | 9bfbb26 | [PASS](https://github.com/pomozoff/aheadscale-client/actions/runs/40837726261) |
+| KDE factory/диалог, arm64, закреплённый Ubuntu 26.04 | 569d047 | [PASS](https://github.com/pomozoff/aheadscale-client/actions/runs/40838793158) |
+| Передача проверенного KDE-артефакта amd64 / arm64 | 36c7029 / 50f3666 | [amd64 PASS](https://github.com/pomozoff/aheadscale-client/actions/runs/40838929799), [arm64 PASS](https://github.com/pomozoff/aheadscale-client/actions/runs/40839141053) |
+| SELinux: компиляция и загрузка в отдельное временное хранилище | 50f3666 | [PASS](https://github.com/pomozoff/aheadscale-client/actions/runs/40839135103) |
 | Контракт runner, включая прерывание и сохранение FAIL | 3cb2613 | [PASS](https://github.com/pomozoff/aheadscale-client/actions/runs/40829117507) |
 
 Приватный coordinator и изолированный контроллер включены в main через
@@ -68,8 +72,33 @@ overlay сброшен. При сбое API GitHub восстановление 
 контрактом с настоящим qemu-img. Результат пробы — инфраструктура PASS,
 полная приёмка приложения **NOT_RUN**.
 
-Следующие этапы: закреплённый KDE producer/CTest, продуктовые одноразовые гости,
+Следующие этапы: продуктовые одноразовые гости,
 изолированный сервер и браузерный auth/device E2E с почтой, затем остальные ОС и
 архитектуры. Вход, письмо подтверждения, удаление устройств и полный GUI/VPN/reboot
 ещё не считаются перенесёнными. Подтверждение email требует серверной доработки.
 Основной `acceptance` остаётся BLOCKED до готовности этих исполнителей.
+
+
+### KDE и Linux-сборки
+
+`plasma` собирает и проверяет factory/SSO/Cancel на нативном runner Ubuntu 26.04
+для выбранной архитектуры. Проверяются SDK, toolchain и ELF; неизвестные версии
+или архитектуры отклоняются. Это проверка компонента, не всей панели рабочего стола.
+Совместимость с более старыми KDE/Qt этим результатом не подтверждается.
+
+`plasma-input` и Linux `build` получают `plasma_run_id` успешного producer.
+Компонент скачивается из указанного run; проверяются собственный репозиторий,
+workflow, заключение run, его ревизия и закреплённые хеши компонента/SDK/patch.
+Готовый проверенный KDE-модуль используется повторно. Источник и run записываются
+в `SOURCE.json`; произвольный бинарный файл через input не принимается.
+
+```bash
+gh workflow run aheadscale-client.yml -R pomozoff/aheadscale-client --ref codex/linux-native-networkmanager -f suite=build -f targets=linux-amd64 -f plasma_run_id=40837726261
+```
+
+Hosted-образ GitHub содержит общие каталоги `/usr/share` с правами 777. Перед
+установочным smoke только в этой одноразовой ВМ убирается групповая/общая запись
+с root-owned каталогов-предков компонентов. Защита установщика от небезопасных
+системных путей сохраняется. Ошибка первоначального полного прогона
+[40839863039](https://github.com/pomozoff/aheadscale-client/actions/runs/40839863039)
+не считается успешной установкой.
