@@ -14,7 +14,7 @@ import time
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
-SUITES = ("ci-contract", "unit", "packaging", "networkmanager", "auth")
+SUITES = ("ci-contract", "unit", "packaging", "networkmanager", "auth", "gtk-editors")
 
 
 @dataclass
@@ -43,6 +43,8 @@ def suite_checks(suite):
             Check("sh-syntax", ["sh", "-n", "packaging/aheadscale/scripts/postinst", "packaging/aheadscale/scripts/prerm", "packaging/aheadscale/scripts/cleanup-networkmanager"], 30),
             Check("diff-format", ["git", "diff", "--check"], 30),
         ]
+    if suite == "gtk-editors":
+        return [Check("gtk-model-and-factories", [sys.executable, "-B", "testing/aheadscale/editors.py"], 300)]
     if suite == "auth":
         return [Check("registration-account-device-isolation", go + ["-race", "-tags", "devcert", "./management/server", "-run", "^TestAheadscale"], 1500)]
     if suite == "networkmanager":

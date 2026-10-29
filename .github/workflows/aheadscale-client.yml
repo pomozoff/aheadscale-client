@@ -12,7 +12,7 @@ on:
         type: choice
         required: true
         default: checks
-        options: [ci-contract, checks, unit, packaging, networkmanager, auth, build]
+        options: [ci-contract, checks, unit, packaging, networkmanager, auth, gtk-editors, build]
       targets:
         description: Платформы сборки (macos-arm64 — только macOS ARM64)
         type: choice
@@ -103,6 +103,28 @@ jobs:
           path: ci-results/networkmanager/
           retention-days: 7
           if-no-files-found: error
+  gtk-editor-tests:
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && contains(fromJSON('["checks","gtk-editors","build"]'), inputs.suite))
+    needs: ci-contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - name: Зависимости настоящих C/GTK тестов
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends gcc pkg-config libnm-dev libnma-dev libnma-gtk4-dev libgtk-3-dev libgtk-4-dev meson ninja-build
+      - name: Модель редактора и одновременная загрузка upstream/Aheadscale factory
+        run: python3 -B testing/aheadscale/run.py --suite gtk-editors --output ci-results/gtk-editors
+      - name: Краткий результат
+        if: always()
+        run: cat ci-results/gtk-editors/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Отчёт GTK редакторов
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: test-results-gtk-editors
+          path: ci-results/gtk-editors/
+          retention-days: 7
+          if-no-files-found: error
   auth-tests:
     if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && contains(fromJSON('["checks","auth"]'), inputs.suite))
     needs: ci-contract
@@ -140,7 +162,7 @@ jobs:
         run: go test ./client/iface/device -run TestAheadscale -count=1
   build:
     if: github.event_name == 'workflow_dispatch' && inputs.suite == 'build'
-    needs: [unit, windows-identity, packaging-tests, networkmanager-tests]
+    needs: [unit, windows-identity, packaging-tests, networkmanager-tests, gtk-editor-tests]
     strategy:
       fail-fast: false
       matrix:
