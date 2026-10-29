@@ -4,6 +4,12 @@
 пиши на русском языке. Названия продуктов, идентификаторы, параметры, команды,
 пути и URL сохраняй в исходном виде.
 
+Для Aheadscale сборки и продуктовые тесты запускай в GitHub Actions по
+[инструкции](docs/aheadscale/actions-quick-start.md). Не компилируй приложения
+и не устанавливай SDK на рабочем Mac mini для обычной проверки изменений.
+Выбирай затронутый набор и платформу; полную приёмку выполняй для релизного
+кандидата. Сначала читай Summary/JSON, подробные логи — только при ошибке.
+
 **NetBird** is an open source connectivity platform: a WireGuard®-based overlay
 network with a control plane. The **agent** (`client/`) runs on user machines as
 a privileged daemon and manages the WireGuard interface, routing, firewall, and

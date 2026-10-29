@@ -80,6 +80,7 @@ jobs:
           git rev-parse HEAD > "$RUNNER_TEMP/aheadscale-server/source.txt"
       - name: Собрать и проверить готовый контейнер на GitHub
         run: |
+          set -euo pipefail
           image="aheadscale-server:ci-${GITHUB_SHA}"
           docker build --platform linux/amd64 --label "org.opencontainers.image.revision=${GITHUB_SHA}" -t "$image" -f packaging/aheadscale/Dockerfile.server-runtime "$RUNNER_TEMP/aheadscale-server"
           docker run --rm --network none --read-only --cap-drop ALL "$image" --help > /dev/null
