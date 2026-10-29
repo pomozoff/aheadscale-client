@@ -7,11 +7,11 @@ on:
   workflow_dispatch:
     inputs:
       suite:
-        description: Полный прогон или только регистрация и вход
+        description: Полный прогон, регистрация или отдельная серверная сборка
         type: choice
         required: true
         default: full
-        options: [full, auth]
+        options: [full, auth, server]
       targets:
         description: Платформы сборки (macos-arm64 — только macOS ARM64)
         type: choice
@@ -24,6 +24,34 @@ concurrency:
   group: aheadscale-${{ github.workflow }}-${{ github.ref }}-${{ inputs.targets || 'current' }}
   cancel-in-progress: true
 jobs:
+  server:
+    if: github.event_name == 'workflow_dispatch' && inputs.suite == 'server'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GOTOOLCHAIN: local
+      CGO_ENABLED: '1'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.7'
+      - name: Собрать только сервер с проверенной регистрацией
+        run: |
+          mkdir -p "$RUNNER_TEMP/aheadscale-server"
+          go build -trimpath -ldflags '-s -w -X github.com/netbirdio/netbird/version.version=0.80.0-aheadscale.email.1' -o "$RUNNER_TEMP/aheadscale-server/aheadscale-server" ./combined
+          "$RUNNER_TEMP/aheadscale-server/aheadscale-server" --help > /dev/null
+          go version -m "$RUNNER_TEMP/aheadscale-server/aheadscale-server" > "$RUNNER_TEMP/aheadscale-server/build-info.txt"
+          git rev-parse HEAD > "$RUNNER_TEMP/aheadscale-server/source.txt"
+          cd "$RUNNER_TEMP/aheadscale-server"
+          sha256sum aheadscale-server build-info.txt source.txt > SHA256SUMS
+      - name: Сохранить серверный артефакт без секретов
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: aheadscale-server-linux-amd64
+          path: ${{ runner.temp }}/aheadscale-server/
+          if-no-files-found: error
+          retention-days: 7
   auth:
     if: github.event_name == 'workflow_dispatch' && inputs.suite == 'auth'
     runs-on: ubuntu-24.04
@@ -40,7 +68,7 @@ jobs:
       - name: Отдельные аккаунты, сети и лимиты устройств
         run: go test -race -tags devcert ./management/server -run '^TestAheadscale'
   unit:
-    if: inputs.suite != 'auth'
+    if: inputs.suite != 'auth' && inputs.suite != 'server'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -66,7 +94,7 @@ jobs:
           sh -n packaging/aheadscale/scripts/postinst packaging/aheadscale/scripts/prerm packaging/aheadscale/scripts/cleanup-networkmanager
           git diff --check
   windows-identity:
-    if: inputs.suite != 'auth'
+    if: inputs.suite != 'auth' && inputs.suite != 'server'
     runs-on: windows-2025
     timeout-minutes: 20
     steps:
@@ -77,7 +105,7 @@ jobs:
       - name: Independent Windows adapter identity
         run: go test ./client/iface/device -run TestAheadscale -count=1
   build:
-    if: inputs.suite != 'auth'
+    if: inputs.suite != 'auth' && inputs.suite != 'server'
     needs: [unit, windows-identity]
     strategy:
       fail-fast: false
