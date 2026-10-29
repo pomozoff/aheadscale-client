@@ -31,8 +31,8 @@
 Файлы: `management/server/registration/handler_test.go`,
 `testing/aheadscale/run.py`, существующий `aheadscale_registration_test.go`.
 
-- [ ] Добавить RED: прежний POST email/password не создаёт пользователя без проверки.
-- [ ] Запустить `suite=auth` в Actions на точном коммите, сохранить причину RED.
+- [x] Добавить RED: прежний POST email/password не создаёт пользователя без проверки.
+- [x] Запустить `suite=auth` в Actions на точном коммите, сохранить причину RED.
 
 ## Задача 2. Устойчивые заявки и завершение
 
