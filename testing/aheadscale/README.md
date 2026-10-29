@@ -15,8 +15,9 @@ Go-регрессии; `packaging` — Go/Python и статические пр�
 интеграционные TestAheadscale для регистрации, отдельных аккаунтов и квот.
 Auth-набор создаёт собственных пользователей/устройства в тестовых БД; это ещё
 не браузерная E2E-проверка письма, VK/Яндекса или системного клиента. Go/D-Bus тесты внешнего плагина используют проверенный source pin и независимый
-proto-fixture клиента; это не имитация рабочего VPN. Plasma/GTK CTest и live lab
-добавляются отдельным этапом. `build` — явная сборка
+proto-fixture клиента; это не имитация рабочего VPN. `gtk-editors` проверяет C-модель и совместную загрузку исходной/Aheadscale
+factory, собирая GTK3/GTK4-библиотеки из того же проверенного исходника. Plasma
+CTest и продуктовый live lab добавляются отдельным этапом. `build` — явная сборка
 с предварительными проверками; её готовность не доказывается `packaging`.
 Обычный push запускает только быстрый `ci-contract`. Pull request дополнительно
 запускает unit/packaging/networkmanager/auth и Windows identity; GUI-сборки
@@ -52,16 +53,23 @@ callback/state/PKCE подлежат автоматизации на тесто�
 | Упаковка | fc13fd2 | [PASS](https://github.com/pomozoff/aheadscale-client/actions/runs/40826553917) |
 | Серверная регистрация / аккаунты / квоты | fc13fd2 | [PASS](https://github.com/pomozoff/aheadscale-client/actions/runs/40826553873) |
 | NM controller и Go/D-Bus закреплённого плагина | b3c4b20 | [PASS](https://github.com/pomozoff/aheadscale-client/actions/runs/40828090874) |
+| C/GTK-модель и обе factory | c6e5dd8 | [PASS](https://github.com/pomozoff/aheadscale-client/actions/runs/40835309010) |
 | Контракт runner, включая прерывание и сохранение FAIL | 3cb2613 | [PASS](https://github.com/pomozoff/aheadscale-client/actions/runs/40829117507) |
 
-Приватный coordinator включён в main подписанным коммитом e67d7d9 через
-[PR #1](https://github.com/pomozoff/aheadscale-tests/pull/1) с разрешения владельца.
-[Контрольный запуск](https://github.com/pomozoff/aheadscale-tests/actions/runs/40829277353)
-подтвердил: каталог проходит, приёмка **BLOCKED**, задание lab **SKIPPED**, поскольку
-изолированный исполнитель и тестовый сервер ещё не подготовлены. GitHub отображает
-такой запуск красным; это ожидаемая проверка барьера, а не пройденный VPN-тест.
+Приватный coordinator и изолированный контроллер включены в main через
+[PR #1](https://github.com/pomozoff/aheadscale-tests/pull/1) и
+[PR #2](https://github.com/pomozoff/aheadscale-tests/pull/2), коммиты подписаны.
+[Проба из main](https://github.com/pomozoff/aheadscale-tests/actions/runs/40835290767)
+подтвердила 7 hosted-контрактов и 6 проверок внутри управляющей ВМ: отдельный
+пользователь без sudo, отсутствие файлов хоста, запрет прямого egress,
+разрешённый GitHub TLS через proxy, запрет LAN/CGNAT/metadata/production,
+создание/остановка вложенного KVM. Одноразовый runner удалён, ВМ остановлена,
+overlay сброшен. При сбое API GitHub восстановление overlay проверяется отдельным
+контрактом с настоящим qemu-img. Результат пробы — инфраструктура PASS,
+полная приёмка приложения **NOT_RUN**.
 
-Следующие этапы: C/GTK/Plasma в hosted Actions, отдельная управляющая ВМ и
-одноразовые гости, реальный браузерный auth/device E2E с почтой, затем остальные
-ОС и архитектуры. Вход, письмо подтверждения, удаление устройств, GUI/VPN/reboot
-пока не считаются перенесёнными. Подтверждение email ещё требует серверной доработки.
+Следующие этапы: закреплённый KDE producer/CTest, продуктовые одноразовые гости,
+изолированный сервер и браузерный auth/device E2E с почтой, затем остальные ОС и
+архитектуры. Вход, письмо подтверждения, удаление устройств и полный GUI/VPN/reboot
+ещё не считаются перенесёнными. Подтверждение email требует серверной доработки.
+Основной `acceptance` остаётся BLOCKED до готовности этих исполнителей.
