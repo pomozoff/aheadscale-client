@@ -12,7 +12,12 @@ on:
         type: choice
         required: true
         default: checks
-        options: [ci-contract, checks, unit, packaging, networkmanager, auth, gtk-editors, plasma, build]
+        options: [ci-contract, checks, unit, packaging, networkmanager, auth, gtk-editors, plasma, plasma-input, policy, build]
+      plasma_run_id:
+        description: Успешный suite=plasma с компонентом нужной архитектуры (для Linux build/plasma-input)
+        type: string
+        required: false
+        default: ''
       targets:
         description: Платформы сборки (macos-arm64 — только macOS ARM64)
         type: choice
@@ -159,6 +164,42 @@ jobs:
           path: ci-results/plasma-component/
           if-no-files-found: error
           retention-days: 7
+  plasma-input-tests:
+    if: github.event_name == 'workflow_dispatch' && inputs.suite == 'plasma-input'
+    needs: ci-contract
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: ${{ fromJSON((inputs.targets == 'linux-arm64' || inputs.targets == 'arm64') && '["arm64"]' || '["amd64"]') }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - name: Проверить выбранный KDE producer run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PLASMA_RUN_ID: ${{ inputs.plasma_run_id }}
+        run: |
+          python3 -c 'import os,re; assert re.fullmatch("[1-9][0-9]*",os.environ["PLASMA_RUN_ID"]), "Сначала нужен успешный suite=plasma и его run ID"'
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PLASMA_RUN_ID" > "$RUNNER_TEMP/plasma-run.json"
+          source_sha=$(python3 -B testing/aheadscale/plasma.py --run-metadata "$RUNNER_TEMP/plasma-run.json" --run-id "$PLASMA_RUN_ID")
+          printf 'AHEADSCALE_PLASMA_RUN_SOURCE=%s\nAHEADSCALE_PLASMA_RUN_ID=%s\n' "$source_sha" "$PLASMA_RUN_ID" >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.plasma_run_id }}
+          name: plasma-component-${{ matrix.arch }}
+          path: build/plasma-input/${{ matrix.arch }}
+      - name: Проверить KDE ELF, SHA256, SDK и ревизию producer
+        run: |
+          component="$PWD/build/plasma-input/${{ matrix.arch }}/plasmanetworkmanagement_aheadscaleui.so"
+          python3 -B testing/aheadscale/plasma.py --verify-component "$component" --provenance "${component%/*}/provenance.json" --arch '${{ matrix.arch }}' --expected-revision "$AHEADSCALE_PLASMA_RUN_SOURCE"
+          printf 'AHEADSCALE_PLASMA_COMPONENT=%s\n' "$component" >> "$GITHUB_ENV"
+      - name: Итог передачи артефакта
+        run: echo '## KDE artifact handoff PASS; полная приёмка приложения NOT_RUN' >> "$GITHUB_STEP_SUMMARY"
   auth-tests:
     if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && contains(fromJSON('["checks","auth"]'), inputs.suite))
     needs: ci-contract
@@ -212,10 +253,36 @@ jobs:
           {"platform":"darwin","arch":"arm64","runner":"macos-26"}]') }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
+    permissions:
+      contents: read
+      actions: read
     env:
       GOTOOLCHAIN: local
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - name: Проверить выбранный KDE producer run
+        if: matrix.platform == 'linux'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PLASMA_RUN_ID: ${{ inputs.plasma_run_id }}
+        run: |
+          python3 -c 'import os,re; assert re.fullmatch("[1-9][0-9]*",os.environ["PLASMA_RUN_ID"]), "Сначала нужен успешный suite=plasma и его run ID"'
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PLASMA_RUN_ID" > "$RUNNER_TEMP/plasma-run.json"
+          source_sha=$(python3 -B testing/aheadscale/plasma.py --run-metadata "$RUNNER_TEMP/plasma-run.json" --run-id "$PLASMA_RUN_ID")
+          printf 'AHEADSCALE_PLASMA_RUN_SOURCE=%s\nAHEADSCALE_PLASMA_RUN_ID=%s\n' "$source_sha" "$PLASMA_RUN_ID" >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        if: matrix.platform == 'linux'
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.plasma_run_id }}
+          name: plasma-component-${{ matrix.arch }}
+          path: build/plasma-input/${{ matrix.arch }}
+      - name: Проверить KDE ELF, SHA256, SDK и ревизию producer
+        if: matrix.platform == 'linux'
+        run: |
+          component="$PWD/build/plasma-input/${{ matrix.arch }}/plasmanetworkmanagement_aheadscaleui.so"
+          python3 -B testing/aheadscale/plasma.py --verify-component "$component" --provenance "${component%/*}/provenance.json" --arch '${{ matrix.arch }}' --expected-revision "$AHEADSCALE_PLASMA_RUN_SOURCE"
+          printf 'AHEADSCALE_PLASMA_COMPONENT=%s\n' "$component" >> "$GITHUB_ENV"
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
         with:
           go-version: '1.26.7'

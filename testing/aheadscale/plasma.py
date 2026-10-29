@@ -48,6 +48,18 @@ def check_component(path, arch):
         raise ValueError('Нужен нативный 64-bit ELF shared object')
 
 
+def validate_run(meta, run_id):
+    if not re.fullmatch('[1-9][0-9]*', run_id) or str(meta.get('id')) != run_id:
+        raise ValueError('Нужен точный положительный Actions run ID')
+    if (meta.get('status') != 'completed' or meta.get('conclusion') != 'success'
+            or meta.get('event') != 'workflow_dispatch'
+            or meta.get('path') != '.github/workflows/aheadscale-client.yml'
+            or meta.get('head_repository', {}).get('full_name') != 'pomozoff/aheadscale-client'
+            or not re.fullmatch('[0-9a-f]{40}', meta.get('head_sha', ''))):
+        raise ValueError('Нужен успешный producer workflow своего репозитория')
+    return meta['head_sha']
+
+
 def verify_provenance(pin, meta, component, arch):
     expected = pin.get('plasma_component_sha256', {}).get(arch)
     if not expected:
@@ -59,6 +71,8 @@ def verify_provenance(pin, meta, component, arch):
         raise ValueError('SHA256 KDE-компонента не совпадает')
     if meta.get('architecture') != arch or not re.fullmatch('[0-9a-f]{40}', meta.get('client_revision', '')):
         raise ValueError('Некорректная архитектура/ревизия producer')
+    if pin.get('expected_producer_revision') and meta['client_revision'] != pin['expected_producer_revision']:
+        raise ValueError('Артефакт из другого producer run')
     for key in PROVENANCE_KEYS:
         if meta.get(key) != pin[key]:
             raise ValueError('Другое происхождение KDE-компонента: ' + key)
@@ -147,11 +161,22 @@ def main():
     parser.add_argument('--verify-component', type=Path)
     parser.add_argument('--provenance', type=Path)
     parser.add_argument('--arch', choices=['amd64', 'arm64'])
+    parser.add_argument('--expected-revision')
+    parser.add_argument('--run-metadata', type=Path)
+    parser.add_argument('--run-id')
     args = parser.parse_args()
     pin = json.loads(PIN.read_text())
-    if args.verify_component:
+    if args.run_metadata:
+        if not args.run_id:
+            parser.error('--run-id обязателен')
+        print(validate_run(json.loads(args.run_metadata.read_text()), args.run_id))
+    elif args.verify_component:
         if not args.provenance or not args.arch:
             parser.error('--provenance и --arch обязательны при проверке')
+        if args.expected_revision:
+            if not re.fullmatch('[0-9a-f]{40}', args.expected_revision):
+                parser.error('Нужна точная producer revision')
+            pin = pin | {'expected_producer_revision': args.expected_revision}
         verify_provenance(pin, json.loads(args.provenance.read_text()), args.verify_component, args.arch)
     elif args.output:
         build(pin, args.output.resolve())

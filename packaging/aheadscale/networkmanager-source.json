@@ -27,7 +27,8 @@
     }
   },
   "plasma_component_sha256": {
-    "arm64": "e87be912657498dbd6ff90374493002cbc4bfad9b3ffc178e1206a4ec19c7580"
+    "arm64": "e87be912657498dbd6ff90374493002cbc4bfad9b3ffc178e1206a4ec19c7580",
+    "amd64": "b6d553089f5dc61b106f241b84ef98264650b07df903e547e751f0e192288983"
   },
   "plasma_toolchain": {
     "os": "Ubuntu 26.04",
@@ -37,5 +38,12 @@
     "cmake": "4.2.3",
     "gcc": "15.2.0"
   },
-  "patch_format": "git-unified-0"
+  "patch_format": "git-unified-0",
+  "plasma_component_producer": {
+    "amd64": {
+      "run_id": 40837726261,
+      "source_commit": "9bfbb2687efb76848c2fedf91bcb6b382c4a10e5",
+      "ctest": "PASS"
+    }
+  }
 }
