@@ -194,12 +194,20 @@ jobs:
           name: plasma-component-${{ matrix.arch }}
           path: build/plasma-input/${{ matrix.arch }}
       - name: Проверить KDE ELF, SHA256, SDK и ревизию producer
-        run: |
-          component="$PWD/build/plasma-input/${{ matrix.arch }}/plasmanetworkmanagement_aheadscaleui.so"
-          python3 -B testing/aheadscale/plasma.py --verify-component "$component" --provenance "${component%/*}/provenance.json" --arch '${{ matrix.arch }}' --expected-revision "$AHEADSCALE_PLASMA_RUN_SOURCE"
-          printf 'AHEADSCALE_PLASMA_COMPONENT=%s\n' "$component" >> "$GITHUB_ENV"
-      - name: Итог передачи артефакта
-        run: echo '## KDE artifact handoff PASS; полная приёмка приложения NOT_RUN' >> "$GITHUB_STEP_SUMMARY"
+        env:
+          AHEADSCALE_PLASMA_COMPONENT: ${{ github.workspace }}/build/plasma-input/${{ matrix.arch }}/plasmanetworkmanagement_aheadscaleui.so
+          AHEADSCALE_PLASMA_ARCH: ${{ matrix.arch }}
+        run: python3 -B testing/aheadscale/run.py --suite plasma-input --output ci-results/plasma-input
+      - name: Краткий результат
+        if: always()
+        run: test ! -f ci-results/plasma-input/summary.md || cat ci-results/plasma-input/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: test-results-plasma-input-${{ matrix.arch }}
+          path: ci-results/plasma-input/
+          if-no-files-found: error
+          retention-days: 7
   policy-tests:
     if: github.event_name == 'workflow_dispatch' && inputs.suite == 'policy'
     needs: ci-contract
