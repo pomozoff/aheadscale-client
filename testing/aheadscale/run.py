@@ -14,7 +14,7 @@ import time
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
-SUITES = ("ci-contract", "unit", "packaging", "networkmanager", "auth", "gtk-editors")
+SUITES = ("ci-contract", "unit", "packaging", "networkmanager", "auth", "gtk-editors", "plasma")
 
 
 @dataclass
@@ -28,7 +28,7 @@ class Check:
 def suite_checks(suite):
     go = ["go", "test", "-count=1"]
     if suite == "ci-contract":
-        return [Check("runner-contract", [sys.executable, "-B", "-m", "unittest", "discover", "-s", "testing/aheadscale", "-p", "test_run.py", "-v"], 120)]
+        return [Check("runner-contract", [sys.executable, "-B", "-m", "unittest", "discover", "-s", "testing/aheadscale", "-p", "test_*.py", "-v"], 120)]
     if suite == "unit":
         return [
             Check("client-core", go + ["./client/" + p for p in ["cmd", "status", "internal/auth", "internal/templates", "internal/profilemanager", "internal/daemonaddr", "internal/selfroute", "internal/ipcauth", "net", "internal/routemanager/systemops", "configs"]], 900),
@@ -43,6 +43,8 @@ def suite_checks(suite):
             Check("sh-syntax", ["sh", "-n", "packaging/aheadscale/scripts/postinst", "packaging/aheadscale/scripts/prerm", "packaging/aheadscale/scripts/cleanup-networkmanager"], 30),
             Check("diff-format", ["git", "diff", "--check"], 30),
         ]
+    if suite == "plasma":
+        return [Check("plasma-factory-and-dialog", [sys.executable, "-B", "testing/aheadscale/plasma.py", "--output", "ci-results/plasma-component"], 600)]
     if suite == "gtk-editors":
         return [Check("gtk-model-and-factories", [sys.executable, "-B", "testing/aheadscale/editors.py"], 300)]
     if suite == "auth":

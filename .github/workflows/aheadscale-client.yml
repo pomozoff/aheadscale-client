@@ -12,7 +12,7 @@ on:
         type: choice
         required: true
         default: checks
-        options: [ci-contract, checks, unit, packaging, networkmanager, auth, gtk-editors, build]
+        options: [ci-contract, checks, unit, packaging, networkmanager, auth, gtk-editors, plasma, build]
       targets:
         description: Платформы сборки (macos-arm64 — только macOS ARM64)
         type: choice
@@ -125,6 +125,40 @@ jobs:
           path: ci-results/gtk-editors/
           retention-days: 7
           if-no-files-found: error
+  plasma-tests:
+    if: github.event_name == 'workflow_dispatch' && inputs.suite == 'plasma'
+    needs: ci-contract
+    strategy:
+      fail-fast: false
+      matrix:
+        include: >-
+          ${{ fromJSON((inputs.targets == 'linux-arm64' || inputs.targets == 'arm64') &&
+          '[{"arch":"arm64","runner":"ubuntu-26.04-arm"}]' ||
+          '[{"arch":"amd64","runner":"ubuntu-26.04"}]') }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - name: Нативный Qt/KDE toolchain
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends cmake g++ pkg-config qt6-base-dev libkf6coreaddons-dev libkf6networkmanagerqt-dev libkf6widgetsaddons-dev libnm-dev plasma-nm
+      - name: KDE factory, настройки, браузерный SSO и уничтожение диалога
+        run: python3 -B testing/aheadscale/run.py --suite plasma --output ci-results/plasma
+      - name: Краткий результат
+        if: always()
+        run: test ! -f ci-results/plasma/summary.md || cat ci-results/plasma/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: test-results-plasma-${{ matrix.arch }}
+          path: ci-results/plasma/
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: plasma-component-${{ matrix.arch }}
+          path: ci-results/plasma-component/
+          if-no-files-found: error
+          retention-days: 7
   auth-tests:
     if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && contains(fromJSON('["checks","auth"]'), inputs.suite))
     needs: ci-contract
