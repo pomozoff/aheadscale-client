@@ -5,7 +5,7 @@ import shutil
 import subprocess
 import tarfile
 import json
-from networkmanager_package import PAYLOAD, prepare_hook, normalize_directories
+from networkmanager_package import PAYLOAD, plasma_plugin_path, prepare_hook, normalize_directories
 
 
 def package_rpm(root, binaries, staging, output, version, arch, cli_only):
@@ -42,7 +42,7 @@ def package_rpm(root, binaries, staging, output, version, arch, cli_only):
                   "%{_datadir}/icons/hicolor/512x512/apps/aheadscale.png"]
     files += ["%{_prefix}/lib/aheadscale/networkmanager-lifecycle", "%dir %{_datadir}/aheadscale", "%{_datadir}/aheadscale/networkmanager-files.json"]
     if not cli_only:
-        files += [*PAYLOAD.values(), "/usr/share/selinux/packages/nm_aheadscale.pp", "%dir /usr/lib/systemd/system/aheadscale.service.d", "%dir /usr/share/doc/aheadscale/networkmanager", "/usr/share/doc/aheadscale/networkmanager/LICENSE", "/usr/share/doc/aheadscale/networkmanager/NOTICES.md", "/usr/share/doc/aheadscale/networkmanager/SOURCE.json"]
+        files += [*PAYLOAD.values(), plasma_plugin_path('rpm', arch), "/usr/share/selinux/packages/nm_aheadscale.pp", "%dir /usr/lib/systemd/system/aheadscale.service.d", "%dir /usr/share/doc/aheadscale/networkmanager", "/usr/share/doc/aheadscale/networkmanager/LICENSE", "/usr/share/doc/aheadscale/networkmanager/NOTICES.md", "/usr/share/doc/aheadscale/networkmanager/SOURCE.json"]
     manifest=json.loads((staging / 'usr/share/aheadscale/networkmanager-files.json').read_text())
     replacements = {
         "@NAME@": package_name, "@VERSION@": match[1], "@RELEASE@": "0.aheadscale." + match[2] + ".1",

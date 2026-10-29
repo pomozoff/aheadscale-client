@@ -16,6 +16,15 @@ PAYLOAD = {
     'aheadscale-nm-controller.service': '/usr/lib/systemd/system/aheadscale-nm-controller.service',
     '20-networkmanager.conf': '/usr/lib/systemd/system/aheadscale.service.d/20-networkmanager.conf',
 }
+PLASMA_PLUGIN = 'plasmanetworkmanagement_aheadscaleui.so'
+
+
+def plasma_plugin_path(package_format, arch):
+    if package_format == 'rpm':
+        lib = 'lib64'
+    else:
+        lib = 'lib/' + {'amd64': 'x86_64-linux-gnu', 'arm64': 'aarch64-linux-gnu'}[arch]
+    return '/usr/' + lib + '/qt6/plugins/plasma/network/vpn/' + PLASMA_PLUGIN
 
 
 def copy_file(source, target, mode):
@@ -24,12 +33,13 @@ def copy_file(source, target, mode):
     target.chmod(mode)
 
 
-def stage_networkmanager(root, binaries, staging, cli_only, package_format, channel):
+def stage_networkmanager(root, binaries, staging, cli_only, package_format, channel, arch='amd64'):
     mode = 'cli' if cli_only else 'desktop'
     origin = {'public': 'https://aheadscale.ru:443', 'internal': 'https://macmini.tailb71cbe.ts.net:10443'}[channel]
     manifest = {'schema_version': 1, 'service_type': 'org.freedesktop.NetworkManager.aheadscale', 'management_url': origin, 'admin_url': origin, 'files': {}, 'variant': mode}
     if not cli_only:
         payload = dict(PAYLOAD)
+        payload[PLASMA_PLUGIN] = plasma_plugin_path(package_format, arch)
         if package_format == 'rpm': payload['nm_aheadscale.pp'] = '/usr/share/selinux/packages/nm_aheadscale.pp'
         for source_name, destination in payload.items():
             source = binaries / 'networkmanager' / source_name

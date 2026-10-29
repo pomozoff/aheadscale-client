@@ -58,7 +58,7 @@ if args.platform == 'linux':
             'Exec=/usr/bin/aheadscale-ui\nIcon=aheadscale\nTerminal=false\n'
             'Categories=Network;\nStartupWMClass=org.wails.aheadscale\n')
     from networkmanager_package import stage_networkmanager, deb_hooks, normalize_directories
-    nm_manifest = stage_networkmanager(root, binaries, staging, args.cli_only, args.format or 'deb', args.channel)
+    nm_manifest = stage_networkmanager(root, binaries, staging, args.cli_only, args.format or 'deb', args.channel, args.arch)
     copy(root / 'LICENSE', staging / 'usr/share/doc/aheadscale/LICENSE')
     copy(root / 'packaging/aheadscale/NOTICES.md', staging / 'usr/share/doc/aheadscale/NOTICES.md')
     if args.format == 'rpm':

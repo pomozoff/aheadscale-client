@@ -193,6 +193,31 @@ class LifecycleTests(unittest.TestCase):
         self.assertEqual((self.root / lifecycle.PRIVATE.lstrip('/')).stat().st_mode & 0o777, 0o600)
 
 class PackagingTests(unittest.TestCase):
+    def test_desktop_contains_real_plasma_adapter_at_distro_plugin_path(self):
+        import networkmanager_package as packaging
+        source = Path(__file__).parent.resolve()
+        for arch, fmt, destination in (
+            ('arm64', 'deb', '/usr/lib/aarch64-linux-gnu/qt6/plugins/plasma/network/vpn/plasmanetworkmanagement_aheadscaleui.so'),
+            ('amd64', 'deb', '/usr/lib/x86_64-linux-gnu/qt6/plugins/plasma/network/vpn/plasmanetworkmanagement_aheadscaleui.so'),
+            ('arm64', 'rpm', '/usr/lib64/qt6/plugins/plasma/network/vpn/plasmanetworkmanagement_aheadscaleui.so'),
+            ('amd64', 'rpm', '/usr/lib64/qt6/plugins/plasma/network/vpn/plasmanetworkmanagement_aheadscaleui.so'),
+        ):
+            with self.subTest(arch=arch, fmt=fmt), tempfile.TemporaryDirectory() as tmp:
+                base = Path(tmp)
+                binaries = base / ('linux-' + arch + '-public')
+                component = binaries / 'networkmanager'
+                component.mkdir(parents=True)
+                for name in [*packaging.PAYLOAD, 'nm_aheadscale.pp', 'LICENSE', 'NOTICES.md', 'SOURCE.json']:
+                    (component / name).write_bytes(b'pinned component fixture')
+                (component / 'plasmanetworkmanagement_aheadscaleui.so').write_bytes(b'pinned KDE ELF')
+                staging = base / 'staging'
+                manifest = packaging.stage_networkmanager(source.parents[1], binaries, staging, False, fmt, 'public', arch)
+                target = staging / destination.lstrip('/')
+                self.assertTrue(target.is_file(), 'Plasma must discover the adapter in its own plugin directory')
+                self.assertEqual(target.read_bytes(), b'pinned KDE ELF')
+                self.assertEqual(manifest['files'][destination], hashlib.sha256(b'pinned KDE ELF').hexdigest())
+                self.assertIn(destination, lifecycle.OWNED)
+
     def test_manifest_permissions_do_not_inherit_group_writable_umask(self):
         import os
         import networkmanager_package as packaging
@@ -218,10 +243,10 @@ class PackagingTests(unittest.TestCase):
                 component = binaries / 'networkmanager'
                 component.mkdir(parents=True)
                 if not cli:
-                    for name in [*packaging.PAYLOAD, 'nm_aheadscale.pp', 'LICENSE', 'NOTICES.md', 'SOURCE.json']:
+                    for name in [*packaging.PAYLOAD, packaging.PLASMA_PLUGIN, 'nm_aheadscale.pp', 'LICENSE', 'NOTICES.md', 'SOURCE.json']:
                         (component / name).write_bytes(b'pinned component fixture')
                 root = source.parents[1]
-                manifest = packaging.stage_networkmanager(root, binaries, staging, cli, fmt, channel)
+                manifest = packaging.stage_networkmanager(root, binaries, staging, cli, fmt, channel, arch)
                 if cli:
                     self.assertEqual(manifest['files'], {})
                     self.assertFalse((staging / 'usr/libexec/nm-aheadscale-service').exists())
