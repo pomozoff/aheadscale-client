@@ -70,6 +70,7 @@ class LifecycleTests(unittest.TestCase):
         receipt.chmod(0o600)
         self.put('/usr/libexec/nm-aheadscale-service', 'edited')
         with self.assertRaises(ValueError): self.installer.remove()
+        with self.assertRaises(ValueError): self.installer.uninstall()
         self.assertEqual(self.calls, [])
     def test_off_on_transfers_do_not_rewrite_preferences(self):
         for on in (False, True):
@@ -129,6 +130,45 @@ class LifecycleTests(unittest.TestCase):
                     self.installer.install('cli')
                     marker = json.loads((self.root / lifecycle.HANDOVER.lstrip('/')).read_text())
                     self.assertEqual(marker['connected'], connected)
+    def test_old_variant_removal_defers_to_prepared_replacement(self):
+        from types import SimpleNamespace
+        self.put('/usr/lib/systemd/system/aheadscale.service', '[Unit]\nDescription=Aheadscale private network\n[Service]\nExecStart=/usr/bin/aheadscale service run\n')
+        for retired in (False, True):
+            with self.subTest(retired=retired):
+                self.manifest['files'] = self.files
+                self.payload()
+                first = self.installer.install('desktop')
+                if retired: self.installer.remove()
+                calls = []
+                def run(args):
+                    calls.append(args)
+                    output = 'active' if args[:2] == ['systemctl', 'is-active'] else 'enabled' if args[:2] == ['systemctl', 'is-enabled'] else json.dumps({'daemonStatus': 'Connected'})
+                    return SimpleNamespace(returncode=0, stdout=output, stderr='')
+                self.installer.runner = run
+                self.installer.prepare('desktop')
+                self.put('/usr/libexec/nm-aheadscale-service', 'replacement-plugin')
+                self.manifest['files'] = {'/usr/libexec/nm-aheadscale-service': hashlib.sha256(b'replacement-plugin').hexdigest()}
+                calls.clear()
+                self.installer.uninstall()
+                self.assertEqual(calls, [])
+                self.installer.apply('desktop', 'rpm')
+                current = self.installer.receipt()
+                self.assertEqual(current['uuid'], first['uuid'])
+                self.assertTrue(current['installed'])
+                self.assertEqual((self.root / 'var/lib/aheadscale/default.json').read_text(), 'private-key-preserved')
+                self.manifest['files'] = self.files
+    def test_removal_rejects_changed_prepared_receipt(self):
+        self.payload()
+        self.installer.install('desktop')
+        self.installer.preflight('desktop')
+        transaction = self.installer.read_json(lifecycle.TRANSACTION, private=True)
+        transaction['mode'] = 'desktop'
+        self.installer.write_json(lifecycle.TRANSACTION, transaction, 0o600)
+        receipt = self.installer.receipt()
+        receipt['installed'] = False
+        self.installer.write_json(lifecycle.PRIVATE, receipt, 0o600)
+        with self.assertRaises(ValueError): self.installer.uninstall()
+        self.assertEqual(self.calls, [])
     def test_changed_selinux_module_is_refused_before_cleanup(self):
         from types import SimpleNamespace
         policy = '/usr/share/selinux/packages/nm_aheadscale.pp'
