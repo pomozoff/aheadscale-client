@@ -629,6 +629,26 @@ func (m *EmbeddedIdPManager) CreateUserWithPassword(ctx context.Context, email, 
 	}, nil
 }
 
+// EnsureRegistrationUser is idempotent only for the ID reserved after email proof.
+func (m *EmbeddedIdPManager) EnsureRegistrationUser(ctx context.Context, email, password, rawID string) (*UserData, error) {
+	if m.config.LocalAuthDisabled {
+		return nil, fmt.Errorf("local user creation is disabled")
+	}
+	userID, err := m.provider.EnsureRegistrationUser(ctx, email, password, rawID)
+	if err != nil {
+		return nil, err
+	}
+	return &UserData{ID: userID, Email: email, Name: email}, nil
+}
+
+func (m *EmbeddedIdPManager) RegistrationContinuation(ctx context.Context, value string) bool {
+	return m.provider.RegistrationContinuation(ctx, value)
+}
+
+func (m *EmbeddedIdPManager) RegistrationRedirectURIs(ctx context.Context) ([]string, error) {
+	return m.provider.RegistrationRedirectURIs(ctx)
+}
+
 // InviteUserByID resends an invitation to a user.
 func (m *EmbeddedIdPManager) InviteUserByID(ctx context.Context, userID string) error {
 	return fmt.Errorf("not implemented")

@@ -6,6 +6,12 @@ on:
     branches: [aheadscale]
   workflow_dispatch:
     inputs:
+      suite:
+        description: Полный прогон или только регистрация и вход
+        type: choice
+        required: true
+        default: full
+        options: [full, auth]
       targets:
         description: Платформы сборки (macos-arm64 — только macOS ARM64)
         type: choice
@@ -18,7 +24,23 @@ concurrency:
   group: aheadscale-${{ github.workflow }}-${{ github.ref }}-${{ inputs.targets || 'current' }}
   cancel-in-progress: true
 jobs:
+  auth:
+    if: github.event_name == 'workflow_dispatch' && inputs.suite == 'auth'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.7'
+      - name: Подтверждение email и SMTP TLS
+        run: go test -race ./management/server/registration
+      - name: Восстановление регистрации и штатные адреса Dex
+        run: go test -race ./idp/dex -run '^TestVerifiedRegistration'
+      - name: Отдельные аккаунты, сети и лимиты устройств
+        run: go test -race -tags devcert ./management/server -run '^TestAheadscale'
   unit:
+    if: inputs.suite != 'auth'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -44,6 +66,7 @@ jobs:
           sh -n packaging/aheadscale/scripts/postinst packaging/aheadscale/scripts/prerm packaging/aheadscale/scripts/cleanup-networkmanager
           git diff --check
   windows-identity:
+    if: inputs.suite != 'auth'
     runs-on: windows-2025
     timeout-minutes: 20
     steps:
@@ -54,6 +77,7 @@ jobs:
       - name: Independent Windows adapter identity
         run: go test ./client/iface/device -run TestAheadscale -count=1
   build:
+    if: inputs.suite != 'auth'
     needs: [unit, windows-identity]
     strategy:
       fail-fast: false

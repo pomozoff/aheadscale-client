@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verify email — Aheadscale</title>
+<link rel="icon" href="/oauth2/static/aheadscale-favicon-v1.ico">
+<link rel="stylesheet" href="/oauth2/registration.css">
+<script src="/oauth2/registration.js" defer></script></head>
+<body><main class="nb-card"><div class="as-wordmark"><img src="/oauth2/static/aheadscale-logo-v1.png" alt="" width="36" height="36"><span>Aheadscale</span></div>
+<h1 class="nb-heading">Complete your Aheadscale registration</h1>
+<p id="as-status" role="status">Checking your verification link…</p>
+<p id="as-error" class="nb-error" role="alert" hidden></p>
+<form id="as-complete" hidden>
+<div class="nb-form-group"><label class="nb-label" for="login">Email</label>
+<input class="nb-input" id="login" name="login" type="email" autocomplete="username" readonly required></div>
+<div class="nb-form-group"><label class="nb-label" for="password">New password</label>
+<div class="as-password-field"><input class="nb-input" id="password" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="72" required>
+<button type="button" id="as-password-toggle" class="as-password-toggle" aria-label="Show password" aria-pressed="false">Show</button></div></div>
+<button class="nb-btn" id="as-finish" type="submit">Create account and connect</button></form>
+<p><a href="/" class="nb-link">Return to Aheadscale</a></p></main></body></html>

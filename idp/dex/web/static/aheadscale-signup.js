@@ -7,6 +7,10 @@
  const error = document.getElementById('as-error');
  const signin = document.getElementById('as-signin');
  const signup = document.getElementById('as-signup');
+ const sent = document.getElementById('as-registration-status');
+ const passwordGroup = document.getElementById('as-password-group');
+ let resendAt = 0;
+ let sentEmail = '';
  let creating = false;
  let pending = false;
  function setPasswordVisible(visible, focus = false) {
@@ -25,7 +29,7 @@
  passwordToggle.hidden = false;
  window.addEventListener('pageshow', () => setPasswordVisible(false));
  function updateSubmit() {
-  submit.disabled = pending || !login.validity.valid;
+  submit.disabled = pending || !login.validity.valid || (creating && login.value === sentEmail && Date.now() < resendAt);
   login.setAttribute('aria-invalid', String(login.value !== '' && !login.validity.valid));
  }
  login.addEventListener('input', updateSubmit);
@@ -34,15 +38,19 @@
  function choose(value) {
   if (pending) return;
   creating = value;
+  passwordGroup.hidden = value;
+  password.required = !value;
+  if (value) password.value = '';
   setPasswordVisible(false);
   signin.setAttribute('aria-selected', String(!value));
   signup.setAttribute('aria-selected', String(value));
   document.getElementById('as-title').textContent = value ? 'Create your Aheadscale account' : 'Sign in';
-  document.querySelector('.nb-subheading').textContent = value ? 'Your private network. Up to 5 devices, free.' : 'Connect to your Aheadscale network';
-  submit.textContent = value ? 'Create account and connect' : 'Sign in';
+  document.querySelector('.nb-subheading').textContent = value ? 'Verify your email, then choose your password.' : 'Connect to your Aheadscale network';
+  submit.textContent = value ? 'Send verification link' : 'Sign in';
   password.autocomplete = value ? 'new-password' : 'current-password';
   password.minLength = value ? 8 : 1;
   error.hidden = true;
+  sent.hidden = true;
   updateSubmit();
  }
  signin.onclick = () => choose(false);
@@ -62,10 +70,16 @@
   event.preventDefault();
   error.hidden = true;
   try {
-   const response = await fetch('/oauth2/signup', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin', body:JSON.stringify({email:login.value,password:password.value}) });
+   const continuation = new URL(form.action, location.origin);
+   continuation.searchParams.delete('back');
+   const response = await fetch('/oauth2/signup', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin', body:JSON.stringify({email:login.value,continuation:continuation.pathname+continuation.search}) });
    if (!response.ok) throw new Error(await response.text());
-   // Continue the original Dex request; its state and PKCE challenge stay intact.
-   form.submit();
+   const result = await response.json();
+   sentEmail = login.value;
+   resendAt = Date.now() + result.retryAfterSeconds * 1000;
+   sent.textContent = 'Check your email to continue registration. You can edit the address or request another link after a short wait.';
+   sent.hidden = false; pending = false; updateSubmit();
+   setTimeout(updateSubmit, result.retryAfterSeconds * 1000 + 100);
   } catch (problem) {
    error.textContent = problem.message || 'Could not create account. Please try again.';
    error.hidden = false;
