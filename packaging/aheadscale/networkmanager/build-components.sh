@@ -65,7 +65,7 @@ root,out=map(Path,sys.argv[1:])
 value=json.loads((root/'packaging/aheadscale/networkmanager-source.json').read_text())
 value['client_revision']=os.environ.get('AHEADSCALE_SOURCE_REVISION','')
 value['architecture']=subprocess.check_output(['go','env','GOARCH'],text=True).strip()
-value['plasma_adapter']={'source_commit':value['adapted_commit'],'sdk_commit':value['plasma_sdk']['commit'],'artifact_sha256':value['plasma_component_sha256'][value['architecture']],'toolchain':value['plasma_toolchain']}
+value['plasma_adapter']={'source_commit':value['adapted_commit'],'sdk_commit':value['plasma_sdk']['commit'],'artifact_sha256':value['plasma_component_sha256'][value['architecture']],'toolchain':value['plasma_toolchain'],'producer_revision':os.environ.get('AHEADSCALE_PLASMA_RUN_SOURCE',''),'producer_run_id':os.environ.get('AHEADSCALE_PLASMA_RUN_ID','')}
 value['component_sha256']={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted((out/'networkmanager').iterdir()) if p.is_file() and p.name!='SOURCE.json'}
 (out/'networkmanager/SOURCE.json').write_text(json.dumps(value,ensure_ascii=False,indent=2)+'\n')
 PY

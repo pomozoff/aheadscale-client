@@ -9,7 +9,7 @@ workspace=$(mktemp -d "${TMPDIR:-/tmp}/aheadscale-nm-policy.XXXXXX")
 trap 'rm -rf -- "$workspace"' EXIT HUP INT TERM
 python3 "$project/packaging/aheadscale/networkmanager/prepare-source.py" "$project" "$workspace"
 cd "$workspace/source"
-git apply "$project/packaging/aheadscale/networkmanager/aheadscale.patch"
+git apply --unidiff-zero "$project/packaging/aheadscale/networkmanager/aheadscale.patch"
 image=${AHEADSCALE_POLICY_BUILDER_IMAGE:-local/aheadscale-nm-fedora44:20261028}
 if ! docker image inspect "$image" >/dev/null 2>&1; then
     docker build -t "$image" -f "$project/packaging/aheadscale/networkmanager/Dockerfile.fedora" "$project/packaging/aheadscale/networkmanager"

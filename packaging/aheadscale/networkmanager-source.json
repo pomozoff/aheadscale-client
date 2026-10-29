@@ -27,7 +27,7 @@
     }
   },
   "plasma_component_sha256": {
-    "arm64": "e87be912657498dbd6ff90374493002cbc4bfad9b3ffc178e1206a4ec19c7580",
+    "arm64": "cbbeb47e1e61b73131f585fd238ae02daf13b9fe9045d84d21fe88742da2a22f",
     "amd64": "b6d553089f5dc61b106f241b84ef98264650b07df903e547e751f0e192288983"
   },
   "plasma_toolchain": {
@@ -43,6 +43,11 @@
     "amd64": {
       "run_id": 40837726261,
       "source_commit": "9bfbb2687efb76848c2fedf91bcb6b382c4a10e5",
+      "ctest": "PASS"
+    },
+    "arm64": {
+      "run_id": 40838793158,
+      "source_commit": "569d0471c8856c52878b79f52fa10fabb1f0c799",
       "ctest": "PASS"
     }
   }
