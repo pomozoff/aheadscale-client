@@ -2,9 +2,9 @@ name: Aheadscale desktop previews
 run-name: ${{ inputs.suite || github.event_name }} · ${{ inputs.targets || 'no-build' }} · ${{ github.ref_name }}
 on:
   push:
-    branches: [aheadscale, 'codex/**']
+    branches: [main, aheadscale, 'codex/**']
   pull_request:
-    branches: [aheadscale]
+    branches: [main, aheadscale]
   workflow_dispatch:
     inputs:
       suite:

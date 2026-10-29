@@ -44,6 +44,7 @@ jobs:
           name: aheadscale-windows-vpn-${{ matrix.architecture }}-PROTOTYPE
           path: packaging/windows-vpn-prototype/out/dist/
           if-no-files-found: error
+          retention-days: 7
   package:
     needs: build
     permissions:
@@ -112,3 +113,4 @@ jobs:
           name: aheadscale-windows-${{ matrix.architecture }}-NATIVE-DESKTOP-PREVIEW
           path: dist/
           if-no-files-found: error
+          retention-days: 7
