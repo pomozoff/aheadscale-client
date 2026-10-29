@@ -11,7 +11,10 @@ gh workflow run aheadscale-client.yml -R pomozoff/aheadscale-client \
 
 `ci-contract` проверяет механизм запуска и отчётов; `unit` — прежние клиентские
 Go-регрессии; `packaging` — Go/Python и статические проверки упаковки без GUI;
-`networkmanager` — native controller/поколения/Cancel. Полный тест внешнего
+`networkmanager` — native controller/поколения/Cancel; `auth` — имеющиеся серверные
+интеграционные TestAheadscale для регистрации, отдельных аккаунтов и квот.
+Auth-набор создаёт собственных пользователей/устройства в тестовых БД; это ещё
+не браузерная E2E-проверка письма, VK/Яндекса или системного клиента. Полный тест внешнего
 плагина/Plasma и live lab добавляются отдельным этапом. `build` — явная сборка
 с предварительными проверками; её готовность не доказывается `packaging`.
 Обычный push запускает только быстрый `ci-contract`.

@@ -11,7 +11,7 @@ on:
         type: choice
         required: true
         default: checks
-        options: [ci-contract, checks, unit, packaging, networkmanager, build]
+        options: [ci-contract, checks, unit, packaging, networkmanager, auth, build]
       targets:
         description: Платформы сборки (macos-arm64 — только macOS ARM64)
         type: choice
@@ -21,7 +21,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: aheadscale-${{ github.workflow }}-${{ github.ref }}-${{ inputs.targets || 'current' }}
+  group: aheadscale-${{ github.workflow }}-${{ github.ref }}-${{ inputs.suite || 'ci-contract' }}-${{ inputs.targets || 'current' }}
   cancel-in-progress: true
 jobs:
   ci-contract:
@@ -100,6 +100,29 @@ jobs:
         with:
           name: test-results-networkmanager
           path: ci-results/networkmanager/
+          retention-days: 7
+          if-no-files-found: error
+  auth-tests:
+    if: github.event_name == 'workflow_dispatch' && contains(fromJSON('["checks","auth"]'), inputs.suite)
+    needs: ci-contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.7'
+      - name: Регистрация, отдельные аккаунты и квоты в тестовой БД
+        run: python3 -B testing/aheadscale/run.py --suite auth --output ci-results/auth
+      - name: Краткий результат
+        if: always()
+        run: cat ci-results/auth/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Отчёт auth
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: test-results-auth
+          path: ci-results/auth/
           retention-days: 7
           if-no-files-found: error
   windows-identity:

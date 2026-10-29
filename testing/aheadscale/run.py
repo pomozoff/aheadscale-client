@@ -4,6 +4,7 @@ import argparse
 from dataclasses import dataclass, field
 import json
 import os
+import platform
 from pathlib import Path
 import re
 import signal
@@ -13,7 +14,7 @@ import time
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
-SUITES = ("ci-contract", "unit", "packaging", "networkmanager")
+SUITES = ("ci-contract", "unit", "packaging", "networkmanager", "auth")
 
 
 @dataclass
@@ -42,6 +43,8 @@ def suite_checks(suite):
             Check("sh-syntax", ["sh", "-n", "packaging/aheadscale/scripts/postinst", "packaging/aheadscale/scripts/prerm", "packaging/aheadscale/scripts/cleanup-networkmanager"], 30),
             Check("diff-format", ["git", "diff", "--check"], 30),
         ]
+    if suite == "auth":
+        return [Check("registration-account-device-isolation", go + ["-race", "-tags", "devcert", "./management/server", "-run", "^TestAheadscale"], 1500)]
     if suite == "networkmanager":
         return [Check("native-controller", go + ["-race", "./client/internal/linuxvpn"], 600)]
     raise ValueError("Неизвестный набор проверок: " + suite)
@@ -76,7 +79,9 @@ def execute_checks(checks, output, source_sha, suite, secrets=()):
     output.mkdir(parents=True, exist_ok=True)
     (output / "logs").mkdir(exist_ok=True)
     result = {"schemaVersion": 1, "sourceCommit": source_sha, "suite": suite,
-              "status": "FAIL", "acceptance": "NOT_RUN", "plannedChecks": len(checks), "checks": []}
+              "status": "FAIL", "acceptance": "NOT_RUN", "platform": sys.platform,
+              "architecture": platform.machine(), "runnerImage": os.environ.get("ImageVersion"),
+              "plannedChecks": len(checks), "checks": []}
     for check in checks:
         env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
         for name in list(env):
