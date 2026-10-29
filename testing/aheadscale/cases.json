@@ -1,0 +1,1194 @@
+{
+  "schemaVersion": 1,
+  "sources": {
+    "docs/aheadscale/smoke-test-plan.md": "6ed75dff6fd9ae28f38ff68f8f92186f755840cc29961185f877f4df7f0ebf3f",
+    "docs/aheadscale/ui-test-plan.md": "b9edbf227313a6a6b0efa070062f48c3551b72fe4e08230bd5e6a18dff872355",
+    "docs/aheadscale/cli-test-plan.md": "090dbcf9d70a1154b2f249d7a6141b1361dc829722442f28bb036671b6bf59ab",
+    "docs/aheadscale/regression-test-plan.md": "07915f6d548a5144968a015529ae7c1edd89223cea8cd71ba97fd444ebccc554"
+  },
+  "cases": [
+    {
+      "id": "C01",
+      "description": "Чистая установка нужной архитектуры; `aheadscale version`, `--help`, `up --help`, `status --help`, `service --help`",
+      "source": "docs/aheadscale/cli-test-plan.md",
+      "definition": "| C01 | Чистая установка нужной архитектуры; `aheadscale version`, `--help`, `up --help`, `status --help`, `service --help` | Бинарник запускается, имя/версия корректны; CLI-пакет не требует GUI; служба установлена штатно |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "C02",
+      "description": "`aheadscale service status`; штатные start/stop/restart; проверить без повышения и с необходимыми правами",
+      "source": "docs/aheadscale/cli-test-plan.md",
+      "definition": "| C02 | `aheadscale service status`; штатные start/stop/restart; проверить без повышения и с необходимыми правами | Ясные сообщения о правах, реальное состояние службы совпадает; нет повторной регистрации и зависшего процесса |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "C03",
+      "description": "На desktop `aheadscale up` либо `login` с браузером; на сервере `up --no-browser`, если этот поток доступен",
+      "source": "docs/aheadscale/cli-test-plan.md",
+      "definition": "| C03 | На desktop `aheadscale up` либо `login` с браузером; на сервере `up --no-browser`, если этот поток доступен | Сервер Aheadscale выбран заранее; показанная ссылка открывается на другом устройстве и вход завершается штатным поддерживаемым потоком. Если поток требует локальный callback на исходном сервере и не работает без браузера — FAIL, не подменять ключом |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "C04",
+      "description": "Подключить headless-узел через одноразовый setup key этого аккаунта из закрытого файла; повторить с истёкшим/отозванным ключом",
+      "source": "docs/aheadscale/cli-test-plan.md",
+      "definition": "| C04 | Подключить headless-узел через одноразовый setup key этого аккаунта из закрытого файла; повторить с истёкшим/отозванным ключом | Корректный ключ регистрирует одно устройство; неверный отклоняется, без дубликата. Ключ не попадает в argv/журнал/отчёт. Если выдача ключа недоступна — BLOCKED |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "C05",
+      "description": "`aheadscale status`, `status --detail`, `status --json`, `status --yaml`, `status --ipv4`, `status --ipv6`",
+      "source": "docs/aheadscale/cli-test-plan.md",
+      "definition": "| C05 | `aheadscale status`, `status --detail`, `status --json`, `status --yaml`, `status --ipv4`, `status --ipv6` | Машинные форматы разбираются, адрес/имя/статус совпадают с каталогом. Отсутствие IPv6 не выдаётся за успешный IPv6-тест; при необходимости пометить отдельную возможность незаявленной |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "C06",
+      "description": "Детальный каталог, фильтр статуса и P2P/Relayed по справке; выключить B и включить обратно",
+      "source": "docs/aheadscale/cli-test-plan.md",
+      "definition": "| C06 | Детальный каталог, фильтр статуса и P2P/Relayed по справке; выключить B и включить обратно | Правильные соседи, offline-статус, адреса/имена; чужие устройства отсутствуют. Пустой фильтр не меняет сеть |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "C07",
+      "description": "T01: IP/FQDN/короткое имя, оба направления; macOS: дополнительно собственный VPN IPv4/полное/короткое имя, RG40",
+      "source": "docs/aheadscale/cli-test-plan.md",
+      "definition": "| C07 | T01: IP/FQDN/короткое имя, оба направления; macOS: дополнительно собственный VPN IPv4/полное/короткое имя, RG40 | Реальный DNS/HTTP с проверкой адресов; для обращения к себе исходный адрес — собственный VPN IPv4, без подмены на LAN/localhost |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "C08",
+      "description": "`aheadscale down`, выдержка 12 секунд; повторный `down`; обычный DNS/интернет; P05: три отдельных `up` с T01 на прогретой ОС",
+      "source": "docs/aheadscale/cli-test-plan.md",
+      "definition": "| C08 | `aheadscale down`, выдержка 12 секунд; повторный `down`; обычный DNS/интернет; P05: три отдельных `up` с T01 на прогретой ОС | Идемпотентное отключение, нет самоподключения; без нового SSO, прежняя идентичность. Раздельно длительность команды/exit code и готовность шести HTTP от старта `up`; до 30 с |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "C09",
+      "description": "T03-SVC, T03-OS и T04 отдельно; P05: без входа в рабочий стол и GUI",
+      "source": "docs/aheadscale/cli-test-plan.md",
+      "definition": "| C09 | T03-SVC, T03-OS и T04 отдельно; P05: без входа в рабочий стол и GUI | На поддерживаемом headless backend соединение восстановлено автоматически, прежний узел, T01; измерены сеть и готовность трафика. Native Windows preview с пользовательским компонентом не считается headless PASS |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "C10",
+      "description": "`status --check live`, `--check ready`, `--check startup`: служба работает/остановлена, клиент подключён/отключён",
+      "source": "docs/aheadscale/cli-test-plan.md",
+      "definition": "| C10 | `status --check live`, `--check ready`, `--check startup`: служба работает/остановлена, клиент подключён/отключён | Проверить значение каждого health-check по справке и коды 0/1; готовность трафика отдельно T01, не выводить её из одного health-check |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "C11",
+      "description": "`debug bundle`, доступные `debug log level`, `debug config`, `debug for`, `debug persistence` по справке",
+      "source": "docs/aheadscale/cli-test-plan.md",
+      "definition": "| C11 | `debug bundle`, доступные `debug log level`, `debug config`, `debug for`, `debug persistence` по справке | Локальная диагностика создаётся, уровень журналов возвращён к исходному; нет автоматической отправки upstream. Закрытые данные не публикуются; strict-анонимизация проверяется на реальном содержимом |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "C12",
+      "description": "Неизвестная команда/флаг, неверное значение, недоступная служба, отсутствующий/нечитаемый файл ключа; Ctrl+C во время login/up",
+      "source": "docs/aheadscale/cli-test-plan.md",
+      "definition": "| C12 | Неизвестная команда/флаг, неверное значение, недоступная служба, отсутствующий/нечитаемый файл ключа; Ctrl+C во время login/up | Ненулевой код и полезный stderr, без паники/зависания/позднего подключения. Секреты в ошибку не выводятся |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "C13",
+      "description": "Обновление предыдущего выпуска, замена Desktop ↔ CLI на Linux, перезагрузка и T01; удаление/переустановка",
+      "source": "docs/aheadscale/cli-test-plan.md",
+      "definition": "| C13 | Обновление предыдущего выпуска, замена Desktop ↔ CLI на Linux, перезагрузка и T01; удаление/переустановка | Сохранены аккаунт, ключ/ID устройства, имя/IP; очищены только свои службы/сеть, GUI и чужие VPN не затронуты |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "C14",
+      "description": "`deregister` только на одноразовом тестовом узле; затем повторное подключение",
+      "source": "docs/aheadscale/cli-test-plan.md",
+      "definition": "| C14 | `deregister` только на одноразовом тестовом узле; затем повторное подключение | Наблюдать фактический отзыв регистрации, очистку локального состояния и изменение каталога; повторный up требует штатной регистрации. Освобождение места проверить на сервере, не предполагать по выводу CLI |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "C15",
+      "description": "Пользовательские hostname, пути конфигурации/журнала и `AS_`-переменные; недоступный путь; legacy `NB_CONFIG`/`WT_CONFIG`",
+      "source": "docs/aheadscale/cli-test-plan.md",
+      "definition": "| C15 | Пользовательские hostname, пути конфигурации/журнала и `AS_`-переменные; недоступный путь; legacy `NB_CONFIG`/`WT_CONFIG` | Допустимые настройки работают; неправильные безопасно отклоняются. Чужой профиль NetBird не подхватывается, дефолтный endpoint не меняется без явного параметра |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "C16",
+      "description": "`profile list/add/select/rename/remove`",
+      "source": "docs/aheadscale/cli-test-plan.md",
+      "definition": "| C16 | `profile list/add/select/rename/remove` | В текущем продукте профили отключены. Если включаются: два независимых аккаунта, один активный профиль, имена/ключи не смешиваются, удаление только выбранного профиля; повторить весь базовый набор |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "C17",
+      "description": "`networks list/select/deselect`, exit node и маршрутные настройки `up`",
+      "source": "docs/aheadscale/cli-test-plan.md",
+      "definition": "| C17 | `networks list/select/deselect`, exit node и маршрутные настройки `up` | Для сервера с тестовым ресурсом проверить маршруты, выбор/снятие, split tunneling и очистку после down. В базовой личной сети список может быть пустым; пустой список не PASS маршрутизации |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "C18",
+      "description": "`forwarding list` и перенаправление портов",
+      "source": "docs/aheadscale/cli-test-plan.md",
+      "definition": "| C18 | `forwarding list` и перенаправление портов | Проверить выдачу только разрешённых правил и прикладной трафик/отказ; без настроенного ресурса NOT_RUN или явно вне поддержки |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "C19",
+      "description": "`ssh`, доступные `ssh exec`/`ssh sftp`",
+      "source": "docs/aheadscale/cli-test-plan.md",
+      "definition": "| C19 | `ssh`, доступные `ssh exec`/`ssh sftp` | Отдельно от обычного OpenSSH поверх VPN: встроенный сервер/клиент, разрешение/запрет политикой, команда/выход/передача файла; матрицу отличающихся Unix/Windows подкоманд взять из справки |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "C20",
+      "description": "`expose`",
+      "source": "docs/aheadscale/cli-test-plan.md",
+      "definition": "| C20 | `expose` | Публикация вовне не входит в первую версию; проверить отсутствие/понятный отказ при выключенном сервисе. Не публиковать тестовый endpoint без отдельного согласования |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "C21",
+      "description": "`state list/clean/delete`, диагностическая `trace`, если доступны",
+      "source": "docs/aheadscale/cli-test-plan.md",
+      "definition": "| C21 | `state list/clean/delete`, диагностическая `trace`, если доступны | На одноразовом снимке проверить корректные/несуществующие имена, предупреждения, очистку только своих остатков. Не выполнять разрушительные state-команды на рабочем узле |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "C22",
+      "description": "`service install/uninstall/run` и локальный JSON API, если доступны",
+      "source": "docs/aheadscale/cli-test-plan.md",
+      "definition": "| C22 | `service install/uninstall/run` и локальный JSON API, если доступны | Служба создаётся/удаляется штатно; ручной run не конфликтует с работающей службой; API выключен по умолчанию, права и неверный адрес проверены. Не открывать API наружу для smoke |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "C23",
+      "description": "`update` и фоновые обновления",
+      "source": "docs/aheadscale/cli-test-plan.md",
+      "definition": "| C23 | `update` и фоновые обновления | Preview не загружает NetBird/upstream. До готовности собственного подписанного канала не объявлять автообновление PASS; обновление пакетным менеджером проверяет C13 |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "C24",
+      "description": "completion, kubeconfig и прочие дополнительные команды, найденные в справке конкретной сборки",
+      "source": "docs/aheadscale/cli-test-plan.md",
+      "definition": "| C24 | completion, kubeconfig и прочие дополнительные команды, найденные в справке конкретной сборки | Перечислить каждую в отчёте и назначить тест/причину исключения. Для kubeconfig нужен реальный разрешённый кластер; генерация текста не подтверждает доступ к нему |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "R01",
+      "description": "Закрыть окно и отдельно завершить UI; P03. Независимо выполнить T03-SVC и T03-OS / P04",
+      "source": "docs/aheadscale/ui-test-plan.md",
+      "definition": "| R01 | Закрыть окно и отдельно завершить UI; P03. Независимо выполнить T03-SVC и T03-OS / P04 | Закрытие окна не меняет сеть неожиданно; повторное открытие и поведение трея корректны. У каждого случая свой функциональный вердикт; длительность загрузки ОС/UI не измеряется. Продуктовый автозапуск проверить до ручного открытия UI/Connect; прежняя регистрация и T01. Создание UI-процесса не равно готовности окна или сети |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "R02",
+      "description": "Выполнить T04 с потерей обычной сети и сменой NAT",
+      "source": "docs/aheadscale/ui-test-plan.md",
+      "definition": "| R02 | Выполнить T04 с потерей обычной сети и сменой NAT | Понятное промежуточное состояние, восстановление без новой регистрации |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "R03",
+      "description": "Обновить реальный предыдущий выпуск до кандидата; затем T01, перезагрузка и проверка компонентов",
+      "source": "docs/aheadscale/ui-test-plan.md",
+      "definition": "| R03 | Обновить реальный предыдущий выпуск до кандидата; затем T01, перезагрузка и проверка компонентов | Сохранены ключ/ID устройства, аккаунт, адрес, имя; версии компонентов согласованы; нет upstream-обновления |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "R04",
+      "description": "Удалить приложение штатно; проверить службы, профиль, интерфейсы, DNS/маршруты/правила; переустановить. Отдельно проверить явное удаление данных, если опция есть",
+      "source": "docs/aheadscale/ui-test-plan.md",
+      "definition": "| R04 | Удалить приложение штатно; проверить службы, профиль, интерфейсы, DNS/маршруты/правила; переустановить. Отдельно проверить явное удаление данных, если опция есть | Удалены только ресурсы Aheadscale; интернет работает; при штатном сохранении данных возвращается то же устройство. Полное удаление данных не происходит без явного выбора |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "R05",
+      "description": "Disconnect/Connect из **системного** сетевого UI; повторить из приложения; во время Connecting нажать системный Disconnect",
+      "source": "docs/aheadscale/ui-test-plan.md",
+      "definition": "| R05 | Disconnect/Connect из **системного** сетевого UI; повторить из приложения; во время Connecting нажать системный Disconnect | Оба направления согласованы, трафик следует реальному состоянию; отмена не оставляет профиль Connected, адрес/посредник очищены. Одно отображение строки VPN не доказывает управление |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "R06",
+      "description": "Аккаунт C, включая такой же email-домен; каталог, DNS, API и TCP/UDP к сети A; неверный/истёкший токен",
+      "source": "docs/aheadscale/smoke-test-plan.md",
+      "definition": "| R06 | Аккаунт C, включая такой же email-домен; каталог, DNS, API и TCP/UDP к сети A; неверный/истёкший токен | Чужая сеть недоступна на сервере и в трафике. Одновременно тот же сервис доступен законному B; отказ не объясняется выключенным сервисом |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "R07",
+      "description": "Пять устройств, включая offline; шестое; удаление одного; две одновременные регистрации на последнее место",
+      "source": "docs/aheadscale/smoke-test-plan.md",
+      "definition": "| R07 | Пять устройств, включая offline; шестое; удаление одного; две одновременные регистрации на последнее место | Шестое отвергнуто сервером, место освобождается после удаления, при гонке проходит ровно одна регистрация |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "R08",
+      "description": "Первый и повторный вход VK ID и Яндекс ID в чистом профиле; отказ/отмена провайдера",
+      "source": "docs/aheadscale/smoke-test-plan.md",
+      "definition": "| R08 | Первый и повторный вход VK ID и Яндекс ID в чистом профиле; отказ/отмена провайдера | Возврат в правильный аккаунт и продолжение подключения. Для Mail/ОК используется согласованный вариант VK ID |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG01",
+      "description": "Callback localhost:53000 закрыт, демон не отвечает, старый code/state: S02/U02/U03/C03/C12",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG01 | Callback localhost:53000 закрыт, демон не отвечает, старый code/state: S02/U02/U03/C03/C12 | `client/internal/auth/pkce_flow_test.go: TestPromptLogin` в main покрывает prompt, **не** живой callback. Нужен браузерный прогон с новой попыткой, занятым портом и восстановлением |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG02",
+      "description": "Поздний Login после Disconnect меняет Idle: U02/R05, выдержка 12 секунд",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG02 | Поздний Login после Disconnect меняет Idle: U02/R05, выдержка 12 секунд | `client/server/login_cancel_test.go: TestLogin_CancelledProbePreservesNewIntent` — **рабочая копия**. Первые FAIL и успешные повторы — в Windows GUI-отчёте |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG03",
+      "description": "Email не заполняется, пароль раскрывается в фокусе, неверный email принимается: S03/SR01/SR02",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG03 | Email не заполняется, пароль раскрывается в фокусе, неверный email принимается: S03/SR01/SR02 | Изолированного клиентского теста формы не найдено; реальный Firefox/Edge/Safari. Подтверждение email сервером ещё доработать |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG04",
+      "description": "NetBird в favicon, callback success/error, вкладке и картинках: S03/U03",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG04 | NetBird в favicon, callback success/error, вкладке и картинках: S03/U03 | Визуальная проверка обеих веток callback; поиск текста не находит все картинки. Лицензионные notices и Go module не переименовывать как пользовательский бренд |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG05",
+      "description": "Белый текст на светлом фоне/тёмный на тёмном: U01 на всех экранах и темах",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG05 | Белый текст на светлом фоне/тёмный на тёмном: U01 на всех экранах и темах | `.7` KDE/Xfce и Windows native 46 проверены исторически; frontend build не доказывает контраст текущего пакета |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG06",
+      "description": "Шестерёнка, org.wails, обрезанная/отсутствующая иконка: S01/S03/U01/R01",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG06 | Шестерёнка, org.wails, обрезанная/отсутствующая иконка: S01/S03/U01/R01 | Исторические KDE/Xfce и Windows `.8` отчёты. Нативные окно/панель/трей/ярлыки проверить после установки и обновления |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG07",
+      "description": "Ложное Connection failed при Disconnect, NM перехватывает интерфейс: S07/S08/R01/R04/R05/C08",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG07 | Ложное Connection failed при Disconnect, NM перехватывает интерфейс: S07/S08/R01/R04/R05/C08 | main: `client/internal/dns/network_manager_runtime_linux_test.go` — lifecycle/сохранение правок; `network_manager_shutdown_linux_test.go` — очистка только своего внешнего подключения/нет D-Bus |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG08",
+      "description": "Connected/P2P без пакетов: DNS Reapply меняет WireGuard port/fwmark: T01 после второго узла, DNS, restart/reboot",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG08 | Connected/P2P без пакетов: DNS Reapply меняет WireGuard port/fwmark: T01 после второго узла, DNS, restart/reboot | main `network_manager_wireguard_test.go`: `TestNetworkManagerDNSReapplyPreservesLiveWireGuardTransport`, `TestNetworkManagerDNSReapplyPreservesChosenDynamicWireGuardPort`. RED → GREEN и `.8` — в Linux-отчёте |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG09",
+      "description": "UI Disconnected, системный VPN Connected, либо строка исчезла: S04/S07/S08/R05/T02/T03",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG09 | UI Disconnected, системный VPN Connected, либо строка исчезла: S04/S07/S08/R05/T02/T03 | `client/ui/services/windows_vpn_connection_test.go`, `client/server/startup_native_windows_test.go` — рабочая копия. macOS Network Extension отсутствует, utun не закрывает этот пробел |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG10",
+      "description": "Cancel оставляет Connecting, адрес/посредник или поздний Connect: U02/R05/C12",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG10 | Cancel оставляет Connecting, адрес/посредник или поздний Connect: U02/R05/C12 | Рабочая копия: `TestNativeConnectionDisconnectCancelsLateGUIConnect`, `TestNativeConnectionDisconnectStopsPartialEngine`, `TestNativeServiceWaitsForSystemVPN`. Физический Reconnecting в 46/47 NOT_RUN; проверять все состояния одновременно |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG11",
+      "description": "Windows exit status 1: несовместимые компоненты, UDP или обрыв native-конфигурации: S01/R03/R04/T01/T05/T06/R05",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG11 | Windows exit status 1: несовместимые компоненты, UDP или обрыв native-конфигурации: S01/R03/R04/T01/T05/T06/R05 | Опытный комплект 47 проверял обмен, UDP и очистку. [Продолжение ARM64](smoke-results/2026-10-25-windows11-arm64-native-disconnect.md): `.16` повторила RAS 628 / broker-configuration; `.18` прошла семь циклов, системный RAS Disconnect и восстановление службы с HTTP/DNS. Исправление завершения AppService — RG28; весь R05 и другие причины exit status 1 отдельно не закрыты. Повторить отказ чужому пакету/пользователю; обычный EXE этим не проверен |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG12",
+      "description": "DNS остаётся после down/сбоя, неверные NRPT/GPO: T01–T04/C05/C08/C13",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG12 | DNS остаётся после down/сбоя, неверные NRPT/GPO: T01–T04/C05/C08/C13 | main: `client/internal/dns/host_windows_test.go` NRPT/GPO; `host_darwin_test.go: TestDarwinDNSUncleanShutdownCleanup`, `TestParseSystemDNSSettings`. Нужны живые резолверы ОС |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG13",
+      "description": "Ошибки management/SSO смешаны; регистрация теряется: U03/C03/C04/C09/T03",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG13 | Ошибки management/SSO смешаны; регистрация теряется: U03/C03/C04/C09/T03 | main `client/server/login_outcome_test.go`: `TestLogin_ManagementUnreachableIsReturnedInsteadOfDemandingSSO`, `TestLogin_AuthRefusalStartsSSOFlow`, `TestLogin_SetupKeyStillRunsWhenPeerNeedsLogin`; `server_connect_test.go: TestDownThenUp_StaleRunningChan` |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG14",
+      "description": "Общий email-домен объединяет сети, чужие peers, шестое устройство: R06/R07/SR01/SR02",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG14 | Общий email-домен объединяет сети, чужие peers, шестое устройство: R06/R07/SR01/SR02 | main `management/server/aheadscale_registration_test.go`: `TestAheadscaleRegistrationIsolation`, `TestAheadscaleDeviceLimit`, `TestAheadscaleSocialAccountIsolation`. Не заменяют живые API/DNS/трафик и гонку регистрации  [Живая проверка CLI `.24`](smoke-results/2026-10-27-limit6-windows-followup.md): шестому отказано, нет VPN-IP, прежние пять сохранены; дружелюбный GUI-текст и конкурентный live-тест открыты. |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG15",
+      "description": "Upstream update, чужой канал/env/profile: C15/C16/C23/R03/U04",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG15 | Upstream update, чужой канал/env/profile: C15/C16/C23/R03/U04 | main: `client/internal/updater/aheadscale_test.go`, `client/cmd/aheadscale_test.go`, `client/internal/profilemanager/aheadscale_test.go`, тесты `TestAheadscale*` |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG16",
+      "description": "RPM неверной архитектуры/зависимостей, CLI требует GUI, удаление задевает другую VPN: S01/R03/R04/U04/C01/C13",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG16 | RPM неверной архитектуры/зависимостей, CLI требует GUI, удаление задевает другую VPN: S01/R03/R04/U04/C01/C13 | Fedora-отчёт подтверждает упаковку и часть runtime. Нужны чистые зависимости, отдельный CLI, удаление и сосуществование |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG17",
+      "description": "GUI Windows закрывается без окна: S01/U01/R01; создание окна и переключение темы во время инициализации WebView2",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG17 | GUI Windows закрывается без окна: S01/U01/R01; создание окна и переключение темы во время инициализации WebView2 | `client/ui/application_errors_test.go: TestApplicationErrorsReachClientLog`; `client/ui/services/theme_lifecycle_test.go`: окно до RuntimeReady, свежая тема при готовности, закрытое окно и поздний ready. Первый FAIL и runtime-повтор — в [отчёте исправлений](smoke-results/2026-10-24-windows11-x64-fixes.md) |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG18",
+      "description": "ZIP остаётся в SystemTemp без доступа; strict сохраняет IPv4 соседа/адрес с маской: C11/U01",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG18 | ZIP остаётся в SystemTemp без доступа; strict сохраняет IPv4 соседа/адрес с маской: C11/U01 | `bundle_access_windows_test.go`: реальный Windows DACL, чужой SID, неподтверждённый caller, экспорт в Temp; `TestStrictBundleHidesPeerAddressPrefix`, `TestStrictStatusHidesPeerIPv4`. Проверять ZIP обычным пользователем, содержимое и отсутствие UAC при открытии |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG19",
+      "description": "Поздний запуск UI отменяет нажатый Disconnect, либо native VPN не возобновляется после входа в Windows: R02/T03/S07",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG19 | Поздний запуск UI отменяет нажатый Disconnect, либо native VPN не возобновляется после входа в Windows: R02/T03/S07 | `windowsvpn/controller_test.go`: startup после нового намерения и отмена выполняющегося startup; `ui/services/native_startup_test.go`: DisableAutoConnect, запрос настроек с ID/владельцем активного профиля и отсутствие native RPC в стандартной сборке. Пустой профиль воспроизводит реальный отказ cold startup; permissive stub его скрывал. Живой повтор: оба переключателя, повторный запуск UI, вход в Windows; чужой сеанс не имитировать текущим |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG20",
+      "description": "Управляющий сервер включает lazy connections, и личная сеть оживает лишь после встречного трафика: T01/T03/C06",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG20 | Управляющий сервер включает lazy connections, и личная сеть оживает лишь после встречного трафика: T01/T03/C06 | `client/internal/aheadscale_connection_policy_test.go`: locked Aheadscale по умолчанию eager, явные настройки ENV/MDM сохраняют приоритет, unlocked upstream сохраняет серверную политику. На ВМ измерять отдельно загрузку ОС и первый настоящий VPN-пакет |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG21",
+      "description": "Удаление x64 ошибочно отклоняется ARM64-проверкой, установщик запускает 32-битный PowerShell: S01/C13/R03",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG21 | Удаление x64 ошибочно отклоняется ARM64-проверкой, установщик запускает 32-битный PowerShell: S01/C13/R03 | Native MSIX использует `x64`, Go-артефакт — `amd64`. Проверить настоящий пакет, проверку изменённого payload до любых мутаций, обновление, откат, удаление собственного правила и TrustedPeople по квитанции; чужие ресурсы сохранять |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG22",
+      "description": "Windows задерживает Run на минуту; native UI не успевает восстановить VPN, обновление включает выключенный запуск или зависает на старом uninstaller: R02/T03/S07/R03/C13",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG22 | Windows задерживает Run на минуту; native UI не успевает восстановить VPN, обновление включает выключенный запуск или зависает на старом uninstaller: R02/T03/S07/R03/C13 | `client/internal/windowsstartup`: настоящие Windows Task Scheduler/Registry, `go test -race -tags integration`, миграция/повтор, отключённый Run, изменённая задача, явное включение после StartupApproved. На установленном комплекте: UI toggle, задача Limited/InteractiveToken текущего SID без дубля Run, обновление on/off, полное удаление, вход/перезагрузка и реальные DNS/HTTP. [Прогон `.12`](smoke-results/2026-10-25-windows11-x64-startup.md); быстрый старт процесса не равен готовности VPN |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG23",
+      "description": "Native посредник и UI одновременно ожидают SSO, открываются две вкладки, первый WaitSSO отменяет новый callback: U02/U03/R02",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG23 | Native посредник и UI одновременно ожидают SSO, открываются две вкладки, первый WaitSSO отменяет новый callback: U02/U03/R02 | `client/ui/services/native_login_test.go`: отмена и cleanup прежнего Connect до Login, отказ при ошибке остановки, запрет позднего Resume, неизменность обычного Login. Посредник использует `up --no-browser`. Живой прогон: одна актуальная вкладка, успешный callback, согласованные статусы и реальные пакеты; не отключать PKCE/state ради PASS. [Прогон `.13`](smoke-results/2026-10-25-windows11-x64-single-login.md) |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG24",
+      "description": "Системный Disconnect вернулся, но запоздалый Down старого посредника отменяет новый WaitSSO: U02/U03/R05",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG24 | Системный Disconnect вернулся, но запоздалый Down старого посредника отменяет новый WaitSSO: U02/U03/R05 | `windows_vpn_cleanup_windows_test.go`: настоящий Windows mutex удерживает следующий вход до конца cleanup; отмена не разрешает Login; отсутствующий посредник не задерживает подключение. После RAS Disconnect GUI ждёт освобождения mutex текущего SID, затем завершает Down. На ВМ обязательно пройти свежий SSO: одних unit-тестов недостаточно. [Отчёт](smoke-results/2026-10-25-windows11-x64-single-login.md) |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG25",
+      "description": "Загрузка ОС, создание процесса UI, активация системного VPN и реальная готовность сети смешиваются в одно время; «40 с Connect» не проверено на прогретой ОС",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG25 | Загрузка ОС, создание процесса UI, активация системного VPN и реальная готовность сети смешиваются в одно время; «40 с Connect» не проверено на прогретой ОС | [P01–P06](connection-performance-test-plan.md): три тёплых UI/CLI-замера; запуск UI/службы/reboot — отдельные функциональные регрессии без замера загрузки ОС/UI, SSO учитывается отдельно, тайм-ауты сохранены; на Windows этапы controller/PowerShell/RAS/plugin/broker/движок/HTTP. Сохранять файлы каждой попытки до перезаписи; указывать ограничение диагностической серии и накладные расходы наблюдателя. [Диагностика `.14`](smoke-results/2026-10-25-windows11-x64-connection-latency.md): тёплый UI и прежний reboot измерены отдельно; полный P01 ещё не зачтён |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG26",
+      "description": "Перезапуск native-службы при работающем GUI оставляет Idle/Disconnected: T03-SVC/R01",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG26 | Перезапуск native-службы при работающем GUI оставляет Idle/Disconnected: T03-SVC/R01 | [Windows ARM64 `.14` / native 56](smoke-results/2026-10-25-windows11-arm64-resume.md): реальный FAIL. [Исправление `.15` / native 57](smoke-results/2026-10-25-windows11-arm64-service-recovery.md): два автоматических восстановления и шесть HTTP после каждого PASS, ключ сохранён; GUI Disconnect не вызвал самоподключение. `native_recovery_test.go` проверяет реальный разрыв gRPC, настройку и более новый Disconnect; `controller_test.go` — поколения намерений. Ручной Connect в одном случае отдельно отказал (RG11), полный R05 не зачтён  Дополнительный повтор на [`.18`](smoke-results/2026-10-25-windows11-arm64-native-disconnect.md): T03-SVC и шесть HTTP PASS, идентичность сохранена. |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG27",
+      "description": "Штатное удаление нативного интерфейса запускает ложный restart движка: S07/R05/T02/T03-SVC",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG27 | Штатное удаление нативного интерфейса запускает ложный restart движка: S07/R05/T02/T03-SVC | [Отчёт ARM64](smoke-results/2026-10-25-windows11-arm64-native-disconnect.md): `.15` — журнал подтверждает ошибку; `.18` — 0 ложных restart в свежем журнале. `TestNativeWGIfaceMonitorLeavesLifecycleToWindows` — red → green на Windows ARM64; `TestWGIfaceMonitorKeepsWatchingDaemonOwnedInterface` сохраняет обычное наблюдение. GUI, системный API, перезапуск службы и HTTP/DNS проверены; кнопка Settings проверена; RG29 описывает условие готовности дисплея |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG28",
+      "description": "AppService остаётся незавершённым после native Disconnect; Windows отменяет задачу по SystemPolicy: S07/R05/T02-API/T03-SVC",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG28 | AppService остаётся незавершённым после native Disconnect; Windows отменяет задачу по SystemPolicy: S07/R05/T02-API/T03-SVC | [`.18` ARM64](smoke-results/2026-10-25-windows11-arm64-native-disconnect.md): семь GUI-циклов с HTTP и свежим `app-service-close.json`, reason=`native-channel-closed`, без посредника после Down; внешний RAS Disconnect убирает адрес/трафик, новый Connect и Restart-Service проходят. Повтор: проверить закрытие именно свежего сеанса, согласованные статусы, приоритет Disconnect и двусторонний HTTP/DNS; не перезапускать host вручную между циклами |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG29",
+      "description": "UI-проверка Settings на погасшем экране ошибочно трактуется как сбой VPN",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG29 | UI-проверка Settings на погасшем экране ошибочно трактуется как сбой VPN | [Диагностика 26.10, `.18` ARM64](smoke-results/2026-10-26-windows11-arm64-settings.md): исходный отказ при Off, пробуждение восстанавливает тот же PID; два цикла Off/On воспроизводят исчезновение/возврат строки и кнопки при неизменном Connected. Перед UI-проверкой пробудить дисплей и подтвердить активный разблокированный сеанс; при отказе на включённом экране собирать отдельную диагностику. Питание пользователей не менять |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG30",
+      "description": "Неизвестные даты соседей в отрицательном часовом поясе превращаются в год 0 и ломают YAML: C05",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG30 | Неизвестные даты соседей в отрицательном часовом поясе превращаются в год 0 и ломают YAML: C05 | [macOS `.5` → `.19`](smoke-results/2026-10-26-macos-arm64-gui-cli.md): RED → GREEN `TestStatusSerializationPreservesUnknownPeerTimestampsInLocalTimezones`, mapper и JSON/YAML в UTC−8/UTC/UTC+3; `go test -tags devcert -race ./client/status` PASS. Настоящий YAML `.19` разбирается стандартным парсером. Неизвестные даты остаются нулевыми, известные локализуются; повторить на кандидате каждой ОС |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG31",
+      "description": "Цветной логотип macOS становится белым квадратом: U01",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG31 | Цветной логотип macOS становится белым квадратом: U01 | [`.20`, настоящий menubar](smoke-results/2026-10-26-macos-arm64-menubar.md): Darwin использует SetIcon вместо SetTemplateIcon для непрозрачного цветного PNG. Снимки до/после, Light/Dark, A и индикатор Connected PASS; повторить на кандидате и в остальных состояниях |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG32",
+      "description": "После установки новой macOS-сборки GUI остаётся старым процессом: R03",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG32 | После установки новой macOS-сборки GUI остаётся старым процессом: R03 | [Исправление `.22`](smoke-results/2026-10-26-macos-arm64-upgrade22.md): `.20` с работающим GUI обновлена без ручного Quit; новый PID и загруженный inode, регистрация и настройки сохранены. Чужой executable с подставленным argv[0] не затронут; 12 unit-регрессий и native kernel-helper CI PASS. Полный R03 с reboot/T01, отсутствие сеанса и несколько пользователей отдельно не закрыты |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG33",
+      "description": "Единый Windows EXE не собирается для ARM64 или принимает компоненты разных архитектур/версий/исходников: R03/U01",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG33 | Единый Windows EXE не собирается для ARM64 или принимает компоненты разных архитектур/версий/исходников: R03/U01 | `packaging/windows-vpn-prototype/test_package_desktop.py`: семь NSIS/7z-регрессий, RED → GREEN; реальные x64/ARM64 EXE `.23` установлены с сохранением ключа. [Отчёт](smoke-results/2026-10-26-release23-packaging.md); полный lifecycle отдельно |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG34",
+      "description": "RPM нельзя воспроизвести из Git либо SHA-манифест пропускает поздно созданные пакеты: R01/R03/C01",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG34 | RPM нельзя воспроизвести из Git либо SHA-манифест пропускает поздно созданные пакеты: R01/R03/C01 | Восстановлены RPM helper/spec/unit, реальная сборка DEB/RPM desktop/CLI обеих архитектур в CI. Итоговый манифест формируется после всех пакетов; сверить каждый SHA256/размер, commit и архитектуру, наличие обоих каналов. Fedora runtime `.23` этим не закрыт; [отчёт](smoke-results/2026-10-26-release23-packaging.md) |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG35",
+      "description": "Прежняя видимость Aheadscale в NetworkManager теряется в общем Linux-комплекте: S04/R03/T03-SVC",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG35 | Прежняя видимость Aheadscale в NetworkManager теряется в общем Linux-комплекте: S04/R03/T03-SVC | [Linux `.24`](smoke-results/2026-10-26-linux24-networkmanager.md), `c447fd6`: исправление в общих исходниках; Ubuntu ARM64 DEB — активная строка NM/графический редактор, UI off/on, ключ/IP, DNS и восстановление службы PASS. [Fedora ↔ Ubuntu ARM64 `.24`](smoke-results/2026-10-27-linux24-ubuntu-fedora-network.md): GNOME VPN checked, GUI off/on, 24 HTTP/DNS и restart обеих служб с сохранением ключей/IP/порта/fwmark PASS; [Продолжение](smoke-results/2026-10-27-linux24-reboot-cli.md): reboot Fedora до GUI, включение Ubuntu, автозапуск обоих GUI, базовые CLI-сценарии без GUI и ещё 42 HTTP PASS; graceful reboot Ubuntu и другие архитектуры открыты. Замена исходных RPM `.24` — RG37 FAIL; исправление `.24.1` описано ниже |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG36",
+      "description": "Оснастка роняет Linux GUI сигналом открытия окна: штатный повторный запуск, вход → Cancel → повтор",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG36 | Оснастка роняет Linux GUI сигналом открытия окна: штатный повторный запуск, вход → Cancel → повтор | [Fedora `.24`](smoke-results/2026-10-26-linux24-networkmanager.md): SIGUSR1 попал в `WTF::Thread::signalHandlerSuspendResume` JavaScriptCore, подтверждено core/официальным исходником. Это внесённый оснасткой сигнал; заменён штатным повторным запуском, четыре цикла PASS, один основной PID. Не менять графику/SELinux ради обхода |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG37",
+      "description": "При Desktop ↔ CLI RPM старый пакет останавливает общую службу: C01/C13/T03",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG37 | При Desktop ↔ CLI RPM старый пакет останавливает общую службу: C01/C13/T03 | На `.24` FAIL в обе стороны. [Исправление RPM `.24.1`](smoke-results/2026-10-27-rpm37-fix.md), `3844195`: snapshot до транзакции/restore после старого preun; shell-регрессии RED→GREEN. Fedora ARM64: оба перехода, обычный upgrade, четыре состояния службы, постоянный Idle, remove/reinstall и 42 HTTP PASS без ручного восстановления после установки. x64 runtime затем проверен; [x64 28 октября](smoke-results/2026-10-28-fedora44-x64-acceptance24-1.md): оба legacy-перехода, четыре состояния службы, постоянный Idle, remove/reinstall и reboot проверены. Отдельный RG42 исправлен в коде `.26`, см. его строку  Продолжение [.26 ARM64](smoke-results/2026-10-28-linux26-lifecycle.md): оба перехода, OFF при Desktop remove/reinstall и 42 HTTP/DNS приняты; четыре сочетания systemd именно .26 повторно не проверялись |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG38",
+      "description": "CLI не объясняет необходимость прав: C02/C12",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG38 | CLI не объясняет необходимость прав: C02/C12 | Ubuntu CLI `.24`: непривилегированный service start даёт 1, но только exit status 1. Нужны понятные причина/действие без системного мусора; не ослаблять проверку прав; [Fedora x64](smoke-results/2026-10-28-fedora44-x64-acceptance24-1.md): тот же непривилегированный отказ без объяснения прав подтверждён |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG39",
+      "description": "Наблюдение: up с флагами при Connected возвращает Already connected без применения настройки: C15",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG39 | Наблюдение: up с флагами при Connected возвращает Already connected без применения настройки: C15 | [Fedora CLI `.24`](smoke-results/2026-10-27-rpm37-fix.md): подтверждено для --disable-auto-connect; из Idle флаг применился. По решению владельца от 27 октября 2026 года исправление не выполнять: это может быть корректной идемпотентностью up. Ожидаемое поведение требует уточнения; наблюдение не считать подтверждённым дефектом или самостоятельным блокером выпуска |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG40",
+      "description": "macOS не обращается к собственному VPN IPv4: T01/self, C07",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG40 | macOS не обращается к собственному VPN IPv4: T01/self, C07 | [`.22` и `.23`](smoke-results/2026-10-27-cli-macos23-linux24.md): HTTP между macOS и Ubuntu проходит в обе стороны по IP/именам, localhost отвечает, но собственный VPN IP даёт TCP timeout и ICMP 0/2. Причина: собственный HOST/LOCAL отправляется в UTUN. [Исправление RG40](smoke-results/2026-10-27-macos-rg40.md): lo0 с собственным исходным IPv4, журнал до изменения, уборка при Close и восстановлении службы. Unit/race, отдельный UTUN HTTP/cleanup и приёмка PKG `.25` macOS 27 ARM64 прошли: 36 HTTP, собственный ping 2/2, down/up, stop/start и SIGKILL recovery без SSO. RG40 PASS в этой строке матрицы. Проверять собственный IP/FQDN/короткое имя и прикладной обмен, down/up, service restart/crash, отсутствие остаточного /32 и сохранность чужих маршрутов; не подменять VPN IP адресом LAN |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG41",
+      "description": "macOS Installer обновляет перемещённую копию вместо `/Applications/Aheadscale.app`: C13/R03",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG41 | macOS Installer обновляет перемещённую копию вместо `/Applications/Aheadscale.app`: C13/R03 | [PKG `.25` FAIL → `.25.1` PASS](smoke-results/2026-10-27-macos25-reboot-reinstall.md). Оставить копию приложения с тем же bundle ID вне `/Applications`, удалить штатную установку, установить PKG: canonical app/служба/CLI работают, копия не меняется, данные и устройство сохранены, двусторонний HTTP/DNS проходит. `test_macos_package.py` проверяет явный `BundleIsRelocatable=false` при старом true и опущенном false, сохраняя остальные свойства; 2/2 Linux/macOS PASS. Воспроизведение с перемещённым bundle не заменять одной чистой установкой |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG42",
+      "description": "Linux: системный Disconnect NetworkManager снимает IPv4, но Aheadscale остаётся Connected: R05/T02/S04",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG42 | Linux: системный Disconnect NetworkManager снимает IPv4, но Aheadscale остаётся Connected: R05/T02/S04 | [Linux-пакеты `.26`](smoke-results/2026-10-28-linux26-packages.md): на новых public Desktop `.26` / RPM `.26.1` Fedora x64, Fedora ARM64 GNOME и Ubuntu ARM64 KDE настоящий системный OFF → GUI выключен, CLI Idle, IP/интерфейс удалён, 12 с без самоподключения; GUI Connect без SSO и T01 PASS. Всего этапа 72 HTTP/DNS. Код/race — [исходное исправление](smoke-results/2026-10-28-rg42-networkmanager-disconnect.md). Ветвь Disconnect принята; системный Connect/Cancel и restart NM не проверены, весь R05 не закрыт |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG43",
+      "description": "После restart NetworkManager системный OFF удаляет адреса, GUI/CLI остаются Connected: R05/T02",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG43 | После restart NetworkManager системный OFF удаляет адреса, GUI/CLI остаются Connected: R05/T02 | [.26 Ubuntu/Fedora ARM64 FAIL](smoke-results/2026-10-28-linux26-r05.md). [Native `.31.3`](smoke-results/2026-10-29-linux-native31-3.md): на Fedora x64 реальные системные/GUI ON/OFF согласованы, OFF сохраняется после restart NM/демона/controller; обе ARM прошли реальные системные OFF и те же restart без позднего Up, владелец подтвердил Disconnected в обоих GUI. [`.31.6`](smoke-results/2026-10-29-linux-native31-6.md): обе ARM прошли настоящий системный Cancel до Activated, GUI Disconnected и отсутствие позднего Up; HTTP ON/OFF принят отдельно. Полные R05/C13, свежий SSO и остальные платформы ещё открыты; RG43 открыт |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG44",
+      "description": "RPM CLI → Desktop: старый `%preun` проверяет новый payload по прежней квитанции и оставляет оба варианта",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG44 | RPM CLI → Desktop: старый `%preun` проверяет новый payload по прежней квитанции и оставляет оба варианта | [`.31.3`](smoke-results/2026-10-29-linux-native31-3.md): воспроизведено на Fedora x64 `.31.2`; `f7a07b6`, регрессии и весь packaging/race PASS. Живое восстановление и четыре перехода Desktop ↔ CLI при ON/OFF PASS; регистрация неизменна. [Fedora ARM64 `.31.6`](smoke-results/2026-10-29-linux-arm31-6-lifecycle.md): четыре согласованных перехода ON/OFF PASS; регистрация и исходные настройки возвращены. Старый CLI `.31.3` несовместим с квитанцией нового модуля Plasma; смешение ревизий не принято |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG45",
+      "description": "Две строки Aheadscale в Plasma при одном профиле NM: проверять после установки/обновления и restart NM при ON/OFF",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG45 | Две строки Aheadscale в Plasma при одном профиле NM: проверять после установки/обновления и restart NM при ON/OFF | [Ubuntu ARM64 `.31.3`](smoke-results/2026-10-29-linux-native31-3.md): дубликат отображения подтверждён снимком при единственном UUID; перезапуск панели восстановил одну строку без изменения профиля. Один повторный restart NM при OFF не воспроизвёл дубликат. Триггер не установлен, постоянное исправление не заявлено; открыт |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG46",
+      "description": "Plasma отказывает системному Connect: `missing support for 'aheadscale' VPN connections`",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG46 | Plasma отказывает системному Connect: `missing support for 'aheadscale' VPN connections` | [Ubuntu ARM64 `.31.4`](smoke-results/2026-10-29-linux-plasma31-4.md): отсутствовал KDE VpnUiPlugin. Модуль добавлен; реальный загрузчик RED→GREEN, 11 случаев и весь packaging/race PASS. DEB сохранил OFF и регистрацию, системный загрузчик PASS; владелец подтвердил настоящий Connect → Connected и одну запись. Целевой отказ Connect исправлен; [`.31.6`](smoke-results/2026-10-29-linux-native31-6.md): настоящий Cancel Plasma также PASS. Свежий браузерный вход и остальные ABI ещё не приняты |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "RG47",
+      "description": "Быстрый Disconnect → Connect: поздний Stopped старой операции прекращает новую активацию NM",
+      "source": "docs/aheadscale/regression-test-plan.md",
+      "definition": "| RG47 | Быстрый Disconnect → Connect: поздний Stopped старой операции прекращает новую активацию NM | [Fedora ARM64 `.31.3`](smoke-results/2026-10-29-linux-plasma31-4.md): живой журнал и реальный D-Bus тест воспроизвели сбой. События ограничены поколением; весь plugin/internal/race с независимым proto-fixture PASS. В старый `.31.4` исправление не входило. [`.31.6`](smoke-results/2026-10-29-linux-native31-6.md): установлен новый плагин; целевой быстрый повторный Connect Fedora дошёл до Activated, настоящий Cancel обеих ARM и отсутствие позднего Up PASS. Расширенная матрица остаётся открытой |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "S01",
+      "description": "С чистого снимка установить desktop-пакет штатным менеджером/установщиком; принять только необходимые запросы ОС; открыть приложение из меню",
+      "source": "docs/aheadscale/ui-test-plan.md",
+      "definition": "| S01 | С чистого снимка установить desktop-пакет штатным менеджером/установщиком; принять только необходимые запросы ОС; открыть приложение из меню | Служба и UI установлены вместе; верная архитектура; нет терминальных настроек, ввода сервера или ручного запуска службы. Записать запросы администратора/защиты и версии компонентов |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "S02",
+      "description": "Connect → новый email-аккаунт; отдельно Sign in существующего. Вход выполнять в новой вкладке текущей попытки",
+      "source": "docs/aheadscale/ui-test-plan.md",
+      "definition": "| S02 | Connect → новый email-аккаунт; отдельно Sign in существующего. Вход выполнять в новой вкладке текущей попытки | Есть выбор регистрации/входа; браузерный callback принят, клиент сам подключается. Пока подтверждение email не реализовано — регистрация не проходит публичную приёмку SR01 |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "S03",
+      "description": "Некорректный/корректный email; Firefox и основной браузер ОС с сохранёнными данными; фокус пароля и кнопка раскрытия. Проверить favicon, страницы успеха/ошибки, меню, трей, панель задач, переключатель окон",
+      "source": "docs/aheadscale/ui-test-plan.md",
+      "definition": "| S03 | Некорректный/корректный email; Firefox и основной браузер ОС с сохранёнными данными; фокус пароля и кнопка раскрытия. Проверить favicon, страницы успеха/ошибки, меню, трей, панель задач, переключатель окон | Submit заблокирован для неверного email; браузер заполняет логин и пароль; пароль скрыт в фокусе и виден только по явному действию. Пользовательский бренд Aheadscale и правильные иконки; лицензионные notices сохраняются |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "S04",
+      "description": "Сверить Connected, VPN IP/имя, реальный интерфейс и системный сетевой UI; затем выполнить T01",
+      "source": "docs/aheadscale/ui-test-plan.md",
+      "definition": "| S04 | Сверить Connected, VPN IP/имя, реальный интерфейс и системный сетевой UI; затем выполнить T01 | Адреса согласованы; приложение и система отражают фактический туннель. Linux NM: Aheadscale; Windows: итоговый native VPN-профиль; macOS: текущая реализация без Network Extension имеет известный пробел, не засчитывать системный VPN как PASS |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "S05",
+      "description": "Найти B по имени/IP, скопировать оба; отключить B, обновить каталог, включить обратно",
+      "source": "docs/aheadscale/ui-test-plan.md",
+      "definition": "| S05 | Найти B по имени/IP, скопировать оба; отключить B, обновить каталог, включить обратно | Видны все устройства своего аккаунта, включая offline, правильные имена/IP; чужие отсутствуют; статус меняется, копирование корректно |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "S06",
+      "description": "Выполнить T01 по IP, FQDN и короткому имени в обе стороны",
+      "source": "docs/aheadscale/ui-test-plan.md",
+      "definition": "| S06 | Выполнить T01 по IP, FQDN и короткому имени в обе стороны | Шесть прикладных ответов от ожидаемых устройств, системный DNS без ручной настройки |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "S07",
+      "description": "Disconnect в приложении; наблюдать 12 секунд; проверить отказ трафика к A и обычный интернет/DNS",
+      "source": "docs/aheadscale/ui-test-plan.md",
+      "definition": "| S07 | Disconnect в приложении; наблюдать 12 секунд; проверить отказ трафика к A и обычный интернет/DNS | Disconnected в UI и системе; туннель не передаёт пакеты, нет позднего самоподключения, ложного предупреждения NetworkManager или активного Windows VPN |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "S08",
+      "description": "P01: на прогретых ОС и UI дождаться полного Disconnect, затем Connect; три замера, каталог/DNS/T01. P02 — отдельно при ещё завершающемся отключении",
+      "source": "docs/aheadscale/ui-test-plan.md",
+      "definition": "| S08 | P01: на прогретых ОС и UI дождаться полного Disconnect, затем Connect; три замера, каталог/DNS/T01. P02 — отдельно при ещё завершающемся отключении | Без SSO и дубликата; прежнее устройство. До 30 с от нажатия до шести HTTP; отдельно времена cleanup, системного VPN и UI. Время после входа Windows не подменяет этот замер |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "SR01",
+      "description": "Новая регистрация email; без перехода по письму; ссылка один раз, второй раз, после срока; неверный адрес; повторная отправка",
+      "source": "docs/aheadscale/smoke-test-plan.md",
+      "definition": "| SR01 | Новая регистрация email; без перехода по письму; ссылка один раз, второй раз, после срока; неверный адрес; повторная отправка | Без подтверждения нет активного аккаунта/подключения; повторная и просроченная ссылка безопасно отклоняются. **Сейчас требуется доработка сервера**, прежняя регистрация без письма не PASS |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "SR02",
+      "description": "Ошибка доставки письма/временная недоступность IdP/management; восстановление",
+      "source": "docs/aheadscale/smoke-test-plan.md",
+      "definition": "| SR02 | Ошибка доставки письма/временная недоступность IdP/management; восстановление | Понятная ошибка и повтор без дублирования аккаунтов/устройств; существующие пользователи не объединяются по email-домену |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      },
+      "subcases": [
+        {
+          "id": "SR02.registration",
+          "description": "Новый пользователь регистрируется через форму, без подготовки аккаунта через API",
+          "automation": {
+            "status": "NOT_RUN",
+            "executor": null,
+            "plannedExecutor": "private-auth-browser-e2e"
+          }
+        },
+        {
+          "id": "SR02.email-invalid",
+          "description": "Неверный email не позволяет отправить форму",
+          "automation": {
+            "status": "NOT_RUN",
+            "executor": null,
+            "plannedExecutor": "private-auth-browser-e2e"
+          }
+        },
+        {
+          "id": "SR02.email-confirm",
+          "description": "Письмо доставлено в тестовую почту, ссылка подтверждает email",
+          "automation": {
+            "status": "NOT_RUN",
+            "executor": null,
+            "plannedExecutor": "private-auth-browser-e2e"
+          }
+        },
+        {
+          "id": "SR02.email-required",
+          "description": "До подтверждения email не выдан доступ, требующий подтверждённого аккаунта",
+          "automation": {
+            "status": "NOT_RUN",
+            "executor": null,
+            "plannedExecutor": "private-auth-browser-e2e"
+          }
+        },
+        {
+          "id": "SR02.email-link-replay",
+          "description": "Одноразовая ссылка не принимается повторно",
+          "automation": {
+            "status": "NOT_RUN",
+            "executor": null,
+            "plannedExecutor": "private-auth-browser-e2e"
+          }
+        },
+        {
+          "id": "SR02.email-link-expired",
+          "description": "Просроченная ссылка даёт понятную ошибку",
+          "automation": {
+            "status": "NOT_RUN",
+            "executor": null,
+            "plannedExecutor": "private-auth-browser-e2e"
+          }
+        },
+        {
+          "id": "SR02.duplicate-registration",
+          "description": "Повторный email обрабатывается без создания второго аккаунта",
+          "automation": {
+            "status": "NOT_RUN",
+            "executor": null,
+            "plannedExecutor": "private-auth-browser-e2e"
+          }
+        },
+        {
+          "id": "SR02.password-visibility",
+          "description": "Пароль скрыт в фокусе и раскрывается только по явному действию",
+          "automation": {
+            "status": "NOT_RUN",
+            "executor": null,
+            "plannedExecutor": "private-auth-browser-e2e"
+          }
+        },
+        {
+          "id": "SR02.autocomplete",
+          "description": "Браузер правильно сопоставляет email/пароль",
+          "automation": {
+            "status": "NOT_RUN",
+            "executor": null,
+            "plannedExecutor": "private-auth-browser-e2e"
+          }
+        },
+        {
+          "id": "SR02.sign-in-out",
+          "description": "Вход через браузер и выход действительно меняют сессию",
+          "automation": {
+            "status": "NOT_RUN",
+            "executor": null,
+            "plannedExecutor": "private-auth-browser-e2e"
+          }
+        },
+        {
+          "id": "SR02.session-expired",
+          "description": "Истёкшая сессия требует нового входа",
+          "automation": {
+            "status": "NOT_RUN",
+            "executor": null,
+            "plannedExecutor": "private-auth-browser-e2e"
+          }
+        },
+        {
+          "id": "SR02.callback",
+          "description": "Browser callback/state/PKCE и одна вкладка",
+          "automation": {
+            "status": "NOT_RUN",
+            "executor": null,
+            "plannedExecutor": "private-auth-browser-e2e"
+          }
+        },
+        {
+          "id": "SR02.callback-cancel",
+          "description": "Cancel не завершает запоздалый вход",
+          "automation": {
+            "status": "NOT_RUN",
+            "executor": null,
+            "plannedExecutor": "private-auth-browser-e2e"
+          }
+        },
+        {
+          "id": "SR02.device-login",
+          "description": "Одноразовый device code работает и истекает",
+          "automation": {
+            "status": "NOT_RUN",
+            "executor": null,
+            "plannedExecutor": "private-auth-browser-e2e"
+          }
+        },
+        {
+          "id": "SR02.device-register",
+          "description": "Устройство появляется только в своём аккаунте",
+          "automation": {
+            "status": "NOT_RUN",
+            "executor": null,
+            "plannedExecutor": "private-auth-browser-e2e"
+          }
+        },
+        {
+          "id": "SR02.device-delete",
+          "description": "Удаление через UI отражается в API и отзывает доступ",
+          "automation": {
+            "status": "NOT_RUN",
+            "executor": null,
+            "plannedExecutor": "private-auth-browser-e2e"
+          }
+        },
+        {
+          "id": "SR02.device-limit",
+          "description": "Пять устройств принимаются, шестое отклоняется понятной ошибкой",
+          "automation": {
+            "status": "NOT_RUN",
+            "executor": null,
+            "plannedExecutor": "private-auth-browser-e2e"
+          }
+        },
+        {
+          "id": "SR02.device-slot",
+          "description": "Удаление устройства освобождает слот для следующего",
+          "automation": {
+            "status": "NOT_RUN",
+            "executor": null,
+            "plannedExecutor": "private-auth-browser-e2e"
+          }
+        },
+        {
+          "id": "SR02.account-isolation",
+          "description": "Аккаунт B не читает/меняет устройства и не получает сеть A",
+          "automation": {
+            "status": "NOT_RUN",
+            "executor": null,
+            "plannedExecutor": "private-auth-browser-e2e"
+          }
+        },
+        {
+          "id": "SR02.parallel-cleanup",
+          "description": "Параллельные run/job используют разные аккаунты, очистка затрагивает только свои данные",
+          "automation": {
+            "status": "NOT_RUN",
+            "executor": null,
+            "plannedExecutor": "private-auth-browser-e2e"
+          }
+        }
+      ]
+    },
+    {
+      "id": "T01",
+      "description": "На A сравнить каталог с B; разрешить полное и короткое имя B системным резолвером; выполнить HTTP к VPN IP, FQDN и короткому имени; повторить B → A",
+      "source": "docs/aheadscale/smoke-test-plan.md",
+      "definition": "| T01 | На A сравнить каталог с B; разрешить полное и короткое имя B системным резолвером; выполнить HTTP к VPN IP, FQDN и короткому имени; повторить B → A | Шесть HTTP 200, точные разные маркеры, `remote_ip` равен VPN-адресу ожидаемого узла; без hosts, ручного DNS и LAN-адресов |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "T02",
+      "description": "Отключить A; проверить отказ T01 к A и обычные DNS/HTTPS; снова подключить и повторить T01",
+      "source": "docs/aheadscale/smoke-test-plan.md",
+      "definition": "| T02 | Отключить A; проверить отказ T01 к A и обычные DNS/HTTPS; снова подключить и повторить T01 | Реальный трафик следует состоянию, нет утечки обычного DNS и самоподключения после намеренного Disconnect |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "T03",
+      "description": "Раздельные случаи T03-SVC (служба) и T03-OS (вся ОС); после входа desktop проверить автоматический запуск UI, T01 и прежнюю идентичность; P04",
+      "source": "docs/aheadscale/smoke-test-plan.md",
+      "definition": "| T03 | Раздельные случаи T03-SVC (служба) и T03-OS (вся ОС); после входа desktop проверить автоматический запуск UI, T01 и прежнюю идентичность; P04 | Отдельный вердикт на каждый случай. Не нужен SSO, то же устройство/адрес/имя; шесть HTTP с правильным remote_ip. Для поддерживаемого CLI/backend сеть восстанавливается без графического сеанса |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "T04",
+      "description": "На минуту отключить сеть A, вернуть; отдельно сменить NAT/сеть и повторить T01",
+      "source": "docs/aheadscale/smoke-test-plan.md",
+      "definition": "| T04 | На минуту отключить сеть A, вернуть; отдельно сменить NAT/сеть и повторить T01 | Восстановление без ручного исправления интерфейса/порта/DNS и без новой регистрации |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "T05",
+      "description": "Поместить A и B за разные интернет-подключения/NAT; подтвердить Direct средствами диагностики",
+      "source": "docs/aheadscale/smoke-test-plan.md",
+      "definition": "| T05 | Поместить A и B за разные интернет-подключения/NAT; подтвердить Direct средствами диагностики | T01 проходит; записан фактический маршрут и время восстановления |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "T06",
+      "description": "На контролируемом стенде сделать Direct недоступным, сохранив доступ к серверу/Relay; подтвердить Relayed и повторить T01; вернуть Direct",
+      "source": "docs/aheadscale/smoke-test-plan.md",
+      "definition": "| T06 | На контролируемом стенде сделать Direct недоступным, сохранив доступ к серверу/Relay; подтвердить Relayed и повторить T01; вернуть Direct | Работает настоящий Relay и переход обратно. Если стенда нет — NOT_RUN, успешный Direct не заменяет этот случай |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "T07",
+      "description": "Открыть по приватному имени SSH/SFTP на Linux/macOS и RDP на Windows; скопировать файл и сравнить SHA256; отдельно SMB, если заявлен в выпуске",
+      "source": "docs/aheadscale/smoke-test-plan.md",
+      "definition": "| T07 | Открыть по приватному имени SSH/SFTP на Linux/macOS и RDP на Windows; скопировать файл и сравнить SHA256; отдельно SMB, если заявлен в выпуске | Полезная сессия и целый файл, без публичного проброса прикладного порта. Сначала подтвердить, что целевой сервис вообще настроен |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "U01",
+      "description": "Главный экран, настройки, ошибки, вход и «О программе»: System/Light/Dark, переключение темы и перезапуск; Windows/macOS масштаб 100/150/200%, Linux соответствующее масштабирование",
+      "source": "docs/aheadscale/ui-test-plan.md",
+      "definition": "| U01 | Главный экран, настройки, ошибки, вход и «О программе»: System/Light/Dark, переключение темы и перезапуск; Windows/macOS масштаб 100/150/200%, Linux соответствующее масштабирование | Контрастный текст логотипа, целые значки заголовка/панели/трея, нет обрезки текста/кнопок; клавиатура и фокус доступны |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "U02",
+      "description": "После Connect отменить вход/закрыть вкладку; Disconnect во время Connecting, отдельно Reconnecting; затем новая попытка",
+      "source": "docs/aheadscale/ui-test-plan.md",
+      "definition": "| U02 | После Connect отменить вход/закрыть вкладку; Disconnect во время Connecting, отдельно Reconnecting; затем новая попытка | Намеренная отмена не вызывает ложную ошибку и позднее подключение; новая попытка получает собственный действующий callback. Порт 53000 не освобождается до завершения текущей попытки |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "U03",
+      "description": "Истёкшая регистрация устройства; недоступен management; служба остановлена; занят callback-порт",
+      "source": "docs/aheadscale/ui-test-plan.md",
+      "definition": "| U03 | Истёкшая регистрация устройства; недоступен management; служба остановлена; занят callback-порт | Понятные разные причины; повторный вход работает после устранения причины; никаких ложных Connected и вечного ожидания. Старый code/state не переиспользуется |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    },
+    {
+      "id": "U04",
+      "description": "Установка/обновление/удаление рядом с имеющимся NetBird/Tailscale в отдельном дополнительном снимке",
+      "source": "docs/aheadscale/ui-test-plan.md",
+      "definition": "| U04 | Установка/обновление/удаление рядом с имеющимся NetBird/Tailscale в отдельном дополнительном снимке | Их службы, файлы, ключи и рабочие подключения сохранены; перекрытие маршрутов/DNS отдельно описано. Это изоляция установщика, не требование ставить Tailscale обычному клиенту |",
+      "automation": {
+        "status": "NOT_RUN",
+        "executor": null
+      }
+    }
+  ],
+  "note": "Статус относится к полной автоматической приёмке сценария, а не к частичному unit-покрытию. Исторические ручные PASS не перенесены в автоматические PASS."
+}

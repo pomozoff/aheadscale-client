@@ -41,23 +41,67 @@ jobs:
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
         with:
           go-version: '1.26.7'
-      - name: Client configuration and identity tests
-        run: go test ./client/cmd ./client/status ./client/internal/auth ./client/internal/templates ./client/internal/profilemanager ./client/internal/daemonaddr ./client/internal/selfroute ./client/internal/ipcauth ./client/net ./client/internal/routemanager/systemops ./client/configs -count=1
-      - name: Проверки DNS и остановки Linux-клиента
-        env:
-          DBUS_SYSTEM_BUS_ADDRESS: unix:path=/tmp/aheadscale-unit-no-system-bus
-        run: go test -race -tags devcert ./client/internal/dns ./client/internal ./client/server
-      - name: Preview updater policy
-        run: go test ./client/internal/updater -run TestAheadscale -count=1
-      - name: Регрессия завершения GUI при обновлении macOS
-        run: go test -race ./packaging/aheadscale
-      - name: Package source checks
-        run: |
-          python3 -m py_compile packaging/aheadscale/package.py
-          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s packaging/aheadscale -p 'test_*.py' -v
-          bash -n packaging/aheadscale/build.sh packaging/aheadscale/scripts/macos-preinstall packaging/aheadscale/scripts/macos-postinstall packaging/aheadscale/scripts/macos-uninstall.command
-          sh -n packaging/aheadscale/scripts/postinst packaging/aheadscale/scripts/prerm packaging/aheadscale/scripts/cleanup-networkmanager
-          git diff --check
+      - name: Выбранные unit-проверки
+        run: python3 -B testing/aheadscale/run.py --suite unit --output ci-results/unit
+      - name: Краткий результат
+        if: always()
+        run: cat ci-results/unit/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Отчёт unit
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: test-results-unit
+          path: ci-results/unit/
+          retention-days: 7
+          if-no-files-found: error
+  packaging-tests:
+    if: github.event_name == 'workflow_dispatch' && contains(fromJSON('["checks","packaging","build"]'), inputs.suite)
+    needs: ci-contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.7'
+      - name: Упаковочные регрессии без пересборки GUI
+        run: python3 -B testing/aheadscale/run.py --suite packaging --output ci-results/packaging
+      - name: Краткий результат
+        if: always()
+        run: cat ci-results/packaging/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Отчёт упаковки
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: test-results-packaging
+          path: ci-results/packaging/
+          retention-days: 7
+          if-no-files-found: error
+  networkmanager-tests:
+    if: github.event_name == 'workflow_dispatch' && contains(fromJSON('["checks","networkmanager","build"]'), inputs.suite)
+    needs: ci-contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.7'
+      - name: Зависимость изолированных D-Bus тестов
+        run: sudo apt-get update -qq && sudo apt-get install -y dbus
+      - name: Поколения, Cancel, restart и контроллер
+        run: python3 -B testing/aheadscale/run.py --suite networkmanager --output ci-results/networkmanager
+      - name: Краткий результат
+        if: always()
+        run: cat ci-results/networkmanager/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Отчёт NetworkManager
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: test-results-networkmanager
+          path: ci-results/networkmanager/
+          retention-days: 7
+          if-no-files-found: error
   windows-identity:
     if: github.event_name == 'workflow_dispatch' && contains(fromJSON('["checks","unit","build"]'), inputs.suite)
     needs: ci-contract
@@ -72,7 +116,7 @@ jobs:
         run: go test ./client/iface/device -run TestAheadscale -count=1
   build:
     if: github.event_name == 'workflow_dispatch' && inputs.suite == 'build'
-    needs: [unit, windows-identity]
+    needs: [unit, windows-identity, packaging-tests, networkmanager-tests]
     strategy:
       fail-fast: false
       matrix:
