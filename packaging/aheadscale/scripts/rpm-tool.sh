@@ -1,7 +1,11 @@
 #!/bin/sh
 set -eu
 tool=${0##*/}
-case "$tool" in rpm|rpmbuild) ;; *) echo 'Use a symlink named rpm or rpmbuild' >&2; exit 1 ;; esac
+case "$tool" in
+  rpm|rpmbuild) executable=$tool ;;
+  rpmdeps) executable=/usr/lib/rpm/rpmdeps ;;
+  *) echo 'Use a symlink named rpm, rpmbuild or rpmdeps' >&2; exit 1 ;;
+esac
 case "${AHEADSCALE_RPM_ARCH:?}:${AHEADSCALE_RPM_CHANNEL:?}" in
   amd64:internal|amd64:public|arm64:internal|arm64:public) ;;
   *) echo 'Invalid RPM build target' >&2; exit 1 ;;
@@ -15,4 +19,4 @@ exec docker run --rm --name "aheadscale-rpm-$tool-$$" --network none --read-only
   --env HOME=/tmp --env SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-0}" \
   --mount "type=bind,src=$binaries,dst=$binaries" \
   --mount "type=bind,src=$PWD/dist,dst=$PWD/dist,readonly" \
-  "${AHEADSCALE_RPM_IMAGE:?}" "$tool" "$@"
+  "${AHEADSCALE_RPM_IMAGE:?}" "$executable" "$@"

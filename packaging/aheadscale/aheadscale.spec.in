@@ -1,6 +1,9 @@
 # Готовые проверенные бинарники не изменяются упаковщиком и не получают debug-пакет.
 %global debug_package %{nil}
 %global __strip /bin/true
+# Only the optional Plasma module is handled by its conditional Requires below.
+# Dependencies of the main UI, GTK editors and all other files stay automatic.
+%global __requires_exclude_from ^/usr/lib64/qt6/plugins/plasma/network/vpn/plasmanetworkmanagement_aheadscaleui[.]so$
 Name: @NAME@
 Version: @VERSION@
 Release: @RELEASE@
@@ -15,6 +18,7 @@ Requires: iptables-nft
 Requires: python3
 Requires(pre): python3
 @GUI_REQUIRES@
+@PLASMA_REQUIRES@
 Conflicts: @CONFLICT@
 
 %description

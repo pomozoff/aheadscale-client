@@ -5,7 +5,7 @@ import shutil
 import subprocess
 import tarfile
 import json
-from networkmanager_package import PAYLOAD, plasma_plugin_path, prepare_hook, normalize_directories
+from networkmanager_package import PAYLOAD, PLASMA_PLUGIN, plasma_plugin_path, prepare_hook, normalize_directories
 
 
 def package_rpm(root, binaries, staging, output, version, arch, cli_only):
@@ -44,10 +44,23 @@ def package_rpm(root, binaries, staging, output, version, arch, cli_only):
     if not cli_only:
         files += [*PAYLOAD.values(), plasma_plugin_path('rpm', arch), "/usr/share/selinux/packages/nm_aheadscale.pp", "%dir /usr/lib/systemd/system/aheadscale.service.d", "%dir /usr/share/doc/aheadscale/networkmanager", "/usr/share/doc/aheadscale/networkmanager/LICENSE", "/usr/share/doc/aheadscale/networkmanager/NOTICES.md", "/usr/share/doc/aheadscale/networkmanager/SOURCE.json"]
     manifest=json.loads((staging / 'usr/share/aheadscale/networkmanager-files.json').read_text())
+    plasma_requires = ''
+    if not cli_only:
+        # Plasma loads this module only when plasma-nm is present. Keep every
+        # dependency, conditionally, instead of pulling a KDE desktop into GNOME.
+        required = subprocess.check_output([
+            os.environ.get('RPMDEPS', '/usr/lib/rpm/rpmdeps'), '--requires',
+            str(binaries / 'networkmanager' / PLASMA_PLUGIN),
+        ], text=True).splitlines()
+        required = sorted(set(item.strip() for item in required if item.strip()))
+        if not required or any('\n' in item or '\r' in item for item in required):
+            raise SystemExit('Не удалось определить зависимости модуля Plasma')
+        plasma_requires = 'Requires: ((' + ' and '.join(required) + ') if plasma-nm)'
     replacements = {
         "@NAME@": package_name, "@VERSION@": match[1], "@RELEASE@": "0.aheadscale." + match[2] + ".1",
         "@CONFLICT@": conflict,
         "@GUI_REQUIRES@": "" if cli_only else "Requires: gtk4 >= 4.14\nRequires: webkitgtk6.0\nRequires: NetworkManager\nRequires: NetworkManager-libnm\nRequires: systemd-resolved\nRequires: libnma\nRequires: libnma-gtk4\nRequires: gtk3\nRequires: policycoreutils\nRequires(pre): policycoreutils",
+        "@PLASMA_REQUIRES@": plasma_requires,
         "@NM_PREPARE@": prepare_hook(root,manifest).replace("%", "%%"),
         "@NM_APPLY@": "/usr/lib/aheadscale/networkmanager-lifecycle apply " + manifest['variant'] + " rpm",
         "@FILES@": "\n".join(files),

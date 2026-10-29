@@ -5,12 +5,9 @@ rename to cmd/nm-aheadscale-auth-dialog/main.go
 index cc444d4..4cbfa98 100644
 --- a/cmd/nm-netbird-auth-dialog/main.go
 +++ b/cmd/nm-aheadscale-auth-dialog/main.go
-@@ -1,4 +1,4 @@
+@@ -1 +1 @@
 -// Command nm-netbird-auth-dialog handles NetworkManager VPN auth-dialog requests for NetBird.
 +// Command nm-aheadscale-auth-dialog handles NetworkManager VPN auth-dialog requests for NetBird.
- package main
- 
- import (
 diff --git a/cmd/nm-netbird-service/main.go b/cmd/nm-aheadscale-service/main.go
 similarity index 70%
 rename from cmd/nm-netbird-service/main.go
@@ -18,35 +15,22 @@ rename to cmd/nm-aheadscale-service/main.go
 index 276c0cf..a76b7aa 100644
 --- a/cmd/nm-netbird-service/main.go
 +++ b/cmd/nm-aheadscale-service/main.go
-@@ -1,9 +1,11 @@
+@@ -1 +1 @@
 -// Command nm-netbird-service exposes the NetBird NetworkManager VPN plugin service over D-Bus.
 +// Command nm-aheadscale-service exposes the NetBird NetworkManager VPN plugin service over D-Bus.
- package main
- 
- import (
+@@ -4,0 +5 @@ import (
 +	"context"
- 	"flag"
- 	"fmt"
+@@ -6,0 +8 @@ import (
 +	"github.com/netbirdio/network-manager-plugin/internal/aheadscale"
- 	"log"
- 	"os"
- 	"os/signal"
-@@ -19,29 +21,33 @@ import (
- )
- 
- func main() {
+@@ -21,0 +24,2 @@ func main() {
 +	ctx, cancel := context.WithCancel(context.Background())
 +	defer cancel()
- 	defaultDaemonOptions := daemonclient.DefaultOptionsFromEnv()
- 
- 	busType := flag.String("bus", "system", "D-Bus bus to use: system or session")
- 	debug := flag.Bool("debug", false, "enable verbose logging")
+@@ -26,2 +30,2 @@ func main() {
 -	daemonAddress := flag.String("daemon-address", defaultDaemonOptions.Address, "NetBird daemon gRPC address")
 -	startDaemon := flag.Bool("start-daemon", defaultDaemonOptions.StartDaemon, "ask the configured init system to start the NetBird daemon if the first dial fails")
 +	daemonAddress := flag.String("daemon-address", defaultDaemonOptions.Address, "Aheadscale daemon gRPC address")
 +	startDaemon := flag.Bool("start-daemon", defaultDaemonOptions.StartDaemon, "ask the configured init system to start the Aheadscale daemon if the first dial fails")
- 	daemonInitSystem := flag.String("daemon-init-system", envconfig.StringDefault(initsystem.EnvSystem, initsystem.DefaultSystem), "init system used with --start-daemon: auto or systemd")
- 	daemonService := flag.String("daemon-service", defaultDaemonOptions.DaemonService, "daemon service name to start when --start-daemon is enabled")
+@@ -30,4 +34,4 @@ func main() {
 -	dialTimeout := flag.Duration("daemon-dial-timeout", defaultDaemonOptions.DialTimeout, "timeout for dialing the NetBird daemon")
 -	rpcTimeout := flag.Duration("daemon-rpc-timeout", defaultDaemonOptions.RPCTimeout, "per-RPC timeout for NetBird daemon calls without an existing deadline")
 -	activationTimeout := flag.Duration("activation-timeout", 90*time.Second, "maximum time to wait for NetBird activation phases other than interactive SSO")
@@ -55,15 +39,10 @@ index 276c0cf..a76b7aa 100644
 +	rpcTimeout := flag.Duration("daemon-rpc-timeout", defaultDaemonOptions.RPCTimeout, "per-RPC timeout for Aheadscale daemon calls without an existing deadline")
 +	activationTimeout := flag.Duration("activation-timeout", 90*time.Second, "maximum time to wait for Aheadscale activation phases other than interactive SSO")
 +	ssoWaitTimeout := flag.Duration("sso-wait-timeout", 10*time.Minute, "maximum time to wait for interactive Aheadscale SSO completion")
- 	flag.Parse()
- 
+@@ -36 +40 @@ func main() {
 -	logger := log.New(os.Stdout, "nm-netbird-service: ", log.LstdFlags|log.Lmicroseconds)
 +	logger := log.New(os.Stdout, "nm-aheadscale-service: ", log.LstdFlags|log.Lmicroseconds)
- 
- 	conn, err := connectBus(*busType)
- 	if err != nil {
- 		logger.Fatalf("connect %s bus: %v", *busType, err)
- 	}
+@@ -42,3 +46,5 @@ func main() {
 -	defer func() {
 -		_ = conn.Close()
 -	}()
@@ -72,13 +51,7 @@ index 276c0cf..a76b7aa 100644
 +	if err != nil {
 +		logger.Fatal(err)
 +	}
- 
- 	daemonOptions := daemonclient.Options{
- 		Address:       *daemonAddress,
-@@ -60,9 +66,10 @@ func main() {
- 	}
- 
- 	service := nmplugin.NewService(conn, logger, *debug, nmplugin.ServiceOptions{
+@@ -63,3 +69,4 @@ func main() {
 -		ClientFactory:     daemonclient.NewFactory(daemonOptions),
 -		ActivationTimeout: *activationTimeout,
 -		SSOWaitTimeout:    *ssoWaitTimeout,
@@ -86,22 +59,13 @@ index 276c0cf..a76b7aa 100644
 +		ClientFactory:        daemonclient.NewFactory(daemonOptions),
 +		ActivationTimeout:    *activationTimeout,
 +		SSOWaitTimeout:       *ssoWaitTimeout,
- 	})
- 	if err := service.Export(); err != nil {
- 		logger.Fatalf("export service: %v", err)
-@@ -83,7 +90,11 @@ func main() {
- 
- 	signals := make(chan os.Signal, 1)
- 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
+@@ -86 +93,5 @@ func main() {
 -	<-signals
 +	select {
 +	case <-signals:
 +	case <-ownerLost:
 +	}
 +	_ = service.Disconnect()
- 
- 	logger.Printf("shutting down")
- }
 diff --git a/internal/aheadscale/broker.go b/internal/aheadscale/broker.go
 new file mode 100644
 index 0000000..f54cd17
@@ -475,31 +439,16 @@ diff --git a/internal/initsystem/initsystem.go b/internal/initsystem/initsystem.
 index fb8d6ae..bded0e7 100644
 --- a/internal/initsystem/initsystem.go
 +++ b/internal/initsystem/initsystem.go
-@@ -14,7 +14,7 @@ const (
- 
- 	// EnvSystem is the environment variable overriding the init system used for
- 	// daemon autostart.
+@@ -17 +17 @@ const (
 -	EnvSystem = "NM_NETBIRD_DAEMON_INIT_SYSTEM"
 +	EnvSystem = "NM_AHEADSCALE_DAEMON_INIT_SYSTEM"
- )
- 
- // Starter starts a service through an init system.
 diff --git a/internal/netbird/daemonclient/grpc.go b/internal/netbird/daemonclient/grpc.go
 index 569d48a..ae923db 100644
 --- a/internal/netbird/daemonclient/grpc.go
 +++ b/internal/netbird/daemonclient/grpc.go
-@@ -14,6 +14,7 @@ import (
- 	"google.golang.org/grpc/codes"
- 	"google.golang.org/grpc/connectivity"
- 	"google.golang.org/grpc/credentials/insecure"
+@@ -16,0 +17 @@ import (
 +	"google.golang.org/grpc/metadata"
- 	"google.golang.org/grpc/status"
- )
- 
-@@ -112,9 +113,10 @@ func (f *GRPCFactory) NewClient(ctx context.Context) (Client, error) {
- }
- 
- type grpcClient struct {
+@@ -115,3 +116,4 @@ type grpcClient struct {
 -	conn       *grpc.ClientConn
 -	client     proto.DaemonServiceClient
 -	rpcTimeout time.Duration
@@ -507,19 +456,13 @@ index 569d48a..ae923db 100644
 +	conn             *grpc.ClientConn
 +	client           proto.DaemonServiceClient
 +	rpcTimeout       time.Duration
- }
- 
- func dial(ctx context.Context, options Options) (*grpcClient, error) {
-@@ -134,10 +136,16 @@ func dial(ctx context.Context, options Options) (*grpcClient, error) {
- 		_ = conn.Close()
- 		return nil, fmt.Errorf("dial netbird daemon at %s: %w", address, err)
- 	}
+@@ -136,0 +139,5 @@ func dial(ctx context.Context, options Options) (*grpcClient, error) {
 +	md, _ := metadata.FromOutgoingContext(ctx)
 +	generation := ""
 +	if values := md.Get(NativeGenerationMetadataKey); len(values) == 1 {
 +		generation = values[0]
 +	}
- 	return &grpcClient{
+@@ -138,3 +145,4 @@ func dial(ctx context.Context, options Options) (*grpcClient, error) {
 -		conn:       conn,
 -		client:     proto.NewDaemonServiceClient(conn),
 -		rpcTimeout: options.RPCTimeout,
@@ -527,63 +470,27 @@ index 569d48a..ae923db 100644
 +		conn:             conn,
 +		client:           proto.NewDaemonServiceClient(conn),
 +		rpcTimeout:       options.RPCTimeout,
- 	}, nil
- }
- 
-@@ -391,6 +399,12 @@ func (c *grpcClient) Close() error {
- }
- 
- func (c *grpcClient) callContext(ctx context.Context) (context.Context, context.CancelFunc) {
+@@ -393,0 +402,6 @@ func (c *grpcClient) callContext(ctx context.Context) (context.Context, context.
 +	if c.nativeGeneration != "" {
 +		md, _ := metadata.FromOutgoingContext(ctx)
 +		md = md.Copy()
 +		md.Set(NativeGenerationMetadataKey, c.nativeGeneration)
 +		ctx = metadata.NewOutgoingContext(ctx, md)
 +	}
- 	if c.rpcTimeout <= 0 {
- 		return context.WithCancel(ctx)
- 	}
 diff --git a/internal/netbird/daemonclient/grpc_test.go b/internal/netbird/daemonclient/grpc_test.go
 index a5fdf41..8ec9fee 100644
 --- a/internal/netbird/daemonclient/grpc_test.go
 +++ b/internal/netbird/daemonclient/grpc_test.go
-@@ -3,6 +3,7 @@ package daemonclient_test
- import (
- 	"context"
- 	"net"
+@@ -5,0 +6 @@ import (
 +	"strings"
- 	"sync"
- 	"testing"
- 	"time"
-@@ -12,6 +13,7 @@ import (
- 	"github.com/netbirdio/network-manager-plugin/internal/netbird/daemonclient"
- 	"google.golang.org/grpc"
- 	"google.golang.org/grpc/codes"
+@@ -14,0 +16 @@ import (
 +	"google.golang.org/grpc/metadata"
- 	"google.golang.org/grpc/status"
- )
- 
-@@ -209,6 +211,7 @@ type fakeDaemonServer struct {
- 	switchProfileID string
- 	upErr           error
- 	downCalled      bool
+@@ -211,0 +214 @@ type fakeDaemonServer struct {
 +	downGeneration  string
- }
- 
- func (f *fakeDaemonServer) Login(ctx context.Context, req *proto.LoginRequest) (*proto.LoginResponse, error) {
-@@ -257,6 +260,8 @@ func (f *fakeDaemonServer) Down(ctx context.Context, req *proto.DownRequest) (*p
- 	f.mu.Lock()
- 	defer f.mu.Unlock()
- 	f.downCalled = true
+@@ -259,0 +263,2 @@ func (f *fakeDaemonServer) Down(ctx context.Context, req *proto.DownRequest) (*p
 +	md, _ := metadata.FromIncomingContext(ctx)
 +	f.downGeneration = strings.Join(md.Get("aheadscale-native-generation"), ",")
- 	return &proto.DownResponse{}, nil
- }
- 
-@@ -285,3 +290,18 @@ func (f *fakeDaemonServer) GetActiveProfile(ctx context.Context, req *proto.GetA
- func (f *fakeDaemonServer) ListProfiles(ctx context.Context, req *proto.ListProfilesRequest) (*proto.ListProfilesResponse, error) {
- 	return &proto.ListProfilesResponse{Profiles: []*proto.Profile{{Id: "profile-id", Name: "prod", IsActive: true}}}, nil
- }
+@@ -287,0 +293,15 @@ func (f *fakeDaemonServer) ListProfiles(ctx context.Context, req *proto.ListProf
 +
 +func TestFactoryBindsNativeGenerationForDown(t *testing.T) {
 +	server := &fakeDaemonServer{}
@@ -603,75 +510,48 @@ diff --git a/internal/netbird/daemonclient/types.go b/internal/netbird/daemoncli
 index 7ca8e04..74acb95 100644
 --- a/internal/netbird/daemonclient/types.go
 +++ b/internal/netbird/daemonclient/types.go
-@@ -17,29 +17,30 @@ var (
- )
- 
- const (
+@@ -19,0 +20 @@ const (
 +	NativeGenerationMetadataKey = "aheadscale-native-generation"
- 	// DefaultAddress is the local NetBird daemon gRPC endpoint used by the
- 	// upstream Linux CLI/service integration. It can be overridden with
- 	// EnvDaemonAddress.
+@@ -23 +24 @@ const (
 -	DefaultAddress = "unix:///var/run/netbird.sock"
 +	DefaultAddress = "unix:///var/run/aheadscale.sock"
- 
- 	// DefaultDaemonService is the service identifier passed to the configured init
- 	// system when daemon autostart is enabled.
+@@ -27 +28 @@ const (
 -	DefaultDaemonService = "netbird"
 +	DefaultDaemonService = "aheadscale"
- 
- 	// EnvDaemonAddress is the environment variable overriding DefaultAddress.
+@@ -30 +31 @@ const (
 -	EnvDaemonAddress = "NM_NETBIRD_DAEMON_ADDRESS"
 +	EnvDaemonAddress = "NM_AHEADSCALE_DAEMON_ADDRESS"
- 
- 	// EnvDaemonDialTimeout is the environment variable overriding the daemon dial timeout.
+@@ -33 +34 @@ const (
 -	EnvDaemonDialTimeout = "NM_NETBIRD_DAEMON_DIAL_TIMEOUT"
 +	EnvDaemonDialTimeout = "NM_AHEADSCALE_DAEMON_DIAL_TIMEOUT"
- 
- 	// EnvDaemonRPCTimeout is the environment variable overriding the per-RPC timeout.
+@@ -36 +37 @@ const (
 -	EnvDaemonRPCTimeout = "NM_NETBIRD_DAEMON_RPC_TIMEOUT"
 +	EnvDaemonRPCTimeout = "NM_AHEADSCALE_DAEMON_RPC_TIMEOUT"
- 
- 	// EnvStartDaemon is the environment variable enabling daemon autostart.
+@@ -39 +40 @@ const (
 -	EnvStartDaemon = "NM_NETBIRD_START_DAEMON"
 +	EnvStartDaemon = "NM_AHEADSCALE_START_DAEMON"
- 
- 	// EnvDaemonService is the environment variable overriding DefaultDaemonService.
+@@ -42 +43 @@ const (
 -	EnvDaemonService = "NM_NETBIRD_DAEMON_SERVICE"
 +	EnvDaemonService = "NM_AHEADSCALE_DAEMON_SERVICE"
- 
- 	// DefaultProfileName is the daemon's singleton/default profile handle. NetBird
- 	// v0.73 requires an explicit handle for profile-scoped config RPCs.
 diff --git a/internal/netbird/profile/profile.go b/internal/netbird/profile/profile.go
 index 3c27ab1..65d66b6 100644
 --- a/internal/netbird/profile/profile.go
 +++ b/internal/netbird/profile/profile.go
-@@ -13,9 +13,9 @@ import (
- )
- 
- var (
+@@ -16,3 +16,3 @@ var (
 -	ErrConflict  = errors.New("conflicting active NetBird profile")
 -	ErrNotFound  = errors.New("NetBird profile not found")
 -	ErrAmbiguous = errors.New("ambiguous NetBird profile")
 +	ErrConflict  = errors.New("conflicting active Aheadscale profile")
 +	ErrNotFound  = errors.New("Aheadscale profile not found")
 +	ErrAmbiguous = errors.New("ambiguous Aheadscale profile")
- )
- 
- // Client is the daemon profile/status subset used for profile selection.
 diff --git a/internal/nmauthdialog/dialog.go b/internal/nmauthdialog/dialog.go
 index 42cb1e2..5ab6bbf 100644
 --- a/internal/nmauthdialog/dialog.go
 +++ b/internal/nmauthdialog/dialog.go
-@@ -20,24 +20,24 @@ import (
- )
- 
- const (
+@@ -23 +23 @@ const (
 -	ServiceName = "org.freedesktop.NetworkManager.netbird"
 +	ServiceName = "org.freedesktop.NetworkManager.aheadscale"
- 
- 	keyAuth                       = "auth"
- 	keyNoSecret                   = "no-secret"
- 	keySetupKey                   = "setup-key"
+@@ -28,6 +28,6 @@ const (
 -	keyActivationID               = "x-netbird-activation-id"
 -	keyNetBirdSSO                 = "x-netbird-sso"
 -	keyNetBirdSSOVerificationURI  = "x-netbird-sso-verification-uri"
@@ -684,188 +564,89 @@ index 42cb1e2..5ab6bbf 100644
 +	keyAheadscaleSSOVerificationFull = "x-aheadscale-sso-verification-uri-complete"
 +	keyAheadscaleSSOUserCode         = "x-aheadscale-sso-user-code"
 +	keyAheadscaleSSOContinue         = "x-aheadscale-sso-continue"
- 	uiKeyfileGroup                = "VPN Plugin UI"
- 	setupKeyLabel                 = "Setup key"
+@@ -36,3 +36,3 @@ const (
 -	setupKeyPrompt                = "Enter the NetBird setup key for this connection."
 -	setupKeyTitle                 = "NetBird authentication"
 -	ssoTitle                      = "NetBird SSO login required"
 +	setupKeyPrompt                = "Enter the Aheadscale setup key for this connection."
 +	setupKeyTitle                 = "Aheadscale authentication"
 +	ssoTitle                      = "Aheadscale SSO login required"
- 	ssoContinueLabel              = "Continue"
+@@ -40 +40 @@ const (
 -	internalPromptLabel           = "NetBird internal value"
 +	internalPromptLabel           = "Aheadscale internal value"
- 	maxProtocolLineLen            = 512 * 1024
- 	maxProtocolLines              = 4096
- )
-@@ -79,7 +79,7 @@ func ParseArgs(args []string) (Options, error) {
- 	var opts Options
- 	var hints stringList
- 
+@@ -82 +82 @@ func ParseArgs(args []string) (Options, error) {
 -	flags := flag.NewFlagSet("nm-netbird-auth-dialog", flag.ContinueOnError)
 +	flags := flag.NewFlagSet("nm-aheadscale-auth-dialog", flag.ContinueOnError)
- 	flags.SetOutput(io.Discard)
- 	flags.StringVar(&opts.UUID, "uuid", "", "UUID of VPN connection")
- 	flags.StringVar(&opts.UUID, "u", "", "UUID of VPN connection")
-@@ -413,12 +413,12 @@ func (h hintValues) hasSetupKey() bool {
- }
- 
- func (h hintValues) ssoRequested() bool {
+@@ -416 +416 @@ func (h hintValues) ssoRequested() bool {
 -	if isTruthy(h.value(keyNetBirdSSO)) {
 +	if isTruthy(h.value(keyAheadscaleSSO)) {
- 		return true
- 	}
+@@ -419,3 +419,3 @@ func (h hintValues) ssoRequested() bool {
 -	return h.value(keyNetBirdSSOVerificationURI) != "" ||
 -		h.value(keyNetBirdSSOVerificationFull) != "" ||
 -		h.value(keyNetBirdSSOUserCode) != ""
 +	return h.value(keyAheadscaleSSOVerificationURI) != "" ||
 +		h.value(keyAheadscaleSSOVerificationFull) != "" ||
 +		h.value(keyAheadscaleSSOUserCode) != ""
- }
- 
- func isTruthy(value string) bool {
-@@ -551,7 +551,7 @@ func writeExternalSSO(w io.Writer, hints hintValues) error {
- 	openSSOBrowser(hints)
- 	var b strings.Builder
- 	writeKeyfileUIHeader(&b, ssoTitle, formatSSODescription(hints))
+@@ -554 +554 @@ func writeExternalSSO(w io.Writer, hints hintValues) error {
 -	writeKeyfileEntry(&b, keyNetBirdSSOContinue, "true", ssoContinueLabel, false, false)
 +	writeKeyfileEntry(&b, keyAheadscaleSSOContinue, "true", ssoContinueLabel, false, false)
- 	// The URL and user code are already shown in the UI description and
- 	// LoginBanner. Do not add them again as hidden fields; some frontends
- 	// render non-asked fields visibly, which makes the dialog noisy and hard to
-@@ -565,16 +565,16 @@ func writeStandardSSO(w io.Writer, hints hintValues) error {
- 	// nmcli has no rich UI for external auth. The service already emits the SSO
- 	// URL/code via LoginBanner, so return only the continuation marker instead of
- 	// several internal values that nmcli may render as confusing prompts.
+@@ -568 +568 @@ func writeStandardSSO(w io.Writer, hints hintValues) error {
 -	values := []standardSecret{{key: keyNetBirdSSOContinue, value: "true"}}
 +	values := []standardSecret{{key: keyAheadscaleSSOContinue, value: "true"}}
- 	values = appendHintValue(values, hints, keyActivationID)
- 	return writeStandardSecrets(w, values)
- }
- 
- func writeInternalHintEntries(b *strings.Builder, hints hintValues) {
- 	writeInternalHintEntry(b, hints, keyActivationID)
+@@ -575,3 +575,3 @@ func writeInternalHintEntries(b *strings.Builder, hints hintValues) {
 -	writeInternalHintEntry(b, hints, keyNetBirdSSOVerificationURI)
 -	writeInternalHintEntry(b, hints, keyNetBirdSSOVerificationFull)
 -	writeInternalHintEntry(b, hints, keyNetBirdSSOUserCode)
 +	writeInternalHintEntry(b, hints, keyAheadscaleSSOVerificationURI)
 +	writeInternalHintEntry(b, hints, keyAheadscaleSSOVerificationFull)
 +	writeInternalHintEntry(b, hints, keyAheadscaleSSOUserCode)
- }
- 
- func writeInternalHintEntry(b *strings.Builder, hints hintValues, key string) {
-@@ -595,8 +595,8 @@ func appendHintValue(values []standardSecret, hints hintValues, key string) []st
- 
- func formatSSODescription(hints hintValues) string {
- 	var parts []string
+@@ -598,2 +598,2 @@ func formatSSODescription(hints hintValues) string {
 -	parts = append(parts, "Complete NetBird SSO in the browser window that opens.")
 -	if code := hints.value(keyNetBirdSSOUserCode); code != "" {
 +	parts = append(parts, "Complete Aheadscale SSO in the browser window that opens.")
 +	if code := hints.value(keyAheadscaleSSOUserCode); code != "" {
- 		parts = append(parts, "User code: "+code)
- 	}
- 	parts = append(parts, "After browser login completes, click Connect to finish activation.")
-@@ -607,10 +607,10 @@ var execCommand = exec.Command
- 
- var notifyOpeningSSOBrowser = func() {
- 	_ = sendDesktopNotification(
+@@ -610 +610 @@ var notifyOpeningSSOBrowser = func() {
 -		"NetBird",
 +		"Aheadscale",
- 		"network-vpn",
+@@ -612,2 +612,2 @@ var notifyOpeningSSOBrowser = func() {
 -		"Opening browser for NetBird SSO",
 -		"Complete the NetBird login in your browser.",
 +		"Opening browser for Aheadscale SSO",
 +		"Complete the Aheadscale login in your browser.",
- 		2000,
- 	)
- }
-@@ -634,7 +634,7 @@ func runBrowserTest(stdout io.Writer, stderr io.Writer, opts Options) error {
- }
- 
- func openSSOBrowser(hints hintValues) {
+@@ -637 +637 @@ func openSSOBrowser(hints hintValues) {
 -	uri, ok := validateSSOBrowserURI(firstNonEmpty(hints.value(keyNetBirdSSOVerificationFull), hints.value(keyNetBirdSSOVerificationURI)))
 +	uri, ok := validateSSOBrowserURI(firstNonEmpty(hints.value(keyAheadscaleSSOVerificationFull), hints.value(keyAheadscaleSSOVerificationURI)))
- 	if !ok || !hasDesktopOpenEnvironment() {
- 		return
- 	}
 diff --git a/internal/nmauthdialog/dialog_test.go b/internal/nmauthdialog/dialog_test.go
 index 7b9e9fd..b841254 100644
 --- a/internal/nmauthdialog/dialog_test.go
 +++ b/internal/nmauthdialog/dialog_test.go
-@@ -10,8 +10,8 @@ import (
- 
- const expectedSetupKeyExternalUI = "[VPN Plugin UI]\n" +
- 	"Version=2\n" +
+@@ -13,2 +13,2 @@ const expectedSetupKeyExternalUI = "[VPN Plugin UI]\n" +
 -	"Description=Enter the NetBird setup key for this connection.\n" +
 -	"Title=NetBird authentication\n" +
 +	"Description=Enter the Aheadscale setup key for this connection.\n" +
 +	"Title=Aheadscale authentication\n" +
- 	"\n" +
- 	"[setup-key]\n" +
- 	"Value=\n" +
-@@ -31,7 +31,7 @@ const expectedNoSecretExternalUI = "[VPN Plugin UI]\n" +
- func TestParseArgs(t *testing.T) {
- 	opts, err := ParseArgs([]string{
- 		"--uuid", "11111111-1111-1111-1111-111111111111",
+@@ -34 +34 @@ func TestParseArgs(t *testing.T) {
 -		"--name", "NetBird",
 +		"--name", "Aheadscale",
- 		"--service", ServiceName,
- 		"--allow-interaction",
- 		"--external-ui-mode",
-@@ -46,7 +46,7 @@ func TestParseArgs(t *testing.T) {
- 	if opts.UUID != "11111111-1111-1111-1111-111111111111" {
- 		t.Fatalf("UUID = %q", opts.UUID)
- 	}
+@@ -49 +49 @@ func TestParseArgs(t *testing.T) {
 -	if opts.Name != "NetBird" {
 +	if opts.Name != "Aheadscale" {
- 		t.Fatalf("Name = %q", opts.Name)
- 	}
- 	if opts.Service != ServiceName {
-@@ -63,11 +63,11 @@ func TestParseArgs(t *testing.T) {
- func TestParseArgsRejectsWrongService(t *testing.T) {
- 	_, err := ParseArgs([]string{
- 		"--uuid", "11111111-1111-1111-1111-111111111111",
+@@ -66 +66 @@ func TestParseArgsRejectsWrongService(t *testing.T) {
 -		"--name", "NetBird",
 +		"--name", "Aheadscale",
- 		"--service", "org.freedesktop.NetworkManager.openvpn",
- 	})
- 	if err == nil {
+@@ -70 +70 @@ func TestParseArgsRejectsWrongService(t *testing.T) {
 -		t.Fatal("ParseArgs accepted a non-NetBird service")
 +		t.Fatal("ParseArgs accepted a non-Aheadscale service")
- 	}
- }
- 
-@@ -137,7 +137,7 @@ func TestRunFixtures(t *testing.T) {
- 			name: "wrong service type",
- 			args: []string{
- 				"--uuid", "11111111-1111-1111-1111-111111111111",
+@@ -140 +140 @@ func TestRunFixtures(t *testing.T) {
 -				"--name", "NetBird",
 +				"--name", "Aheadscale",
- 				"--service", "org.freedesktop.NetworkManager.openvpn",
- 			},
- 			stdin:    "DATA_KEY=auth\nDATA_VAL=sso\nDONE\n",
-@@ -166,7 +166,7 @@ func TestRunIncludesActivationIDForDynamicSetupKeyPrompt(t *testing.T) {
- 		"--allow-interaction",
- 		"--external-ui-mode",
- 		"--hint", "setup-key",
+@@ -169 +169 @@ func TestRunIncludesActivationIDForDynamicSetupKeyPrompt(t *testing.T) {
 -		"--hint", "x-netbird-activation-id=42",
 +		"--hint", "x-aheadscale-activation-id=42",
- 	)
- 	var stdout bytes.Buffer
- 	var stderr bytes.Buffer
-@@ -179,7 +179,7 @@ func TestRunIncludesActivationIDForDynamicSetupKeyPrompt(t *testing.T) {
- 	for _, want := range []string{
- 		"[setup-key]\n",
- 		"ShouldAsk=true\n",
+@@ -182 +182 @@ func TestRunIncludesActivationIDForDynamicSetupKeyPrompt(t *testing.T) {
 -		"[x-netbird-activation-id]\n",
 +		"[x-aheadscale-activation-id]\n",
- 		"Value=42\n",
- 		"ShouldAsk=false\n",
- 	} {
-@@ -193,12 +193,12 @@ func TestRunShowsSSOHintsInExternalUI(t *testing.T) {
- 	args := append(baseArgs(),
- 		"--allow-interaction",
- 		"--external-ui-mode",
+@@ -196,6 +196,6 @@ func TestRunShowsSSOHintsInExternalUI(t *testing.T) {
 -		"--hint", "x-netbird-sso=true",
 -		"--hint", "x-netbird-sso-verification-uri=https://login.netbird.io/device",
 -		"--hint", "x-netbird-sso-verification-uri-complete=https://login.netbird.io/device?user_code=ABCD-EFGH",
@@ -878,91 +659,38 @@ index 7b9e9fd..b841254 100644
 +		"--hint", "x-aheadscale-sso-user-code=ABCD-EFGH",
 +		"--hint", "x-aheadscale-sso-hint=alice@example.com",
 +		"--hint", "x-aheadscale-activation-id=42",
- 	)
- 	var stdout bytes.Buffer
- 	var stderr bytes.Buffer
-@@ -209,14 +209,14 @@ func TestRunShowsSSOHintsInExternalUI(t *testing.T) {
- 	}
- 	got := stdout.String()
- 	for _, want := range []string{
+@@ -212,2 +212,2 @@ func TestRunShowsSSOHintsInExternalUI(t *testing.T) {
 -		"Title=NetBird SSO login required\n",
 -		"Complete NetBird SSO in the browser window that opens.",
 +		"Title=Aheadscale SSO login required\n",
 +		"Complete Aheadscale SSO in the browser window that opens.",
- 		"User code: ABCD-EFGH",
+@@ -215 +215 @@ func TestRunShowsSSOHintsInExternalUI(t *testing.T) {
 -		"[x-netbird-sso-continue]\n",
 +		"[x-aheadscale-sso-continue]\n",
- 		"Value=true\n",
- 		"IsSecret=false\n",
- 		"ShouldAsk=false\n",
+@@ -219 +219 @@ func TestRunShowsSSOHintsInExternalUI(t *testing.T) {
 -		"[x-netbird-activation-id]\n",
 +		"[x-aheadscale-activation-id]\n",
- 		"Value=42\n",
- 	} {
- 		if !strings.Contains(got, want) {
-@@ -224,7 +224,7 @@ func TestRunShowsSSOHintsInExternalUI(t *testing.T) {
- 		}
- 	}
- 	for _, unwanted := range []string{
+@@ -227 +227 @@ func TestRunShowsSSOHintsInExternalUI(t *testing.T) {
 -		"x-netbird-sso-hint",
 +		"x-aheadscale-sso-hint",
- 		"Login hint:",
- 		"alice@example.com",
- 	} {
-@@ -235,7 +235,7 @@ func TestRunShowsSSOHintsInExternalUI(t *testing.T) {
- }
- 
- func TestRunRejectsSSOWhenInteractionDisallowed(t *testing.T) {
+@@ -238 +238 @@ func TestRunRejectsSSOWhenInteractionDisallowed(t *testing.T) {
 -	args := append(baseArgs(), "--hint", "x-netbird-sso=true")
 +	args := append(baseArgs(), "--hint", "x-aheadscale-sso=true")
- 	var stdout bytes.Buffer
- 	var stderr bytes.Buffer
- 
-@@ -316,7 +316,7 @@ func TestOpenSSOBrowserOnlyInvokesXDGOpenForAllowedURI(t *testing.T) {
- 		return cmd
- 	}
- 
+@@ -319 +319 @@ func TestOpenSSOBrowserOnlyInvokesXDGOpenForAllowedURI(t *testing.T) {
 -	openSSOBrowser(parseHints([]string{"x-netbird-sso-verification-uri=file:///tmp/secret"}))
 +	openSSOBrowser(parseHints([]string{"x-aheadscale-sso-verification-uri=file:///tmp/secret"}))
- 	if len(calls) != 0 {
- 		t.Fatalf("xdg-open invoked for rejected URI: %#v", calls)
- 	}
-@@ -324,7 +324,7 @@ func TestOpenSSOBrowserOnlyInvokesXDGOpenForAllowedURI(t *testing.T) {
- 		t.Fatalf("notification shown for rejected URI: %d", notifications)
- 	}
- 
+@@ -327 +327 @@ func TestOpenSSOBrowserOnlyInvokesXDGOpenForAllowedURI(t *testing.T) {
 -	openSSOBrowser(parseHints([]string{"x-netbird-sso-verification-uri=  https://login.netbird.io/device  "}))
 +	openSSOBrowser(parseHints([]string{"x-aheadscale-sso-verification-uri=  https://login.netbird.io/device  "}))
- 	if len(calls) != 1 {
- 		t.Fatalf("xdg-open calls = %#v, want exactly one", calls)
- 	}
-@@ -343,7 +343,7 @@ func TestOpenSSOBrowserOnlyInvokesXDGOpenForAllowedURI(t *testing.T) {
- 	t.Setenv("WAYLAND_DISPLAY", "")
- 	t.Setenv("DBUS_SESSION_BUS_ADDRESS", "")
- 	t.Setenv("XDG_RUNTIME_DIR", "")
+@@ -346 +346 @@ func TestOpenSSOBrowserOnlyInvokesXDGOpenForAllowedURI(t *testing.T) {
 -	openSSOBrowser(parseHints([]string{"x-netbird-sso-verification-uri=https://login.netbird.io/device"}))
 +	openSSOBrowser(parseHints([]string{"x-aheadscale-sso-verification-uri=https://login.netbird.io/device"}))
- 	if len(calls) != 0 {
- 		t.Fatalf("xdg-open invoked without desktop open environment: %#v", calls)
- 	}
-@@ -352,7 +352,7 @@ func TestOpenSSOBrowserOnlyInvokesXDGOpenForAllowedURI(t *testing.T) {
- 	}
- 
- 	t.Setenv("DBUS_SESSION_BUS_ADDRESS", "unix:path=/run/user/1000/bus")
+@@ -355 +355 @@ func TestOpenSSOBrowserOnlyInvokesXDGOpenForAllowedURI(t *testing.T) {
 -	openSSOBrowser(parseHints([]string{"x-netbird-sso-verification-uri=https://login.netbird.io/device"}))
 +	openSSOBrowser(parseHints([]string{"x-aheadscale-sso-verification-uri=https://login.netbird.io/device"}))
- 	if len(calls) != 1 {
- 		t.Fatalf("xdg-open calls with session bus = %#v, want exactly one", calls)
- 	}
-@@ -471,7 +471,7 @@ func TestRunIgnoresUnknownHints(t *testing.T) {
- func baseArgs() []string {
- 	return []string{
- 		"--uuid", "11111111-1111-1111-1111-111111111111",
+@@ -474 +474 @@ func baseArgs() []string {
 -		"--name", "NetBird",
 +		"--name", "Aheadscale",
- 		"--service", ServiceName,
- 	}
- }
 diff --git a/internal/nmplugin/aheadscale_defaults_test.go b/internal/nmplugin/aheadscale_defaults_test.go
 new file mode 100644
 index 0000000..ff975cf
@@ -985,15 +713,9 @@ diff --git a/internal/nmplugin/config.go b/internal/nmplugin/config.go
 index 4501be7..9ca6b40 100644
 --- a/internal/nmplugin/config.go
 +++ b/internal/nmplugin/config.go
-@@ -131,7 +131,7 @@ func gatewayVariantForAddr(addr netip.Addr) (dbus.Variant, bool) {
- 	}
- 	if addr.Is4() {
- 		bytes := addr.As4()
+@@ -134 +134 @@ func gatewayVariantForAddr(addr netip.Addr) (dbus.Variant, bool) {
 -		return dbus.MakeVariant(binary.BigEndian.Uint32(bytes[:])), true
 +		return dbus.MakeVariant(binary.NativeEndian.Uint32(bytes[:])), true
- 	}
- 	if addr.Is6() {
- 		bytes := addr.As16()
 diff --git a/internal/nmplugin/config_abi_test.go b/internal/nmplugin/config_abi_test.go
 new file mode 100644
 index 0000000..5280c9a
@@ -1028,53 +750,27 @@ diff --git a/internal/nmplugin/prompts.go b/internal/nmplugin/prompts.go
 index c8905d0..5a07836 100644
 --- a/internal/nmplugin/prompts.go
 +++ b/internal/nmplugin/prompts.go
-@@ -10,8 +10,8 @@ import (
- )
- 
- const (
+@@ -13,2 +13,2 @@ const (
 -	setupKeyRequiredMessage = "NetBird setup key required."
 -	ssoRequiredMessage      = "NetBird SSO login required."
 +	setupKeyRequiredMessage = "Aheadscale setup key required."
 +	ssoRequiredMessage      = "Aheadscale SSO login required."
- )
- 
- type activationPromptKind string
-@@ -144,7 +144,7 @@ func formatActivationID(id uint64) string {
- }
- 
- func formatSSOLoginBanner(response daemonclient.LoginResponse) string {
+@@ -147 +147 @@ func formatSSOLoginBanner(response daemonclient.LoginResponse) string {
 -	parts := []string{"NetBird SSO login required."}
 +	parts := []string{"Aheadscale SSO login required."}
- 	if response.VerificationURIComplete != "" {
- 		parts = append(parts, "Open: "+response.VerificationURIComplete)
- 	} else if response.VerificationURI != "" {
 diff --git a/internal/nmplugin/service.go b/internal/nmplugin/service.go
-index fce6c37..ce6624d 100644
+index fce6c37..35bec2f 100644
 --- a/internal/nmplugin/service.go
 +++ b/internal/nmplugin/service.go
-@@ -5,13 +5,18 @@ import (
- 	"context"
- 	"errors"
- 	"fmt"
+@@ -7,0 +8,3 @@ import (
 +	"google.golang.org/genproto/googleapis/rpc/errdetails"
 +	"google.golang.org/grpc/metadata"
 +	"google.golang.org/grpc/status"
- 	"log"
+@@ -8,0 +12 @@ import (
 +	"strconv"
- 	"strings"
- 	"sync"
- 	"time"
- 
- 	"github.com/godbus/dbus/v5"
- 	"github.com/godbus/dbus/v5/introspect"
+@@ -14,0 +19 @@ import (
 +	"github.com/netbirdio/network-manager-plugin/internal/aheadscale"
- 	"github.com/netbirdio/network-manager-plugin/internal/netbird/daemonclient"
- 	"github.com/netbirdio/network-manager-plugin/internal/netbird/profile"
- 	nbstatus "github.com/netbirdio/network-manager-plugin/internal/netbird/status"
-@@ -27,9 +32,18 @@ const (
- 	statusPollFailureThreshold = 3
- )
- 
+@@ -29,0 +35,8 @@ const (
 +// ActivationController verifies the system controller's generation before Up
 +// and before publishing Started. The production transport is root-only.
 +type ActivationController interface {
@@ -1083,62 +779,31 @@ index fce6c37..ce6624d 100644
 +	Cancel(context.Context, uint64) error
 +}
 +
- // ServiceOptions configures daemon integration behavior.
- // Non-positive duration values are replaced with defaults; timeouts cannot be disabled.
- type ServiceOptions struct {
+@@ -32,0 +46 @@ type ServiceOptions struct {
 +	ActivationController   ActivationController
- 	ClientFactory          daemonclient.Factory
- 	ActivationTimeout      time.Duration
- 	SSOWaitTimeout         time.Duration
-@@ -51,6 +65,8 @@ type Service struct {
- 	mu    sync.RWMutex
- 	state ServiceState
- 
+@@ -53,0 +68,2 @@ type Service struct {
 +	activationController   ActivationController
 +	brokerGeneration       uint64
- 	clientFactory          daemonclient.Factory
- 	activationTimeout      time.Duration
- 	ssoWaitTimeout         time.Duration
-@@ -63,6 +79,7 @@ type Service struct {
- 	lifecycleMu      sync.Mutex
- 	activating       bool
- 	activationCancel context.CancelFunc
+@@ -65,0 +82 @@ type Service struct {
 +	activationDone   chan struct{}
- 	monitorCancel    context.CancelFunc
- 	client           daemonclient.Client
- 	activeProfile    daemonclient.ProfileRef
-@@ -85,6 +102,7 @@ func NewService(conn *dbus.Conn, logger *log.Logger, debug bool, options Service
- 		logger:                 logger,
- 		debug:                  debug,
- 		state:                  ServiceStateInit,
+@@ -87,0 +105 @@ func NewService(conn *dbus.Conn, logger *log.Logger, debug bool, options Service
 +		activationController:   options.ActivationController,
- 		clientFactory:          options.ClientFactory,
- 		activationTimeout:      options.ActivationTimeout,
- 		ssoWaitTimeout:         options.SSOWaitTimeout,
-@@ -183,7 +201,10 @@ func (s *Service) Disconnect() *dbus.Error {
- 	s.logf("Disconnect()")
- 
- 	var client daemonclient.Client
+@@ -185,0 +204,2 @@ func (s *Service) Disconnect() *dbus.Error {
 +	controlledCleanup := false
 +	var controllerErr error
- 	s.lifecycleMu.Lock()
+@@ -186,0 +207 @@ func (s *Service) Disconnect() *dbus.Error {
 +	done := s.activationDone
- 	if s.activationCancel != nil {
- 		s.activationCancel()
- 	}
-@@ -191,6 +212,8 @@ func (s *Service) Disconnect() *dbus.Error {
- 		s.monitorCancel()
- 		s.monitorCancel = nil
- 	}
+@@ -193,0 +215,2 @@ func (s *Service) Disconnect() *dbus.Error {
 +	generation := s.brokerGeneration
 +	s.brokerGeneration = 0
- 	client = s.client
- 	s.client = nil
- 	s.activeProfile = daemonclient.ProfileRef{}
-@@ -200,15 +223,28 @@ func (s *Service) Disconnect() *dbus.Error {
- 	s.lifecycleMu.Unlock()
- 
- 	s.setState(ServiceStateStopping)
+@@ -200,2 +223,3 @@ func (s *Service) Disconnect() *dbus.Error {
+-	s.lifecycleMu.Unlock()
+-
++	disconnectID := s.activationID
++	// Publish Stopping before a replacement can reserve its activation. The
++	// old RPC must never overwrite the newer activation's Starting/Started.
+@@ -202,0 +227,11 @@ func (s *Service) Disconnect() *dbus.Error {
++	s.lifecycleMu.Unlock()
 +	if s.activationController != nil && generation != 0 {
 +		ctx, cancel := context.WithTimeout(context.Background(), s.operationTimeout)
 +		err := s.activationController.Cancel(ctx, generation)
@@ -1149,27 +814,21 @@ index fce6c37..ce6624d 100644
 +			s.logger.Printf("persist Aheadscale disconnect: %v", err)
 +		}
 +	}
- 
- 	if client != nil {
- 		ctx, cancel := context.WithTimeout(context.Background(), s.operationTimeout)
+@@ -206 +241,4 @@ func (s *Service) Disconnect() *dbus.Error {
 -		err := client.Down(ctx)
 +		var err error
 +		if !controlledCleanup {
 +			err = client.Down(ctx)
 +		}
- 		cancel()
- 		if closeErr := client.Close(); closeErr != nil {
- 			s.logger.Printf("close netbird daemon client after disconnect: %v", closeErr)
- 		}
+@@ -211 +249,6 @@ func (s *Service) Disconnect() *dbus.Error {
 -		if err != nil {
 +		if err != nil && !obsoleteNativeLease(err) {
- 			s.logger.Printf("netbird down failed: %v", err)
- 			_ = s.EmitFailure(PluginFailureConnectFailed)
- 			s.setState(ServiceStateStopped)
-@@ -216,7 +252,19 @@ func (s *Service) Disconnect() *dbus.Error {
- 		}
- 	}
- 
++			s.lifecycleMu.Lock()
++			defer s.lifecycleMu.Unlock()
++			if s.activationID != disconnectID {
++				return nil
++			}
+@@ -218,0 +262,16 @@ func (s *Service) Disconnect() *dbus.Error {
 +	if done != nil {
 +		timer := time.NewTimer(s.operationTimeout)
 +		defer timer.Stop()
@@ -1179,31 +838,26 @@ index fce6c37..ce6624d 100644
 +			return newDBusError(dbusErrorVPNFailed, "ожидание завершения отменённого входа Aheadscale")
 +		}
 +	}
- 	s.setState(ServiceStateStopped)
++	s.lifecycleMu.Lock()
++	defer s.lifecycleMu.Unlock()
++	if s.activationID != disconnectID {
++		// NM can activate the same profile before its old Disconnect returns.
++		// A late Stopped signal would otherwise abort that new active path.
++		return nil
++	}
+@@ -219,0 +279,3 @@ func (s *Service) Disconnect() *dbus.Error {
 +	if errors.Is(controllerErr, aheadscale.ErrUnavailable) {
 +		return newDBusError(dbusErrorVPNFailed, "туннель отключён, но намерение OFF не сохранено: %v", controllerErr)
 +	}
- 	return nil
- }
- 
-@@ -255,7 +303,8 @@ func (s *Service) SetFailure(reason string) *dbus.Error {
- 	}
- 	s.prompt = nil
- 	s.lifecycleMu.Unlock()
+@@ -258 +320,2 @@ func (s *Service) SetFailure(reason string) *dbus.Error {
 -	return nil
 +	_ = s.EmitFailure(PluginFailureConnectFailed)
 +	return s.Disconnect()
- }
- 
- // EmitSecretsRequired emits the SecretsRequired signal.
-@@ -301,15 +350,21 @@ func (s *Service) startActivation(connection ConnectionSettings, details Variant
- 		return dbusErr
- 	}
- 
+@@ -303,0 +367,3 @@ func (s *Service) startActivation(connection ConnectionSettings, details Variant
 +	s.lifecycleMu.Lock()
 +	done := s.activationDone
 +	s.lifecycleMu.Unlock()
- 	s.setState(ServiceStateStarting)
+@@ -305,8 +371,11 @@ func (s *Service) startActivation(connection ConnectionSettings, details Variant
 -	go s.runActivation(activationAttempt{
 -		ctx:         activationCtx,
 -		cancel:      activationCancel,
@@ -1223,21 +877,9 @@ index fce6c37..ce6624d 100644
 +			interactive: interactive,
 +		})
 +	}()
- 	return nil
- }
- 
-@@ -320,6 +375,7 @@ type activationAttempt struct {
- 	connection  ConnectionSettings
- 	details     VariantMap
- 	interactive bool
+@@ -322,0 +392 @@ type activationAttempt struct {
 +	generation  uint64
- }
- 
- type activationStatus struct {
-@@ -340,34 +396,44 @@ func (s *Service) runActivation(
- 		s.finishActivationAttempt(activationAttempt, status, client, timeoutCancel)
- 	}()
- 
+@@ -342,0 +413,15 @@ func (s *Service) runActivation(
 +	if s.activationController != nil {
 +		lease, err := s.activationController.Begin(ctx)
 +		if err != nil {
@@ -1253,9 +895,7 @@ index fce6c37..ce6624d 100644
 +		s.brokerGeneration = generation
 +		s.lifecycleMu.Unlock()
 +	}
- 	settings := parseActivationSettings(activationAttempt.connection).mergeDetails(activationAttempt.details)
- 
- 	if !settings.isAuthModeValid() {
+@@ -346,6 +431 @@ func (s *Service) runActivation(
 -		s.failActivation(PluginFailureLoginFailed, fmt.Errorf("unsupported auth mode %q (must be setup-key or sso)", settings.AuthMode))
 -		return
 -	}
@@ -1263,98 +903,53 @@ index fce6c37..ce6624d 100644
 -	if settings.AuthMode == "sso" && !activationAttempt.interactive {
 -		s.failActivation(PluginFailureLoginFailed, errInteractiveSSONeeded)
 +		s.failAttempt(activationAttempt, PluginFailureLoginFailed, fmt.Errorf("unsupported auth mode %q (must be setup-key or sso)", settings.AuthMode))
- 		return
- 	}
- 
- 	var err error
- 	client, err = s.clientFactory.NewClient(ctx)
- 	if err != nil {
+@@ -358 +438 @@ func (s *Service) runActivation(
 -		s.failActivation(PluginFailureConnectFailed, fmt.Errorf("connect to netbird daemon: %w", err))
 +		s.failAttempt(activationAttempt, PluginFailureConnectFailed, fmt.Errorf("connect to netbird daemon: %w", err))
- 		return
- 	}
- 
- 	settings, err = s.prepareDaemonProfile(ctx, client, settings)
- 	if err != nil {
+@@ -364 +444 @@ func (s *Service) runActivation(
 -		s.failActivation(PluginFailureConnectFailed, err)
 +		s.failAttempt(activationAttempt, PluginFailureConnectFailed, err)
- 		return
- 	}
- 
- 	waitedForSSO, err := s.authenticate(ctx, activationAttempt, client, settings)
- 	if err != nil {
+@@ -370 +450 @@ func (s *Service) runActivation(
 -		s.failActivation(PluginFailureLoginFailed, err)
 +		s.failAttempt(activationAttempt, PluginFailureLoginFailed, err)
- 		return
- 	}
- 
-@@ -378,29 +444,41 @@ func (s *Service) runActivation(
- 	}
- 
- 	if err := s.updateDaemonProfile(ctx, client, settings); err != nil {
+@@ -381 +461 @@ func (s *Service) runActivation(
 -		s.failActivation(PluginFailureConnectFailed, err)
 +		s.failAttempt(activationAttempt, PluginFailureConnectFailed, err)
- 		return
- 	}
- 
- 	resolvedProfile, err := profile.Resolve(ctx, client, settings.Profile)
- 	if err != nil {
+@@ -387 +467 @@ func (s *Service) runActivation(
 -		s.failActivation(PluginFailureConnectFailed, err)
 +		s.failAttempt(activationAttempt, PluginFailureConnectFailed, err)
- 		return
- 	}
- 
+@@ -390,0 +471,6 @@ func (s *Service) runActivation(
 +	if s.activationController != nil {
 +		if err := s.activationController.Complete(ctx, activationAttempt.generation, "Connecting"); err != nil {
 +			s.failAttempt(activationAttempt, PluginFailureConnectFailed, err)
 +			return
 +		}
 +	}
- 	if err := client.Up(ctx, resolvedProfile); err != nil {
+@@ -392 +478 @@ func (s *Service) runActivation(
 -		s.failActivation(classifyUpFailure(err), err)
 +		s.failAttempt(activationAttempt, classifyUpFailure(err), err)
- 		return
- 	}
- 	status.daemonUp = true
- 
- 	if err := s.waitForReady(ctx, client); err != nil {
+@@ -398 +484 @@ func (s *Service) runActivation(
 -		s.failActivation(PluginFailureConnectFailed, err)
 +		s.failAttempt(activationAttempt, PluginFailureConnectFailed, err)
- 		return
- 	}
- 
+@@ -401,0 +488,6 @@ func (s *Service) runActivation(
 +	if s.activationController != nil {
 +		if err := s.activationController.Complete(ctx, activationAttempt.generation, "Connected"); err != nil {
 +			s.failAttempt(activationAttempt, PluginFailureConnectFailed, err)
 +			return
 +		}
 +	}
- 	if err := s.emitNetworkManagerConfig(ctx, client, resolvedProfile, settings); err != nil {
+@@ -403 +495 @@ func (s *Service) runActivation(
 -		s.failActivation(PluginFailureBadIPConfig, err)
 +		s.failAttempt(activationAttempt, PluginFailureBadIPConfig, err)
- 		return
- 	}
- 
-@@ -420,6 +498,11 @@ func (s *Service) finishActivationAttempt(
- ) {
- 	timeoutCancel()
- 	s.clearPromptForActivation(activationAttempt.id)
+@@ -422,0 +515,5 @@ func (s *Service) finishActivationAttempt(
 +	if activationAttempt.ctx.Err() != nil && activationAttempt.generation != 0 && s.activationController != nil {
 +		cancelCtx, stop := context.WithTimeout(context.Background(), s.operationTimeout)
 +		_ = s.activationController.Cancel(cancelCtx, activationAttempt.generation)
 +		stop()
 +	}
- 	if !status.success && status.daemonUp && client != nil {
- 		downCtx, downCancel := context.WithTimeout(context.Background(), s.operationTimeout)
- 		if err := client.Down(downCtx); err != nil {
-@@ -432,10 +515,17 @@ func (s *Service) finishActivationAttempt(
- 	if status.success {
- 		return
- 	}
+@@ -435 +531,0 @@ func (s *Service) finishActivationAttempt(
 -	s.finishFailedActivation()
- 	if client != nil {
- 		_ = client.Close()
- 	}
+@@ -438,0 +535,8 @@ func (s *Service) finishActivationAttempt(
 +	// NewSecrets cancellation has no separate Disconnect RPC. Publish Stopped
 +	// after cleanup, while the old activation still owns the reservation.
 +	s.lifecycleMu.Lock()
@@ -1363,49 +958,19 @@ index fce6c37..ce6624d 100644
 +	}
 +	s.lifecycleMu.Unlock()
 +	s.finishFailedActivation()
- }
- 
- func (s *Service) prepareDaemonProfile(ctx context.Context, client daemonclient.Client, settings activationSettings) (activationSettings, error) {
-@@ -516,6 +606,9 @@ func (s *Service) authenticate(
- 		return false, nil
- 	}
- 	if !activationAttempt.interactive {
+@@ -518,0 +623,3 @@ func (s *Service) authenticate(
 +		if s.activationController != nil {
 +			_ = s.activationController.Complete(ctx, activationAttempt.generation, "NeedsLogin")
 +		}
- 		return false, errInteractiveSSONeeded
- 	}
- 
-@@ -599,7 +692,7 @@ func (s *Service) reserveActivation() (context.Context, context.CancelFunc, uint
- 	defer s.lifecycleMu.Unlock()
- 
- 	if s.activating || s.client != nil {
+@@ -602 +709 @@ func (s *Service) reserveActivation() (context.Context, context.CancelFunc, uint
 -		return nil, nil, 0, newDBusError(dbusErrorVPNAlreadyActive, "a NetBird activation is already in progress or active")
 +		return nil, nil, 0, newDBusError(dbusErrorVPNAlreadyActive, "a Aheadscale activation is already in progress or active")
- 	}
- 
- 	ctx, cancel := context.WithCancel(context.Background())
-@@ -607,6 +700,7 @@ func (s *Service) reserveActivation() (context.Context, context.CancelFunc, uint
- 	activationID := s.activationID
- 	s.activating = true
- 	s.activationCancel = cancel
+@@ -609,0 +717 @@ func (s *Service) reserveActivation() (context.Context, context.CancelFunc, uint
 +	s.activationDone = make(chan struct{})
- 	s.prompt = nil
- 	return ctx, cancel, activationID, nil
- }
-@@ -814,6 +908,8 @@ func (s *Service) failActiveSessionAfterStatusThreshold(sessionID uint64, consec
- 
- 	monitorCancel = s.monitorCancel
- 	s.monitorCancel = nil
+@@ -816,0 +925,2 @@ func (s *Service) failActiveSessionAfterStatusThreshold(sessionID uint64, consec
 +	generation := s.brokerGeneration
 +	s.brokerGeneration = 0
- 	client = s.client
- 	s.client = nil
- 	s.activeProfile = daemonclient.ProfileRef{}
-@@ -823,7 +919,12 @@ func (s *Service) failActiveSessionAfterStatusThreshold(sessionID uint64, consec
- 	if monitorCancel != nil {
- 		monitorCancel()
- 	}
+@@ -826 +936,6 @@ func (s *Service) failActiveSessionAfterStatusThreshold(sessionID uint64, consec
 -	s.logger.Printf("netbird status poll failed %d consecutive times; failing active session", consecutiveFailures)
 +	if s.activationController != nil && generation != 0 {
 +		ctx, cancel := context.WithTimeout(context.Background(), s.operationTimeout)
@@ -1413,13 +978,7 @@ index fce6c37..ce6624d 100644
 +		cancel()
 +	}
 +	s.logger.Printf("Aheadscale status poll failed %d consecutive times; failing active session", consecutiveFailures)
- 	_ = s.EmitFailure(PluginFailureConnectFailed)
- 	if changed {
- 		s.emitStateChanged(ServiceStateStopped)
-@@ -845,3 +946,21 @@ func (s *Service) failActivation(failure PluginFailure, err error) {
- 	_ = s.EmitFailure(failure)
- 	s.setState(ServiceStateStopped)
- }
+@@ -847,0 +963,18 @@ func (s *Service) failActivation(failure PluginFailure, err error) {
 +
 +func obsoleteNativeLease(err error) bool {
 +	for _, detail := range status.Convert(err).Details() {
@@ -1439,106 +998,49 @@ index fce6c37..ce6624d 100644
 +	s.failActivation(failure, err)
 +}
 diff --git a/internal/nmplugin/service_test.go b/internal/nmplugin/service_test.go
-index d7f1bf0..06dd3b8 100644
+index d7f1bf0..d941721 100644
 --- a/internal/nmplugin/service_test.go
 +++ b/internal/nmplugin/service_test.go
-@@ -21,6 +21,7 @@ import (
- 	"github.com/godbus/dbus/v5"
- 	"github.com/godbus/dbus/v5/introspect"
- 	"github.com/netbirdio/netbird/client/proto"
+@@ -23,0 +24 @@ import (
 +	"github.com/netbirdio/network-manager-plugin/internal/aheadscale"
- 	"github.com/netbirdio/network-manager-plugin/internal/netbird/daemonclient"
- 	"github.com/netbirdio/network-manager-plugin/internal/nmplugin"
- 	"go.uber.org/goleak"
-@@ -253,8 +254,8 @@ func TestConnectInteractiveWaitsForSetupKeyNewSecrets(t *testing.T) {
- 	secrets := nmplugin.ConnectionSettings{
- 		"vpn": {
- 			"secrets": dbus.MakeVariant(map[string]string{
+@@ -256,2 +257,2 @@ func TestConnectInteractiveWaitsForSetupKeyNewSecrets(t *testing.T) {
 -				"setup-key":               "secret-from-dialog",
 -				"x-netbird-activation-id": activationID,
 +				"setup-key":                  "secret-from-dialog",
 +				"x-aheadscale-activation-id": activationID,
- 			}),
- 		},
- 	}
-@@ -283,8 +284,8 @@ func TestStaleSetupKeyNewSecretsDoesNotCompleteActivation(t *testing.T) {
- 	staleSecrets := nmplugin.ConnectionSettings{
- 		"vpn": {
- 			"secrets": dbus.MakeVariant(map[string]string{
+@@ -286,2 +287,2 @@ func TestStaleSetupKeyNewSecretsDoesNotCompleteActivation(t *testing.T) {
 -				"setup-key":               "stale-secret",
 -				"x-netbird-activation-id": "999999",
 +				"setup-key":                  "stale-secret",
 +				"x-aheadscale-activation-id": "999999",
- 			}),
- 		},
- 	}
-@@ -295,8 +296,8 @@ func TestStaleSetupKeyNewSecretsDoesNotCompleteActivation(t *testing.T) {
- 	secrets := nmplugin.ConnectionSettings{
- 		"vpn": {
- 			"secrets": dbus.MakeVariant(map[string]string{
+@@ -298,2 +299,2 @@ func TestStaleSetupKeyNewSecretsDoesNotCompleteActivation(t *testing.T) {
 -				"setup-key":               "fresh-secret",
 -				"x-netbird-activation-id": activationID,
 +				"setup-key":                  "fresh-secret",
 +				"x-aheadscale-activation-id": activationID,
- 			}),
- 		},
- 	}
-@@ -356,8 +357,8 @@ func TestSetFailureCancelsPendingSetupKeyPrompt(t *testing.T) {
- 	lateSecrets := nmplugin.ConnectionSettings{
- 		"vpn": {
- 			"secrets": dbus.MakeVariant(map[string]string{
+@@ -359,2 +360,2 @@ func TestSetFailureCancelsPendingSetupKeyPrompt(t *testing.T) {
 -				"setup-key":               "too-late",
 -				"x-netbird-activation-id": activationID,
 +				"setup-key":                  "too-late",
 +				"x-aheadscale-activation-id": activationID,
- 			}),
- 		},
- 	}
-@@ -387,8 +388,8 @@ func TestSetupKeyPromptTimeoutClearsPendingNewSecrets(t *testing.T) {
- 	lateSecrets := nmplugin.ConnectionSettings{
- 		"vpn": {
- 			"secrets": dbus.MakeVariant(map[string]string{
+@@ -390,2 +391,2 @@ func TestSetupKeyPromptTimeoutClearsPendingNewSecrets(t *testing.T) {
 -				"setup-key":               "too-late",
 -				"x-netbird-activation-id": activationID,
 +				"setup-key":                  "too-late",
 +				"x-aheadscale-activation-id": activationID,
- 			}),
- 		},
- 	}
-@@ -462,8 +463,8 @@ func TestConnectCreatesMissingProfileAndUsesReturnedID(t *testing.T) {
- 	require.Equal(t, []daemonclient.ProfileRef{idRef}, fake.loginActiveProfiles)
- 	require.Equal(t, []daemonclient.UpdateProfileRequest{{
- 		Profile:       idRef,
+@@ -465,2 +466,2 @@ func TestConnectCreatesMissingProfileAndUsesReturnedID(t *testing.T) {
 -		ManagementURL: "https://api.netbird.io:443",
 -		AdminURL:      "https://app.netbird.io:443",
 +		ManagementURL: "https://aheadscale.ru:443",
 +		AdminURL:      "https://aheadscale.ru:443",
- 	}}, fake.updateProfileRequests)
- 	require.Equal(t, []daemonclient.ProfileRef{idRef}, fake.upRequests)
- 	require.Equal(t, []daemonclient.ProfileRef{idRef}, fake.getConfigRequests)
-@@ -763,6 +764,9 @@ func TestConnectDoesNotReuseActiveProfileWithDifferentUsernameBeforeProcessUserF
- 
- func TestConnectWithSSOAuthEmitsActionableMessage(t *testing.T) {
- 	obj, fake, clientConn := newTestingBusObjectWithConn(t)
+@@ -765,0 +767,3 @@ func TestConnectWithSSOAuthEmitsActionableMessage(t *testing.T) {
 +	fake.mu.Lock()
 +	fake.loginResponse = daemonclient.LoginResponse{NeedsSSOLogin: true}
 +	fake.mu.Unlock()
- 
- 	signals := make(chan *dbus.Signal, 10)
- 	clientConn.Signal(signals)
-@@ -790,7 +794,7 @@ func TestConnectWithSSOAuthEmitsActionableMessage(t *testing.T) {
- 			require.Equal(t, "This profile needs interactive SSO; rerun with nmcli connection up <name> --ask.", signal.Body[0])
- 
- 			fake.mu.Lock()
+@@ -793 +797 @@ func TestConnectWithSSOAuthEmitsActionableMessage(t *testing.T) {
 -			require.Empty(t, fake.loginRequests)
 +			require.Len(t, fake.loginRequests, 1)
- 			require.Empty(t, fake.upRequests)
- 			fake.mu.Unlock()
- 			return
-@@ -849,11 +853,11 @@ func TestConnectInteractiveWithSSOAuthEmitsPromptHints(t *testing.T) {
- 			sawBanner = true
- 		case nmplugin.Interface + ".SecretsRequired":
- 			hints := secretsRequiredHints(t, signal)
+@@ -852,5 +856,5 @@ func TestConnectInteractiveWithSSOAuthEmitsPromptHints(t *testing.T) {
 -			require.Contains(t, hints, "x-netbird-sso=true")
 -			require.Contains(t, hints, "x-netbird-sso-continue")
 -			require.Contains(t, hints, "x-netbird-sso-verification-uri=https://login.netbird.io/device")
@@ -1549,58 +1051,26 @@ index d7f1bf0..06dd3b8 100644
 +			require.Contains(t, hints, "x-aheadscale-sso-verification-uri=https://login.netbird.io/device")
 +			require.Contains(t, hints, "x-aheadscale-sso-verification-uri-complete=https://login.netbird.io/device?user_code=ABCD-EFGH")
 +			require.Contains(t, hints, "x-aheadscale-sso-user-code=ABCD-EFGH")
- 			require.NotEmpty(t, activationIDFromHints(t, hints))
- 			sawPrompt = true
- 		}
-@@ -866,8 +870,8 @@ func TestConnectInteractiveWithSSOAuthEmitsPromptHints(t *testing.T) {
- 	}
- 	require.Len(t, fake.loginRequests, 1)
- 	require.Equal(t, daemonclient.ProfileRef{ID: "sso-profile-id", ProfileName: "nm-22222222-2222-2222-2222-222222222222", Username: "alice"}, fake.loginRequests[0].Profile)
+@@ -869,2 +873,2 @@ func TestConnectInteractiveWithSSOAuthEmitsPromptHints(t *testing.T) {
 -	require.Equal(t, "https://api.netbird.io:443", fake.loginRequests[0].ManagementURL)
 -	require.Equal(t, "https://app.netbird.io:443", fake.loginRequests[0].AdminURL)
 +	require.Equal(t, "https://aheadscale.ru:443", fake.loginRequests[0].ManagementURL)
 +	require.Equal(t, "https://aheadscale.ru:443", fake.loginRequests[0].AdminURL)
- 	releaseWait()
- 	waitForState(t, obj, nmplugin.ServiceStateStarted)
- }
-@@ -908,8 +912,8 @@ func TestConnectInteractiveSSOCancelStopsActivation(t *testing.T) {
- 	cancelSecrets := nmplugin.ConnectionSettings{
- 		"vpn": {
- 			"secrets": dbus.MakeVariant(map[string]string{
+@@ -911,2 +915,2 @@ func TestConnectInteractiveSSOCancelStopsActivation(t *testing.T) {
 -				"x-netbird-activation-id": activationID,
 -				"x-netbird-sso-cancel":    "true",
 +				"x-aheadscale-activation-id": activationID,
 +				"x-aheadscale-sso-cancel":    "true",
- 			}),
- 		},
- 	}
-@@ -1220,7 +1224,7 @@ func networkIPv4(t *testing.T, value string) uint32 {
- 	addr, err := netip.ParseAddr(value)
- 	require.NoError(t, err)
- 	bytes := addr.As4()
+@@ -1223 +1227 @@ func networkIPv4(t *testing.T, value string) uint32 {
 -	return binary.BigEndian.Uint32(bytes[:])
 +	return binary.NativeEndian.Uint32(bytes[:])
- }
- 
- func assertState(t *testing.T, obj dbus.BusObject, want nmplugin.ServiceState) {
-@@ -1345,11 +1349,11 @@ func activationIDFromHints(t *testing.T, hints []string) string {
- 
- 	for _, hint := range hints {
- 		key, value, ok := strings.Cut(hint, "=")
+@@ -1348 +1352 @@ func activationIDFromHints(t *testing.T, hints []string) string {
 -		if ok && key == "x-netbird-activation-id" {
 +		if ok && key == "x-aheadscale-activation-id" {
- 			return value
- 		}
- 	}
+@@ -1352 +1356 @@ func activationIDFromHints(t *testing.T, hints []string) string {
 -	t.Fatalf("SecretsRequired hints do not contain x-netbird-activation-id: %#v", hints)
 +	t.Fatalf("SecretsRequired hints do not contain x-aheadscale-activation-id: %#v", hints)
- 	return ""
- }
- 
-@@ -1499,10 +1503,12 @@ type fakeDaemonClient struct {
- 	profiles             []daemonclient.Profile
- 	addProfileID         string
- 
+@@ -1502,4 +1506,6 @@ type fakeDaemonClient struct {
 -	waitSSOStarted   chan struct{}
 -	waitSSORelease   chan struct{}
 -	getConfigStarted chan struct{}
@@ -1611,35 +1081,15 @@ index d7f1bf0..06dd3b8 100644
 +	waitSSOCancelRelease chan struct{}
 +	getConfigStarted     chan struct{}
 +	getConfigRelease     chan struct{}
- 
- 	operations            []string
- 	loginRequests         []daemonclient.LoginRequest
-@@ -1570,9 +1576,11 @@ func (f *fakeDaemonClient) UpdateProfile(ctx context.Context, request daemonclie
- 
- func (f *fakeDaemonClient) WaitSSOLogin(ctx context.Context, request daemonclient.WaitSSOLoginRequest) (daemonclient.WaitSSOLoginResponse, error) {
- 	f.mu.Lock()
+@@ -1572,0 +1579 @@ func (f *fakeDaemonClient) WaitSSOLogin(ctx context.Context, request daemonclien
 +	f.waitSSOCalls++
- 	started := f.waitSSOStarted
- 	f.waitSSOStarted = nil
- 	release := f.waitSSORelease
+@@ -1575,0 +1583 @@ func (f *fakeDaemonClient) WaitSSOLogin(ctx context.Context, request daemonclien
 +	cleanup := f.waitSSOCancelRelease
- 	f.mu.Unlock()
- 
- 	if started != nil {
-@@ -1582,6 +1590,9 @@ func (f *fakeDaemonClient) WaitSSOLogin(ctx context.Context, request daemonclien
- 		select {
- 		case <-release:
- 		case <-ctx.Done():
+@@ -1584,0 +1593,3 @@ func (f *fakeDaemonClient) WaitSSOLogin(ctx context.Context, request daemonclien
 +			if cleanup != nil {
 +				<-cleanup
 +			}
- 			return daemonclient.WaitSSOLoginResponse{}, ctx.Err()
- 		}
- 	}
-@@ -1730,3 +1741,160 @@ func connectTestBus(t *testing.T, address string) *dbus.Conn {
- 	})
- 	return conn
- }
+@@ -1732,0 +1744,213 @@ func connectTestBus(t *testing.T, address string) *dbus.Conn {
 +
 +type rejectingActivationController struct {
 +	mu         sync.Mutex
@@ -1753,6 +1203,62 @@ index d7f1bf0..06dd3b8 100644
 +
 +type unavailableCancelController struct{}
 +
++// NM may create a replacement active connection before the old Disconnect RPC
++// finishes. The controller has already granted the newer generation by then.
++type supersededDisconnectController struct {
++	mu         sync.Mutex
++	generation uint64
++	cancelling chan struct{}
++	release    chan struct{}
++}
++
++func (c *supersededDisconnectController) Begin(context.Context) (aheadscale.Lease, error) {
++	c.mu.Lock()
++	defer c.mu.Unlock()
++	c.generation++
++	return aheadscale.Lease{Generation: c.generation}, nil
++}
++func (*supersededDisconnectController) Complete(context.Context, uint64, string) error { return nil }
++func (c *supersededDisconnectController) Cancel(ctx context.Context, generation uint64) error {
++	if generation != 1 {
++		return nil
++	}
++	close(c.cancelling)
++	select {
++	case <-c.release:
++		return errors.New("устаревшая отмена подключения")
++	case <-ctx.Done():
++		return ctx.Err()
++	}
++}
++func TestLateDisconnectCannotStopReplacementActivation(t *testing.T) {
++	controller := &supersededDisconnectController{cancelling: make(chan struct{}), release: make(chan struct{})}
++	var once sync.Once
++	release := func() { once.Do(func() { close(controller.release) }) }
++	defer release()
++	obj, _, _ := newTestingBusObjectWithServiceOptions(t, func(options *nmplugin.ServiceOptions) { options.ActivationController = controller })
++	settings := setupKeyConnectionSettings()
++	require.NoError(t, obj.Call(nmplugin.Interface+".Connect", 0, settings).Err)
++	waitForState(t, obj, nmplugin.ServiceStateStarted)
++	done := make(chan error, 1)
++	go func() { done <- obj.Call(nmplugin.Interface+".Disconnect", 0).Err }()
++	select {
++	case <-controller.cancelling:
++	case <-time.After(time.Second):
++		t.Fatal("old disconnect did not reach controller")
++	}
++	require.NoError(t, obj.Call(nmplugin.Interface+".Connect", 0, settings).Err)
++	waitForState(t, obj, nmplugin.ServiceStateStarted)
++	release()
++	select {
++	case err := <-done:
++		require.NoError(t, err)
++	case <-time.After(time.Second):
++		t.Fatal("old disconnect did not finish")
++	}
++	assertState(t, obj, nmplugin.ServiceStateStarted)
++}
++
 +func (unavailableCancelController) Begin(context.Context) (aheadscale.Lease, error) {
 +	return aheadscale.Lease{Generation: 7}, nil
 +}
@@ -1801,10 +1307,7 @@ diff --git a/internal/nmplugin/settings.go b/internal/nmplugin/settings.go
 index ea0dba9..f315ec0 100644
 --- a/internal/nmplugin/settings.go
 +++ b/internal/nmplugin/settings.go
-@@ -15,16 +15,16 @@ import (
- const (
- 	vpnSettingName = "vpn"
- 
+@@ -18,10 +18,10 @@ const (
 -	defaultManagementURL = "https://api.netbird.io:443"
 -	defaultAdminURL      = "https://app.netbird.io:443"
 -
@@ -1825,62 +1328,35 @@ index ea0dba9..f315ec0 100644
 +	netbirdSSOUserCodeHint            = "x-aheadscale-sso-user-code"
 +	netbirdSSOContinue                = "x-aheadscale-sso-continue"
 +	netbirdSSOCancel                  = "x-aheadscale-sso-cancel"
- )
- 
- type activationSettings struct {
-@@ -100,7 +100,7 @@ func (s activationSettings) shouldLogin(interactive bool) bool {
- 	case "setup-key":
- 		return true
- 	case "sso":
+@@ -103 +103 @@ func (s activationSettings) shouldLogin(interactive bool) bool {
 -		return interactive
 +		return true
- 	default:
- 		return false
- 	}
 diff --git a/internal/nmplugin/settings_test.go b/internal/nmplugin/settings_test.go
 index 3b1e995..37f45f6 100644
 --- a/internal/nmplugin/settings_test.go
 +++ b/internal/nmplugin/settings_test.go
-@@ -120,7 +120,7 @@ func TestDaemonLoginRequestPreservesConfiguredURLs(t *testing.T) {
- 	}
- }
- 
+@@ -123 +123 @@ func TestDaemonLoginRequestPreservesConfiguredURLs(t *testing.T) {
 -func TestParseActivationSettingsNetBirdPromptKeys(t *testing.T) {
 +func TestParseActivationSettingsAheadscalePromptKeys(t *testing.T) {
- 	settings := ConnectionSettings{
- 		"vpn": {
- 			"secrets": dbus.MakeVariant(map[string]string{
 diff --git a/internal/nmplugin/types.go b/internal/nmplugin/types.go
 index 3d218df..18f1b70 100644
 --- a/internal/nmplugin/types.go
 +++ b/internal/nmplugin/types.go
-@@ -4,7 +4,7 @@ import "github.com/godbus/dbus/v5"
- 
- const (
- 	// BusName is the well-known D-Bus name NetworkManager will use to find the plugin.
+@@ -7 +7 @@ const (
 -	BusName = "org.freedesktop.NetworkManager.netbird"
 +	BusName = "org.freedesktop.NetworkManager.aheadscale"
- 
- 	// Interface is the NetworkManager VPN plugin D-Bus interface.
- 	Interface = "org.freedesktop.NetworkManager.VPN.Plugin"
 diff --git a/meson.build b/meson.build
 index a5605cf..c17e384 100644
 --- a/meson.build
 +++ b/meson.build
-@@ -1,4 +1,4 @@
+@@ -1 +1 @@
 -project('network-manager-netbird', 'c',
 +project('network-manager-aheadscale', 'c',
-   version: '0.1.0',
-   default_options: ['c_std=c11', 'warning_level=2'])
- 
 diff --git a/meson_options.txt b/meson_options.txt
 index 75ad1bc..79b4c83 100644
 --- a/meson_options.txt
 +++ b/meson_options.txt
-@@ -7,3 +7,5 @@ option('gtk4',
-   type: 'boolean',
-   value: false,
-   description: 'Build the GTK 4 libnma VPN editor plugin')
+@@ -9,0 +10,2 @@ option('gtk4',
 +
 +option('upstream_plugin', type: 'string', value: '', description: 'Путь к исходному NetBird plugin для обязательной проверки совместной загрузки')
 diff --git a/packaging/NetworkManager/VPN/nm-aheadscale-service.name b/packaging/NetworkManager/VPN/nm-aheadscale-service.name
@@ -1963,12 +1439,9 @@ diff --git a/packaging/selinux/Makefile b/packaging/selinux/Makefile
 index 4672fce..e0141b6 100644
 --- a/packaging/selinux/Makefile
 +++ b/packaging/selinux/Makefile
-@@ -1,4 +1,4 @@
+@@ -1 +1 @@
 -MODULE := nm_netbird
 +MODULE := nm_aheadscale
- SELINUX_MAKEFILE ?= /usr/share/selinux/devel/Makefile
- 
- .PHONY: all install clean
 diff --git a/packaging/selinux/nm_aheadscale.fc b/packaging/selinux/nm_aheadscale.fc
 new file mode 100644
 index 0000000..74b4aeb
@@ -2151,29 +1624,383 @@ index 240e8f4..0000000
 -# after RPM postinstall restorecon of an already-existing socket.
 -type_transition unconfined_service_t var_run_t:sock_file nm_netbird_runtime_t "netbird.sock";
 -allow unconfined_service_t nm_netbird_runtime_t:sock_file { create getattr open read setattr unlink write };
+diff --git a/plasma/CMakeLists.txt b/plasma/CMakeLists.txt
+new file mode 100644
+index 0000000..c86dbe0
+--- /dev/null
++++ b/plasma/CMakeLists.txt
+@@ -0,0 +1,45 @@
++cmake_minimum_required(VERSION 3.22)
++project(aheadscale_plasma LANGUAGES CXX)
++include(GNUInstallDirs)
++set(CMAKE_CXX_STANDARD 17)
++set(CMAKE_AUTOMOC ON)
++find_package(Qt6 REQUIRED COMPONENTS Widgets Test)
++find_package(KF6CoreAddons REQUIRED)
++find_package(KF6NetworkManagerQt REQUIRED)
++find_package(KF6WidgetsAddons REQUIRED)
++find_package(PkgConfig REQUIRED)
++pkg_check_modules(LIBNM REQUIRED IMPORTED_TARGET libnm)
++find_library(PLASMA_NM_EDITOR NAMES plasmanm_editor REQUIRED)
++set(PLASMA_NM_SOURCE "" CACHE PATH "Unmodified plasma-nm v6.6.6 source headers")
++if(NOT EXISTS "${PLASMA_NM_SOURCE}/libs/editor/vpnuiplugin.h")
++    message(FATAL_ERROR "PLASMA_NM_SOURCE must name the pinned plasma-nm SDK source")
++endif()
++file(SHA256 "${PLASMA_NM_SOURCE}/libs/editor/vpnuiplugin.h" plugin_header_sha)
++file(SHA256 "${PLASMA_NM_SOURCE}/libs/editor/widgets/settingwidget.h" widget_header_sha)
++if(NOT plugin_header_sha STREQUAL "f63801660a57155001e9b23e4dd774e5d00c55c6f84a75600ed2761988387785"
++   OR NOT widget_header_sha STREQUAL "5743128c9d5314d254d6f361cfb55d1fa097a1018b2f14a126cb32711491a8bc")
++    message(FATAL_ERROR "plasma-nm SDK headers differ from pinned v6.6.6 commit 1a7177547b3e23bb6f41447c99ba83d087ba0e26")
++endif()
++file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/plasmanm_editor_export.h"
++    "#include <QtCore/qglobal.h>\n#define PLASMANM_EDITOR_EXPORT Q_DECL_IMPORT\n")
++add_library(aheadscale_plasma_sdk INTERFACE)
++target_include_directories(aheadscale_plasma_sdk INTERFACE
++    "${PLASMA_NM_SOURCE}/libs/editor" "${PLASMA_NM_SOURCE}/libs/editor/widgets"
++    "${CMAKE_CURRENT_BINARY_DIR}")
++target_link_libraries(aheadscale_plasma_sdk INTERFACE Qt6::Widgets
++    KF6::CoreAddons KF6::NetworkManagerQt KF6::WidgetsAddons
++    PkgConfig::LIBNM "${PLASMA_NM_EDITOR}")
++if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/aheadscale.cpp")
++    add_library(plasmanetworkmanagement_aheadscaleui MODULE aheadscale.cpp)
++    target_link_libraries(plasmanetworkmanagement_aheadscaleui PRIVATE aheadscale_plasma_sdk)
++    set_target_properties(plasmanetworkmanagement_aheadscaleui PROPERTIES
++        PREFIX "" LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/plugins/plasma/network/vpn")
++    install(TARGETS plasmanetworkmanagement_aheadscaleui
++        LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}/qt6/plugins/plasma/network/vpn")
++endif()
++include(CTest)
++add_executable(aheadscale-plasma-test aheadscale_test.cpp)
++target_link_libraries(aheadscale-plasma-test PRIVATE aheadscale_plasma_sdk Qt6::Test)
++add_test(NAME aheadscale-plasma COMMAND aheadscale-plasma-test)
++set_tests_properties(aheadscale-plasma PROPERTIES ENVIRONMENT
++    "QT_QPA_PLATFORM=offscreen;QT_PLUGIN_PATH=${CMAKE_CURRENT_BINARY_DIR}/plugins")
+diff --git a/plasma/README.md b/plasma/README.md
+new file mode 100644
+index 0000000..c6a43e5
+--- /dev/null
++++ b/plasma/README.md
+@@ -0,0 +1,51 @@
++# Интеграция Aheadscale с Plasma 6
++
++Plasma проверяет наличие собственного `VpnUiPlugin` **до** обращения к
++NetworkManager. GTK-редактор и GNOME auth-dialog эту проверку не заменяют.
++Модуль регистрирует только `org.freedesktop.NetworkManager.aheadscale`;
++соединение и отмена остаются штатными операциями NetworkManager.
++
++Редактор показывает управляемое подключение, сохраняя его настройки без
++перезаписи. При запросе SSO открывает браузер и возвращает маркер продолжения
++с ID текущей активации. Данные входа, URL и коды не сохраняются в настройках
++профиля. Отмена диалога обрабатывается штатным агентом Plasma; уничтоженный
++диалог не открывает отложенную вкладку.
++
++## Сборка и проверка
++
++Используется установленная библиотека `plasmanm_editor`, а не её собственная
++копия. Заголовки SDK берутся из неизменённого upstream plasma-nm v6.6.6,
++коммит `1a7177547b3e23bb6f41447c99ba83d087ba0e26`:
++
++- `libs/editor/vpnuiplugin.h`;
++- `libs/editor/widgets/settingwidget.h`.
++
++Сборка проверяет оба SHA256. Заголовки имеют исходные уведомления KDE и
++лицензию LGPL-2.1-only OR LGPL-3.0-only OR LicenseRef-KDE-Accepted-LGPL;
++они не включаются в пакет Aheadscale. Исходники самого адаптера — BSD-3-Clause.
++
++На Ubuntu для сборки нужны `cmake`, `g++`, `qt6-base-dev`,
++`libkf6coreaddons-dev`, `libkf6networkmanagerqt-dev`, `libkf6widgetsaddons-dev`,
++`libnm-dev` и установленный `plasma-nm`. Для GNOME устанавливать KDE не нужно:
++модуль загружается только Plasma.
++
++```sh
++cmake -S plasma -B build/plasma -DPLASMA_NM_SOURCE=/путь/к/проверенному/sdk
++cmake --build build/plasma -j2
++ctest --test-dir build/plasma --output-on-failure
++```
++
++Тест использует настоящий поиск и загрузчик KDE, проверяет сохранение настроек,
++браузерный SSO, ID активации, запрет небезопасного URL и уничтожение диалога.
++Заголовки SDK могут находиться в минимальном дереве с указанными двумя файлами.
++
++Артефакт: `build/plasma/plugins/plasma/network/vpn/plasmanetworkmanagement_aheadscaleui.so`.
++В DEB путь установки зависит от архитектуры, в RPM — `/usr/lib64/qt6/plugins/`.
++Пакет обязан включить модуль в квитанцию собственных файлов и удалять его
++штатным жизненным циклом. Ручное копирование модуля в систему не является
++приёмкой установщика.
++
++Первичная проверка сборки: Ubuntu 26.04 ARM64, Plasma 6.6.6, Qt 6.10.2,
++KF 6.24. Совместимость других версий Qt/Plasma, KDE 5 и RPM отдельно не доказана.
++Пока не проверены ABI и зависимости, такой артефакт нельзя включать в общий
++публичный выпуск для всех дистрибутивов.
+diff --git a/plasma/aheadscale.cpp b/plasma/aheadscale.cpp
+new file mode 100644
+index 0000000..5c37bbb
+--- /dev/null
++++ b/plasma/aheadscale.cpp
+@@ -0,0 +1,121 @@
++// SPDX-License-Identifier: BSD-3-Clause
++#include "vpnuiplugin.h"
++#include <QDesktopServices>
++#include <QLabel>
++#include <QPushButton>
++#include <QTimer>
++#include <QUrl>
++#include <QVBoxLayout>
++
++namespace {
++constexpr auto activationKey = "x-aheadscale-activation-id";
++constexpr auto continueKey = "x-aheadscale-sso-continue";
++
++// The default port is normalized so an explicit :443 matches the same origin.
++bool sameOrigin(const QUrl &left, const QUrl &right)
++{
++    return left.scheme() == right.scheme() && left.host() == right.host()
++        && left.port(443) == right.port(443);
++}
++
++class AheadscaleWidget final : public SettingWidget {
++public:
++    AheadscaleWidget(const NetworkManager::VpnSetting::Ptr &setting, QWidget *parent)
++        : SettingWidget(setting, parent), saved(setting->toMap())
++    {
++        auto *layout = new QVBoxLayout(this);
++        auto *label = new QLabel(tr("Подключение настроено приложением Aheadscale. "
++                                   "Вход и управление устройствами доступны в Aheadscale."), this);
++        label->setWordWrap(true);
++        layout->addWidget(label);
++    }
++
++    AheadscaleWidget(const NetworkManager::VpnSetting::Ptr &setting,
++                     const QStringList &hints, QWidget *parent)
++        : SettingWidget(setting, hints, parent), login(true), valid(false)
++    {
++        auto *layout = new QVBoxLayout(this);
++        message = new QLabel(this);
++        message->setTextFormat(Qt::PlainText);
++        message->setWordWrap(true);
++        layout->addWidget(message);
++        QMap<QString, QString> values;
++        bool duplicate = false;
++        for (const auto &hint : hints) {
++            const auto split = hint.indexOf('=');
++            const auto key = split < 0 ? hint : hint.left(split);
++            if (values.contains(key)) duplicate = true;
++            values.insert(key, split < 0 ? QStringLiteral("true") : hint.mid(split + 1));
++        }
++        bool numeric = false;
++        const auto generation = values.value(QLatin1String(activationKey)).toULongLong(&numeric);
++        const auto complete = values.value(QStringLiteral("x-aheadscale-sso-verification-uri-complete"));
++        url = QUrl(complete.isEmpty() ? values.value(QStringLiteral("x-aheadscale-sso-verification-uri")) : complete);
++        const auto data = setting->data();
++        const QUrl management(data.value(QStringLiteral("management-url")));
++        const QUrl admin(data.value(QStringLiteral("admin-url")));
++        // The internal test channel still uses the public Aheadscale identity
++        // provider. These are the existing pinned Aheadscale endpoints.
++        const bool internalToPublic = management.host() == QStringLiteral("macmini.tailb71cbe.ts.net")
++            && sameOrigin(url, QUrl(QStringLiteral("https://aheadscale.ru")));
++        valid = !duplicate && numeric && generation > 0
++            && values.value(QStringLiteral("x-aheadscale-sso")) == QStringLiteral("true")
++            && url.isValid() && url.scheme() == QStringLiteral("https")
++            && !url.host().isEmpty() && url.userInfo().isEmpty()
++            && (sameOrigin(url, management) || sameOrigin(url, admin) || internalToPublic);
++        if (!valid) {
++            message->setText(tr("Не удалось открыть безопасную страницу входа Aheadscale. "
++                                "Отмените подключение и повторите вход в приложении."));
++            return;
++        }
++        activation = values.value(QLatin1String(activationKey));
++        message->setText(tr("Завершите вход Aheadscale в браузере. "
++                            "После входа подтвердите подключение; для отмены нажмите «Отмена»."));
++        auto *open = new QPushButton(tr("Открыть страницу входа"), this);
++        layout->addWidget(open);
++        connect(open, &QPushButton::clicked, this, [this] { openBrowser(); });
++        // Bound to the dialog lifetime: Cancel/destruction cannot open a stale tab.
++        QTimer::singleShot(0, this, [this] { openBrowser(); });
++    }
++
++    QVariantMap setting() const override
++    {
++        if (!login) return saved;
++        NMStringMap secrets;
++        if (valid) {
++            secrets.insert(QLatin1String(activationKey), activation);
++            secrets.insert(QLatin1String(continueKey), QStringLiteral("true"));
++        }
++        return {{QStringLiteral("secrets"), QVariant::fromValue(secrets)}};
++    }
++    bool isValid() const override { return valid; }
++
++private:
++    void openBrowser()
++    {
++        if (!QDesktopServices::openUrl(url)) {
++            message->setText(tr("Браузер не открылся. Повторите открытие страницы или отмените подключение."));
++        }
++    }
++    QVariantMap saved;
++    bool login = false;
++    bool valid = true;
++    QString activation;
++    QUrl url;
++    QLabel *message = nullptr;
++};
++}
++
++class AheadscaleUiPlugin final : public VpnUiPlugin {
++    Q_OBJECT
++public:
++    explicit AheadscaleUiPlugin(QObject *parent = nullptr, const QVariantList & = {}) : VpnUiPlugin(parent) {}
++    SettingWidget *widget(const NetworkManager::VpnSetting::Ptr &setting, QWidget *parent) override
++    { return new AheadscaleWidget(setting, parent); }
++    SettingWidget *askUser(const NetworkManager::VpnSetting::Ptr &setting, const QStringList &hints, QWidget *parent) override
++    { return new AheadscaleWidget(setting, hints, parent); }
++    QString suggestedFileName(const NetworkManager::ConnectionSettings::Ptr &) const override { return {}; }
++};
++
++K_PLUGIN_CLASS_WITH_JSON(AheadscaleUiPlugin, "plasmanetworkmanagement_aheadscaleui.json")
++#include "aheadscale.moc"
+diff --git a/plasma/aheadscale_test.cpp b/plasma/aheadscale_test.cpp
+new file mode 100644
+index 0000000..1d68f15
+--- /dev/null
++++ b/plasma/aheadscale_test.cpp
+@@ -0,0 +1,101 @@
++// SPDX-License-Identifier: BSD-3-Clause
++#include "vpnuiplugin.h"
++#include <QDesktopServices>
++#include <QLabel>
++#include <QTest>
++#include <QUrl>
++#include <memory>
++
++class BrowserCapture : public QObject {
++    Q_OBJECT
++public:
++    QList<QUrl> urls;
++public Q_SLOTS:
++    void capture(const QUrl &url) { urls.append(url); }
++};
++
++class AheadscalePlasmaTest : public QObject {
++    Q_OBJECT
++    static constexpr auto service = "org.freedesktop.NetworkManager.aheadscale";
++    NetworkManager::VpnSetting::Ptr vpn() {
++        auto setting = NetworkManager::VpnSetting::Ptr(new NetworkManager::VpnSetting);
++        setting->setServiceType(QString::fromLatin1(service));
++        setting->setData({{"management-url", "https://aheadscale.ru:443"},
++                          {"auth", "sso"}, {"interface-name", "Aheadscale"}});
++        return setting;
++    }
++    std::unique_ptr<VpnUiPlugin> load() {
++        const auto result = VpnUiPlugin::loadPluginForType(nullptr, QString::fromLatin1(service));
++        return std::unique_ptr<VpnUiPlugin>(result.plugin);
++    }
++private Q_SLOTS:
++    void discoverAndLoadLikePlasma() {
++        const auto matches = KPluginMetaData::findPlugins(QStringLiteral("plasma/network/vpn"),
++            [](const KPluginMetaData &md) {
++                return md.value(QStringLiteral("X-NetworkManager-Services")) == QString::fromLatin1(service);
++            });
++        QCOMPARE(matches.size(), 1);
++        auto plugin = load();
++        QVERIFY2(plugin != nullptr, "Plasma must instantiate the Aheadscale VPN UI plugin");
++    }
++    void editorPreservesManagedSettings() {
++        auto plugin = load(); QVERIFY(plugin);
++        auto setting = vpn();
++        const auto original = setting->toMap();
++        std::unique_ptr<SettingWidget> widget(plugin->widget(setting, nullptr));
++        QVERIFY(widget);
++        QCOMPARE(widget->setting(), original);
++        QVERIFY(widget->isValid());
++    }
++    void browserLoginRetainsActivationAndOpensOnce() {
++        auto plugin = load(); QVERIFY(plugin);
++        BrowserCapture browser;
++        QDesktopServices::setUrlHandler("https", &browser, "capture");
++        const QUrl url("https://aheadscale.ru/oauth2/device?user_code=TEST-ONLY");
++        std::unique_ptr<SettingWidget> widget(plugin->askUser(vpn(), {
++            "x-aheadscale-activation-id=71", "x-aheadscale-sso=true",
++            "x-aheadscale-sso-verification-uri-complete=" + url.toString()}, nullptr));
++        QVERIFY(widget); QVERIFY(widget->isValid());
++        QTRY_COMPARE(browser.urls.size(), 1);
++        QCOMPARE(browser.urls.first(), url);
++        auto secrets = widget->setting().value("secrets").value<NMStringMap>();
++        QCOMPARE(secrets.value("x-aheadscale-activation-id"), "71");
++        QCOMPARE(secrets.value("x-aheadscale-sso-continue"), "true");
++        QVERIFY(!secrets.contains("x-aheadscale-sso-verification-uri-complete"));
++        widget.reset();
++        QTest::qWait(30);
++        QCOMPARE(browser.urls.size(), 1);
++        QDesktopServices::unsetUrlHandler("https");
++    }
++    void invalidOrForeignBrowserUrlIsRefused_data() {
++        QTest::addColumn<QString>("url");
++        QTest::newRow("local-file") << "file:///etc/passwd";
++        QTest::newRow("javascript") << "javascript:alert(1)";
++        QTest::newRow("foreign") << "https://foreign.invalid/login";
++        QTest::newRow("credentials") << "https://user:pass@aheadscale.ru/login";
++        QTest::newRow("plaintext") << "http://aheadscale.ru/login";
++    }
++    void invalidOrForeignBrowserUrlIsRefused() {
++        QFETCH(QString, url);
++        auto plugin = load(); QVERIFY(plugin);
++        std::unique_ptr<SettingWidget> widget(plugin->askUser(vpn(), {
++            "x-aheadscale-activation-id=71", "x-aheadscale-sso=true",
++            "x-aheadscale-sso-verification-uri-complete=" + url}, nullptr));
++        QVERIFY(widget); QVERIFY(!widget->isValid());
++        QVERIFY(widget->setting().value("secrets").value<NMStringMap>().isEmpty());
++    }
++    void destroyedDialogCannotOpenBrowserLater() {
++        auto plugin = load(); QVERIFY(plugin);
++        BrowserCapture browser;
++        QDesktopServices::setUrlHandler("https", &browser, "capture");
++        auto *widget = plugin->askUser(vpn(), {
++            "x-aheadscale-activation-id=72", "x-aheadscale-sso=true",
++            "x-aheadscale-sso-verification-uri-complete=https://aheadscale.ru/oauth2/device"}, nullptr);
++        delete widget;
++        QTest::qWait(30);
++        QCOMPARE(browser.urls.size(), 0);
++        QDesktopServices::unsetUrlHandler("https");
++    }
++};
++QTEST_MAIN(AheadscalePlasmaTest)
++#include "aheadscale_test.moc"
+diff --git a/plasma/plasmanetworkmanagement_aheadscaleui.json b/plasma/plasmanetworkmanagement_aheadscaleui.json
+new file mode 100644
+index 0000000..e075ab1
+--- /dev/null
++++ b/plasma/plasmanetworkmanagement_aheadscaleui.json
+@@ -0,0 +1,11 @@
++{
++    "KPlugin": {
++        "Id": "plasmanetworkmanagement_aheadscaleui",
++        "Name": "Aheadscale",
++        "Description": "Частная сеть Aheadscale",
++        "License": "BSD-3-Clause",
++        "Version": "0.1.0",
++        "Icon": "aheadscale"
++    },
++    "X-NetworkManager-Services": "org.freedesktop.NetworkManager.aheadscale"
++}
 diff --git a/properties/meson.build b/properties/meson.build
 index 729b3c5..219cec9 100644
 --- a/properties/meson.build
 +++ b/properties/meson.build
-@@ -8,28 +8,28 @@ gtk3_c_args = [
- cc = meson.get_compiler('c')
- dl_dep = cc.find_library('dl', required: false)
- 
+@@ -11,3 +11,3 @@ dl_dep = cc.find_library('dl', required: false)
 -netbird_editor_sources = files(
 -  'nm-netbird-editor-model.c',
 -  'nm-netbird-editor.c',
 +aheadscale_editor_sources = files(
 +  'nm-aheadscale-editor-model.c',
 +  'nm-aheadscale-editor.c',
- )
- 
+@@ -16 +16 @@ netbird_editor_sources = files(
 -netbird_plugin_deps = [libnm_dep]
 +aheadscale_plugin_deps = [libnm_dep]
- if dl_dep.found()
+@@ -18 +18 @@ if dl_dep.found()
 -  netbird_plugin_deps += dl_dep
 +  aheadscale_plugin_deps += dl_dep
- endif
- 
+@@ -21,4 +21,4 @@ endif
 -netbird_plugin = shared_module(
 -  'nm-vpn-plugin-netbird',
 -  files('nm-netbird-editor-plugin.c'),
@@ -2182,63 +2009,40 @@ index 729b3c5..219cec9 100644
 +  'nm-vpn-plugin-aheadscale',
 +  files('nm-aheadscale-editor-plugin.c'),
 +  dependencies: aheadscale_plugin_deps,
-   name_prefix: 'lib',
-   install: true,
-   install_dir: get_option('nm_plugin_dir'),
- )
- 
- shared_module(
+@@ -31,2 +31,2 @@ shared_module(
 -  'nm-vpn-plugin-netbird-editor',
 -  netbird_editor_sources,
 +  'nm-vpn-plugin-aheadscale-editor',
 +  aheadscale_editor_sources,
-   c_args: gtk3_c_args,
-   dependencies: [libnm_dep, gtk_dep, libnma_dep],
-   name_prefix: 'lib',
-@@ -46,8 +46,8 @@ if get_option('gtk4')
-   ]
- 
-   shared_module(
+@@ -49,2 +49,2 @@ if get_option('gtk4')
 -    'nm-gtk4-vpn-plugin-netbird-editor',
 -    netbird_editor_sources,
 +    'nm-gtk4-vpn-plugin-aheadscale-editor',
 +    aheadscale_editor_sources,
-     c_args: gtk4_c_args,
-     dependencies: [libnm_dep, gtk4_dep, libnma_gtk4_dep],
-     name_prefix: 'lib',
-@@ -56,22 +56,22 @@ if get_option('gtk4')
-   )
- endif
- 
+@@ -59,3 +59,3 @@ endif
 -netbird_model_test = executable(
 -  'nm-netbird-editor-model-test',
 -  files('nm-netbird-editor-model.c', 'nm-netbird-editor-model-test.c'),
 +aheadscale_model_test = executable(
 +  'nm-aheadscale-editor-model-test',
 +  files('nm-aheadscale-editor-model.c', 'nm-aheadscale-editor-model-test.c'),
-   dependencies: [libnm_dep],
- )
- 
+@@ -65 +65 @@ netbird_model_test = executable(
 -test('netbird-editor-model', netbird_model_test)
 +test('aheadscale-editor-model', aheadscale_model_test)
- 
+@@ -67,3 +67,3 @@ test('netbird-editor-model', netbird_model_test)
 -netbird_plugin_test = executable(
 -  'nm-netbird-editor-plugin-test',
 -  files('nm-netbird-editor-plugin-test.c'),
 +aheadscale_plugin_test = executable(
 +  'nm-aheadscale-editor-plugin-test',
 +  files('nm-aheadscale-editor-plugin-test.c'),
-   dependencies: [libnm_dep],
- )
- 
- test(
+@@ -74,3 +74,3 @@ test(
 -  'netbird-editor-plugin-load',
 -  netbird_plugin_test,
 -  env: ['NETBIRD_EDITOR_PLUGIN_PATH=' + netbird_plugin.full_path()],
 +  'aheadscale-editor-plugin-load',
 +  aheadscale_plugin_test,
 +  env: ['AHEADSCALE_EDITOR_PLUGIN_PATH=' + aheadscale_plugin.full_path(), 'AHEADSCALE_UPSTREAM_PLUGIN_PATH=' + get_option('upstream_plugin')],
- )
 diff --git a/properties/nm-aheadscale-editor-model-test.c b/properties/nm-aheadscale-editor-model-test.c
 new file mode 100644
 index 0000000..b860364
@@ -2474,222 +2278,124 @@ rename to properties/nm-aheadscale-editor-model.c
 index 6cb30cb..375ec34 100644
 --- a/properties/nm-netbird-editor-model.c
 +++ b/properties/nm-aheadscale-editor-model.c
-@@ -1,9 +1,9 @@
+@@ -1 +1 @@
 -#include "nm-netbird-editor-model.h"
 +#include "nm-aheadscale-editor-model.h"
- 
- #include <string.h>
- 
- static const char *const auth_keys[] = {
+@@ -6 +6 @@ static const char *const auth_keys[] = {
 -    NETBIRD_KEY_AUTH,
 +    AHEADSCALE_KEY_AUTH,
-     "auth-mode",
-     "authentication",
-     "login-mode",
-@@ -11,23 +11,23 @@ static const char *const auth_keys[] = {
- };
- 
- static const char *const setup_key_keys[] = {
+@@ -14 +14 @@ static const char *const setup_key_keys[] = {
 -    NETBIRD_KEY_SETUP_KEY,
 +    AHEADSCALE_KEY_SETUP_KEY,
-     "setupKey",
+@@ -16 +16 @@ static const char *const setup_key_keys[] = {
 -    "netbird-setup-key",
 +    "aheadscale-setup-key",
-     NULL,
- };
- 
- static const char *const management_url_keys[] = {
+@@ -21 +21 @@ static const char *const management_url_keys[] = {
 -    NETBIRD_KEY_MANAGEMENT_URL,
 +    AHEADSCALE_KEY_MANAGEMENT_URL,
-     "managementUrl",
+@@ -23 +23 @@ static const char *const management_url_keys[] = {
 -    "netbird-management-url",
 +    "aheadscale-management-url",
-     NULL,
- };
- 
- static const char *const admin_url_keys[] = {
+@@ -28 +28 @@ static const char *const admin_url_keys[] = {
 -    NETBIRD_KEY_ADMIN_URL,
 +    AHEADSCALE_KEY_ADMIN_URL,
-     "adminURL",
+@@ -30 +30 @@ static const char *const admin_url_keys[] = {
 -    "netbird-admin-url",
 +    "aheadscale-admin-url",
-     NULL,
- };
- 
-@@ -35,54 +35,54 @@ static const char *const profile_name_keys[] = {
-     "profile-name",
-     "profileName",
-     "profile",
+@@ -38 +38 @@ static const char *const profile_name_keys[] = {
 -    "netbird-profile-name",
 +    "aheadscale-profile-name",
-     NULL,
- };
- 
- static const char *const username_keys[] = {
+@@ -43 +43 @@ static const char *const username_keys[] = {
 -    NETBIRD_KEY_USERNAME,
 +    AHEADSCALE_KEY_USERNAME,
-     "user-name",
-     "user",
+@@ -46 +46 @@ static const char *const username_keys[] = {
 -    "netbird-username",
 +    "aheadscale-username",
-     NULL,
- };
- 
- static const char *const interface_name_keys[] = {
+@@ -51 +51 @@ static const char *const interface_name_keys[] = {
 -    NETBIRD_KEY_INTERFACE_NAME,
 +    AHEADSCALE_KEY_INTERFACE_NAME,
-     "interfaceName",
+@@ -53 +53 @@ static const char *const interface_name_keys[] = {
 -    "netbird-interface-name",
 +    "aheadscale-interface-name",
-     NULL,
- };
- 
- static const char *const hostname_keys[] = {
+@@ -58 +58 @@ static const char *const hostname_keys[] = {
 -    NETBIRD_KEY_HOSTNAME,
 +    AHEADSCALE_KEY_HOSTNAME,
-     "host-name",
-     NULL,
- };
- 
- static const char *const pre_shared_key_keys[] = {
+@@ -64 +64 @@ static const char *const pre_shared_key_keys[] = {
 -    NETBIRD_KEY_PRE_SHARED_KEY,
 +    AHEADSCALE_KEY_PRE_SHARED_KEY,
-     "preshared-key",
-     "preSharedKey",
-     NULL,
- };
- 
- GQuark
+@@ -71 +71 @@ GQuark
 -netbird_editor_error_quark(void)
 +aheadscale_editor_error_quark(void)
- {
+@@ -73 +73 @@ netbird_editor_error_quark(void)
 -    return g_quark_from_static_string("netbird-editor-error-quark");
 +    return g_quark_from_static_string("aheadscale-editor-error-quark");
- }
- 
- void
+@@ -77 +77 @@ void
 -netbird_editor_values_init(NetbirdEditorValues *values)
 +aheadscale_editor_values_init(AheadscaleEditorValues *values)
- {
-     g_return_if_fail(values != NULL);
-     memset(values, 0, sizeof(*values));
+@@ -81 +81 @@ netbird_editor_values_init(NetbirdEditorValues *values)
 -    values->auth_mode = g_strdup(NETBIRD_AUTH_SSO);
 +    values->auth_mode = g_strdup(AHEADSCALE_AUTH_SSO);
- }
- 
- void
+@@ -85 +85 @@ void
 -netbird_editor_values_clear(NetbirdEditorValues *values)
 +aheadscale_editor_values_clear(AheadscaleEditorValues *values)
- {
-     if (!values)
-         return;
-@@ -170,13 +170,13 @@ normalize_auth_mode(const char *value)
-     }
- 
-     if (lower[0] == '\0')
+@@ -173 +173 @@ normalize_auth_mode(const char *value)
 -        normalized = g_strdup(NETBIRD_AUTH_SSO);
 +        normalized = g_strdup(AHEADSCALE_AUTH_SSO);
-     else if (g_strcmp0(lower, "setupkey") == 0 || g_strcmp0(lower, "setup-key") == 0 || g_strcmp0(lower, "key") == 0)
+@@ -175 +175 @@ normalize_auth_mode(const char *value)
 -        normalized = g_strdup(NETBIRD_AUTH_SETUP_KEY);
 +        normalized = g_strdup(AHEADSCALE_AUTH_SETUP_KEY);
-     else if (g_strcmp0(lower, "sso") == 0 || g_strcmp0(lower, "browser") == 0 || g_strcmp0(lower, "interactive") == 0)
+@@ -177 +177 @@ normalize_auth_mode(const char *value)
 -        normalized = g_strdup(NETBIRD_AUTH_SSO);
 +        normalized = g_strdup(AHEADSCALE_AUTH_SSO);
-     else if (g_strcmp0(lower, "login") == 0 || g_strcmp0(lower, "force-login") == 0 || g_strcmp0(lower, "reuse") == 0)
+@@ -179 +179 @@ normalize_auth_mode(const char *value)
 -        normalized = g_strdup(NETBIRD_AUTH_SSO);
 +        normalized = g_strdup(AHEADSCALE_AUTH_SSO);
-     else
-         normalized = g_strdup(lower);
- 
-@@ -199,7 +199,7 @@ replace_secret_string(char **dst, const char *value)
- }
- 
- void
+@@ -202 +202 @@ void
 -netbird_editor_values_load(NetbirdEditorValues *values, NMConnection *connection)
 +aheadscale_editor_values_load(AheadscaleEditorValues *values, NMConnection *connection)
- {
-     NMSettingVpn *vpn;
-     char *auth_mode;
-@@ -211,11 +211,11 @@ netbird_editor_values_load(NetbirdEditorValues *values, NMConnection *connection
- 
-     auth_mode = normalize_auth_mode(vpn_data_first(vpn, auth_keys));
-     g_free(values->auth_mode);
+@@ -214,2 +214,2 @@ netbird_editor_values_load(NetbirdEditorValues *values, NMConnection *connection
 -    if (g_strcmp0(auth_mode, NETBIRD_AUTH_SETUP_KEY) == 0 ||
 -        g_strcmp0(auth_mode, NETBIRD_AUTH_SSO) == 0)
 +    if (g_strcmp0(auth_mode, AHEADSCALE_AUTH_SETUP_KEY) == 0 ||
 +        g_strcmp0(auth_mode, AHEADSCALE_AUTH_SSO) == 0)
-         values->auth_mode = auth_mode;
-     else {
+@@ -218 +218 @@ netbird_editor_values_load(NetbirdEditorValues *values, NMConnection *connection
 -        values->auth_mode = g_strdup(NETBIRD_AUTH_SSO);
 +        values->auth_mode = g_strdup(AHEADSCALE_AUTH_SSO);
-         g_free(auth_mode);
-     }
- 
-@@ -237,9 +237,9 @@ netbird_editor_values_load(NetbirdEditorValues *values, NMConnection *connection
- }
- 
- static gboolean
+@@ -240 +240 @@ static gboolean
 -set_validation_error(GError **error, NetbirdEditorError code, const char *message)
 +set_validation_error(GError **error, AheadscaleEditorError code, const char *message)
- {
+@@ -242 +242 @@ set_validation_error(GError **error, NetbirdEditorError code, const char *messag
 -    g_set_error_literal(error, NETBIRD_EDITOR_ERROR, code, message);
 +    g_set_error_literal(error, AHEADSCALE_EDITOR_ERROR, code, message);
-     return FALSE;
- }
- 
-@@ -305,23 +305,23 @@ valid_interface_name(const char *value)
- }
- 
- gboolean
+@@ -308 +308 @@ gboolean
 -netbird_editor_values_validate(const NetbirdEditorValues *values, GError **error)
 +aheadscale_editor_values_validate(const AheadscaleEditorValues *values, GError **error)
- {
-     g_return_val_if_fail(values != NULL, FALSE);
- 
+@@ -312,3 +312,3 @@ netbird_editor_values_validate(const NetbirdEditorValues *values, GError **error
 -    if (g_strcmp0(values->auth_mode, NETBIRD_AUTH_SETUP_KEY) != 0 &&
 -        g_strcmp0(values->auth_mode, NETBIRD_AUTH_SSO) != 0)
 -        return set_validation_error(error, NETBIRD_EDITOR_ERROR_INVALID_AUTH, "auth must be setup-key or sso");
 +    if (g_strcmp0(values->auth_mode, AHEADSCALE_AUTH_SETUP_KEY) != 0 &&
 +        g_strcmp0(values->auth_mode, AHEADSCALE_AUTH_SSO) != 0)
 +        return set_validation_error(error, AHEADSCALE_EDITOR_ERROR_INVALID_AUTH, "auth must be setup-key or sso");
- 
-     if (!is_http_url(values->management_url))
+@@ -317 +317 @@ netbird_editor_values_validate(const NetbirdEditorValues *values, GError **error
 -        return set_validation_error(error, NETBIRD_EDITOR_ERROR_INVALID_URL, "management-url must be an HTTP or HTTPS URL");
 +        return set_validation_error(error, AHEADSCALE_EDITOR_ERROR_INVALID_URL, "management-url must be an HTTP or HTTPS URL");
- 
-     if (!is_http_url(values->admin_url))
+@@ -320 +320 @@ netbird_editor_values_validate(const NetbirdEditorValues *values, GError **error
 -        return set_validation_error(error, NETBIRD_EDITOR_ERROR_INVALID_URL, "admin-url must be an HTTP or HTTPS URL");
 +        return set_validation_error(error, AHEADSCALE_EDITOR_ERROR_INVALID_URL, "admin-url must be an HTTP or HTTPS URL");
- 
-     if (!valid_interface_name(values->interface_name))
-         return set_validation_error(error,
+@@ -324 +324 @@ netbird_editor_values_validate(const NetbirdEditorValues *values, GError **error
 -                                    NETBIRD_EDITOR_ERROR_INVALID_INTERFACE,
 +                                    AHEADSCALE_EDITOR_ERROR_INVALID_INTERFACE,
-                                     "interface-name must be 15 bytes or less and must not be '.'/'..' or contain '/', whitespace, or control characters");
- 
-     return TRUE;
-@@ -397,40 +397,40 @@ set_secret_item(NMSettingVpn *vpn, const char *canonical_key, const char *const
- }
- 
- gboolean
+@@ -400 +400 @@ gboolean
 -netbird_editor_values_save(const NetbirdEditorValues *values, NMConnection *connection, GError **error)
 +aheadscale_editor_values_save(const AheadscaleEditorValues *values, NMConnection *connection, GError **error)
- {
-     NMSettingVpn *vpn;
- 
-     g_return_val_if_fail(values != NULL, FALSE);
-     g_return_val_if_fail(connection != NULL, FALSE);
- 
+@@ -407 +407 @@ netbird_editor_values_save(const NetbirdEditorValues *values, NMConnection *conn
 -    if (!netbird_editor_values_validate(values, error))
 +    if (!aheadscale_editor_values_validate(values, error))
-         return FALSE;
- 
-     ensure_connection_setting(connection);
-     vpn = ensure_vpn_setting(connection);
+@@ -412 +412 @@ netbird_editor_values_save(const NetbirdEditorValues *values, NMConnection *conn
 -    g_object_set(vpn, NM_SETTING_VPN_SERVICE_TYPE, NETBIRD_SERVICE_NAME, NULL);
 +    g_object_set(vpn, NM_SETTING_VPN_SERVICE_TYPE, AHEADSCALE_SERVICE_NAME, NULL);
- 
-     remove_data_keys(vpn, auth_keys);
+@@ -415,4 +415,4 @@ netbird_editor_values_save(const NetbirdEditorValues *values, NMConnection *conn
 -    if (g_strcmp0(values->auth_mode, NETBIRD_AUTH_SETUP_KEY) == 0)
 -        nm_setting_vpn_add_data_item(vpn, NETBIRD_KEY_AUTH, NETBIRD_AUTH_SETUP_KEY);
 -    else if (g_strcmp0(values->auth_mode, NETBIRD_AUTH_SSO) == 0)
@@ -2698,32 +2404,26 @@ index 6cb30cb..375ec34 100644
 +        nm_setting_vpn_add_data_item(vpn, AHEADSCALE_KEY_AUTH, AHEADSCALE_AUTH_SETUP_KEY);
 +    else if (g_strcmp0(values->auth_mode, AHEADSCALE_AUTH_SSO) == 0)
 +        nm_setting_vpn_add_data_item(vpn, AHEADSCALE_KEY_AUTH, AHEADSCALE_AUTH_SSO);
- 
+@@ -420,2 +420,2 @@ netbird_editor_values_save(const NetbirdEditorValues *values, NMConnection *conn
 -    set_data_item(vpn, NETBIRD_KEY_MANAGEMENT_URL, management_url_keys, values->management_url);
 -    set_data_item(vpn, NETBIRD_KEY_ADMIN_URL, admin_url_keys, values->admin_url);
 +    set_data_item(vpn, AHEADSCALE_KEY_MANAGEMENT_URL, management_url_keys, values->management_url);
 +    set_data_item(vpn, AHEADSCALE_KEY_ADMIN_URL, admin_url_keys, values->admin_url);
-     remove_data_keys(vpn, profile_name_keys);
+@@ -423,3 +423,3 @@ netbird_editor_values_save(const NetbirdEditorValues *values, NMConnection *conn
 -    set_data_item(vpn, NETBIRD_KEY_USERNAME, username_keys, values->username);
 -    set_data_item(vpn, NETBIRD_KEY_INTERFACE_NAME, interface_name_keys, values->interface_name);
 -    set_data_item(vpn, NETBIRD_KEY_HOSTNAME, hostname_keys, values->hostname);
 +    set_data_item(vpn, AHEADSCALE_KEY_USERNAME, username_keys, values->username);
 +    set_data_item(vpn, AHEADSCALE_KEY_INTERFACE_NAME, interface_name_keys, values->interface_name);
 +    set_data_item(vpn, AHEADSCALE_KEY_HOSTNAME, hostname_keys, values->hostname);
- 
+@@ -427,2 +427,2 @@ netbird_editor_values_save(const NetbirdEditorValues *values, NMConnection *conn
 -    if (g_strcmp0(values->auth_mode, NETBIRD_AUTH_SETUP_KEY) == 0)
 -        set_secret_item(vpn, NETBIRD_KEY_SETUP_KEY, setup_key_keys, values->setup_key);
 +    if (g_strcmp0(values->auth_mode, AHEADSCALE_AUTH_SETUP_KEY) == 0)
 +        set_secret_item(vpn, AHEADSCALE_KEY_SETUP_KEY, setup_key_keys, values->setup_key);
-     else {
-         remove_secret_keys(vpn, setup_key_keys);
-         remove_data_keys(vpn, setup_key_keys);
-     }
- 
+@@ -434 +434 @@ netbird_editor_values_save(const NetbirdEditorValues *values, NMConnection *conn
 -    set_secret_item(vpn, NETBIRD_KEY_PRE_SHARED_KEY, pre_shared_key_keys, values->pre_shared_key);
 +    set_secret_item(vpn, AHEADSCALE_KEY_PRE_SHARED_KEY, pre_shared_key_keys, values->pre_shared_key);
-     return TRUE;
- }
 diff --git a/properties/nm-aheadscale-editor-model.h b/properties/nm-aheadscale-editor-model.h
 new file mode 100644
 index 0000000..9c0ed95
@@ -2860,155 +2560,82 @@ rename to properties/nm-aheadscale-editor-plugin.c
 index ebc4029..86f492d 100644
 --- a/properties/nm-netbird-editor-plugin.c
 +++ b/properties/nm-aheadscale-editor-plugin.c
-@@ -2,34 +2,34 @@
- #define _GNU_SOURCE
- #endif
- 
+@@ -5 +5 @@
 -#include "nm-netbird-editor-model.h"
 +#include "nm-aheadscale-editor-model.h"
- 
- #include <NetworkManager.h>
- #include <dlfcn.h>
- 
+@@ -10 +10 @@
 -typedef struct _NetbirdEditorPlugin {
 +typedef struct _AheadscaleEditorPlugin {
-     GObject parent;
+@@ -12 +12 @@ typedef struct _NetbirdEditorPlugin {
 -} NetbirdEditorPlugin;
 +} AheadscaleEditorPlugin;
- 
+@@ -14 +14 @@ typedef struct _NetbirdEditorPlugin {
 -typedef struct _NetbirdEditorPluginClass {
 +typedef struct _AheadscaleEditorPluginClass {
-     GObjectClass parent;
+@@ -16 +16 @@ typedef struct _NetbirdEditorPluginClass {
 -} NetbirdEditorPluginClass;
 +} AheadscaleEditorPluginClass;
- 
+@@ -18 +18 @@ typedef struct _NetbirdEditorPluginClass {
 -typedef NMVpnEditor *(*NetbirdEditorFactory)(NMVpnEditorPlugin *editor_plugin,
 +typedef NMVpnEditor *(*AheadscaleEditorFactory)(NMVpnEditorPlugin *editor_plugin,
-                                              NMConnection *connection,
-                                              GError **error);
- 
+@@ -22 +22 @@ typedef NMVpnEditor *(*NetbirdEditorFactory)(NMVpnEditorPlugin *editor_plugin,
 -static void netbird_editor_plugin_iface_init(NMVpnEditorPluginInterface *iface);
 +static void aheadscale_editor_plugin_iface_init(NMVpnEditorPluginInterface *iface);
- 
+@@ -24,2 +24,2 @@ static void netbird_editor_plugin_iface_init(NMVpnEditorPluginInterface *iface);
 -#define NETBIRD_TYPE_EDITOR_PLUGIN (netbird_editor_plugin_get_type())
 -GType netbird_editor_plugin_get_type(void);
 +#define AHEADSCALE_TYPE_EDITOR_PLUGIN (aheadscale_editor_plugin_get_type())
 +GType aheadscale_editor_plugin_get_type(void);
- NMVpnEditorPlugin *nm_vpn_editor_plugin_factory(GError **error);
- 
+@@ -28,2 +28,2 @@ NMVpnEditorPlugin *nm_vpn_editor_plugin_factory(GError **error);
 -G_DEFINE_TYPE_EXTENDED(NetbirdEditorPlugin,
 -                       netbird_editor_plugin,
 +G_DEFINE_TYPE_EXTENDED(AheadscaleEditorPlugin,
 +                       aheadscale_editor_plugin,
-                        G_TYPE_OBJECT,
-                        0,
+@@ -32 +32 @@ G_DEFINE_TYPE_EXTENDED(NetbirdEditorPlugin,
 -                       G_IMPLEMENT_INTERFACE(NM_TYPE_VPN_EDITOR_PLUGIN, netbird_editor_plugin_iface_init))
 +                       G_IMPLEMENT_INTERFACE(NM_TYPE_VPN_EDITOR_PLUGIN, aheadscale_editor_plugin_iface_init))
- 
- enum {
-     PROP_0,
-@@ -43,10 +43,10 @@ editor_module_name(void)
- {
-     dlerror();
-     if (dlsym(RTLD_DEFAULT, "gtk_container_add"))
+@@ -46 +46 @@ editor_module_name(void)
 -        return "libnm-vpn-plugin-netbird-editor.so";
 +        return "libnm-vpn-plugin-aheadscale-editor.so";
-     dlerror();
- 
+@@ -49 +49 @@ editor_module_name(void)
 -    return "libnm-gtk4-vpn-plugin-netbird-editor.so";
 +    return "libnm-gtk4-vpn-plugin-aheadscale-editor.so";
- }
- 
- static gpointer
-@@ -115,7 +115,7 @@ load_editor_factory(const char *module_name, GError **error)
-     }
- 
-     dlerror();
+@@ -118 +118 @@ load_editor_factory(const char *module_name, GError **error)
 -    factory = dlsym(module, "nm_vpn_editor_factory_netbird");
 +    factory = dlsym(module, "nm_vpn_editor_factory_aheadscale");
-     load_error = dlerror();
-     if (load_error) {
-         g_set_error(error,
-@@ -140,19 +140,19 @@ load_editor_factory(const char *module_name, GError **error)
- }
- 
- static void
+@@ -143 +143 @@ static void
 -netbird_editor_plugin_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec)
 +aheadscale_editor_plugin_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec)
- {
-     (void) object;
- 
-     switch (prop_id) {
-     case PROP_NAME:
+@@ -149 +149 @@ netbird_editor_plugin_get_property(GObject *object, guint prop_id, GValue *value
 -        g_value_set_string(value, "NetBird");
 +        g_value_set_string(value, "Aheadscale");
-         break;
-     case PROP_DESCRIPTION:
+@@ -152 +152 @@ netbird_editor_plugin_get_property(GObject *object, guint prop_id, GValue *value
 -        g_value_set_string(value, "NetBird VPN");
 +        g_value_set_string(value, "Aheadscale VPN");
-         break;
-     case PROP_SERVICE:
+@@ -155 +155 @@ netbird_editor_plugin_get_property(GObject *object, guint prop_id, GValue *value
 -        g_value_set_string(value, NETBIRD_SERVICE_NAME);
 +        g_value_set_string(value, AHEADSCALE_SERVICE_NAME);
-         break;
-     default:
-         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-@@ -161,11 +161,11 @@ netbird_editor_plugin_get_property(GObject *object, guint prop_id, GValue *value
- }
- 
- static void
+@@ -164 +164 @@ static void
 -netbird_editor_plugin_class_init(NetbirdEditorPluginClass *klass)
 +aheadscale_editor_plugin_class_init(AheadscaleEditorPluginClass *klass)
- {
-     GObjectClass *object_class = G_OBJECT_CLASS(klass);
- 
+@@ -168 +168 @@ netbird_editor_plugin_class_init(NetbirdEditorPluginClass *klass)
 -    object_class->get_property = netbird_editor_plugin_get_property;
 +    object_class->get_property = aheadscale_editor_plugin_get_property;
- 
-     g_object_class_override_property(object_class, PROP_NAME, NM_VPN_EDITOR_PLUGIN_NAME);
-     g_object_class_override_property(object_class, PROP_DESCRIPTION, NM_VPN_EDITOR_PLUGIN_DESCRIPTION);
-@@ -173,7 +173,7 @@ netbird_editor_plugin_class_init(NetbirdEditorPluginClass *klass)
- }
- 
- static void
+@@ -176 +176 @@ static void
 -netbird_editor_plugin_init(NetbirdEditorPlugin *plugin)
 +aheadscale_editor_plugin_init(AheadscaleEditorPlugin *plugin)
- {
-     (void) plugin;
- }
-@@ -181,14 +181,14 @@ netbird_editor_plugin_init(NetbirdEditorPlugin *plugin)
- static NMVpnEditor *
- get_editor(NMVpnEditorPlugin *plugin, NMConnection *connection, GError **error)
- {
+@@ -184 +184 @@ get_editor(NMVpnEditorPlugin *plugin, NMConnection *connection, GError **error)
 -    NetbirdEditorFactory factory;
 +    AheadscaleEditorFactory factory;
-     NMVpnEditor *editor;
- 
-     g_return_val_if_fail(NM_IS_VPN_EDITOR_PLUGIN(plugin), NULL);
-     g_return_val_if_fail(NM_IS_CONNECTION(connection), NULL);
-     g_return_val_if_fail(!error || !*error, NULL);
- 
+@@ -191 +191 @@ get_editor(NMVpnEditorPlugin *plugin, NMConnection *connection, GError **error)
 -    factory = (NetbirdEditorFactory) load_editor_factory(editor_module_name(), error);
 +    factory = (AheadscaleEditorFactory) load_editor_factory(editor_module_name(), error);
-     if (!factory)
-         return NULL;
- 
-@@ -214,7 +214,7 @@ get_capabilities(NMVpnEditorPlugin *plugin)
- }
- 
- static void
+@@ -217 +217 @@ static void
 -netbird_editor_plugin_iface_init(NMVpnEditorPluginInterface *iface)
 +aheadscale_editor_plugin_iface_init(NMVpnEditorPluginInterface *iface)
- {
-     iface->get_editor = get_editor;
-     iface->get_capabilities = get_capabilities;
-@@ -224,5 +224,5 @@ NMVpnEditorPlugin *
- nm_vpn_editor_plugin_factory(GError **error)
- {
-     (void) error;
+@@ -227 +227 @@ nm_vpn_editor_plugin_factory(GError **error)
 -    return NM_VPN_EDITOR_PLUGIN(g_object_new(NETBIRD_TYPE_EDITOR_PLUGIN, NULL));
 +    return NM_VPN_EDITOR_PLUGIN(g_object_new(AHEADSCALE_TYPE_EDITOR_PLUGIN, NULL));
- }
 diff --git a/properties/nm-netbird-editor.c b/properties/nm-aheadscale-editor.c
 similarity index 70%
 rename from properties/nm-netbird-editor.c
@@ -3016,116 +2643,57 @@ rename to properties/nm-aheadscale-editor.c
 index 9b5828d..c23a674 100644
 --- a/properties/nm-netbird-editor.c
 +++ b/properties/nm-aheadscale-editor.c
-@@ -1,10 +1,10 @@
+@@ -1 +1 @@
 -#include "nm-netbird-editor.h"
 +#include "nm-aheadscale-editor.h"
- 
+@@ -3 +3 @@
 -#include "nm-netbird-editor-model.h"
 +#include "nm-aheadscale-editor-model.h"
- 
- #include <nma-vpn-password-dialog.h>
- 
+@@ -7 +7 @@
 -struct _NetbirdEditor {
 +struct _AheadscaleEditor {
-     GObject parent;
- 
-     GtkWidget *widget;
-@@ -20,13 +20,13 @@ struct _NetbirdEditor {
-     gboolean loading;
- };
- 
+@@ -23 +23 @@ struct _NetbirdEditor {
 -static void netbird_editor_iface_init(NMVpnEditorInterface *iface);
 +static void aheadscale_editor_iface_init(NMVpnEditorInterface *iface);
- 
+@@ -25,2 +25,2 @@ static void netbird_editor_iface_init(NMVpnEditorInterface *iface);
 -G_DEFINE_TYPE_EXTENDED(NetbirdEditor,
 -                       netbird_editor,
 +G_DEFINE_TYPE_EXTENDED(AheadscaleEditor,
 +                       aheadscale_editor,
-                        G_TYPE_OBJECT,
-                        0,
+@@ -29 +29 @@ G_DEFINE_TYPE_EXTENDED(NetbirdEditor,
 -                       G_IMPLEMENT_INTERFACE(NM_TYPE_VPN_EDITOR, netbird_editor_iface_init))
 +                       G_IMPLEMENT_INTERFACE(NM_TYPE_VPN_EDITOR, aheadscale_editor_iface_init))
- 
- static void
- set_widget_margin(GtkWidget *widget, int margin)
-@@ -144,7 +144,7 @@ attach_row(GtkWidget *grid, int row, const char *label, GtkWidget *input)
- }
- 
- static void
+@@ -147 +147 @@ static void
 -emit_changed(NetbirdEditor *self)
 +emit_changed(AheadscaleEditor *self)
- {
-     if (self->loading)
-         return;
-@@ -153,18 +153,18 @@ emit_changed(NetbirdEditor *self)
- }
- 
- static void
+@@ -156 +156 @@ static void
 -update_visible_sections(NetbirdEditor *self)
 +update_visible_sections(AheadscaleEditor *self)
- {
-     const char *auth_mode;
- 
-     auth_mode = gtk_combo_box_get_active_id(GTK_COMBO_BOX(self->auth_combo));
+@@ -161 +161 @@ update_visible_sections(NetbirdEditor *self)
 -    gtk_widget_set_visible(self->setup_key_section, g_strcmp0(auth_mode, NETBIRD_AUTH_SETUP_KEY) == 0);
 +    gtk_widget_set_visible(self->setup_key_section, g_strcmp0(auth_mode, AHEADSCALE_AUTH_SETUP_KEY) == 0);
- }
- 
- static void
- widget_changed_cb(GtkWidget *widget, gpointer user_data)
- {
+@@ -167 +167 @@ widget_changed_cb(GtkWidget *widget, gpointer user_data)
 -    NetbirdEditor *self = NETBIRD_EDITOR(user_data);
 +    AheadscaleEditor *self = AHEADSCALE_EDITOR(user_data);
- 
-     (void) widget;
-     update_visible_sections(self);
-@@ -172,7 +172,7 @@ widget_changed_cb(GtkWidget *widget, gpointer user_data)
- }
- 
- static void
+@@ -175 +175 @@ static void
 -connect_changed(NetbirdEditor *self, GtkWidget *widget)
 +connect_changed(AheadscaleEditor *self, GtkWidget *widget)
- {
-     g_signal_connect(widget, "changed", G_CALLBACK(widget_changed_cb), self);
- }
-@@ -200,15 +200,15 @@ trimmed_entry_text(GtkWidget *entry)
- }
- 
- static void
+@@ -203 +203 @@ static void
 -fill_values_from_ui(NetbirdEditor *self, NetbirdEditorValues *values)
 +fill_values_from_ui(AheadscaleEditor *self, AheadscaleEditorValues *values)
- {
-     const char *auth_mode;
- 
+@@ -207 +207 @@ fill_values_from_ui(NetbirdEditor *self, NetbirdEditorValues *values)
 -    netbird_editor_values_init(values);
 +    aheadscale_editor_values_init(values);
- 
-     auth_mode = gtk_combo_box_get_active_id(GTK_COMBO_BOX(self->auth_combo));
-     g_free(values->auth_mode);
+@@ -211 +211 @@ fill_values_from_ui(NetbirdEditor *self, NetbirdEditorValues *values)
 -    values->auth_mode = g_strdup(auth_mode ? auth_mode : NETBIRD_AUTH_SSO);
 +    values->auth_mode = g_strdup(auth_mode ? auth_mode : AHEADSCALE_AUTH_SSO);
- 
-     values->management_url = trimmed_entry_text(self->management_url_entry);
-     values->admin_url = trimmed_entry_text(self->admin_url_entry);
-@@ -220,12 +220,12 @@ fill_values_from_ui(NetbirdEditor *self, NetbirdEditorValues *values)
- }
- 
- static void
+@@ -223 +223 @@ static void
 -load_values_into_ui(NetbirdEditor *self, const NetbirdEditorValues *values)
 +load_values_into_ui(AheadscaleEditor *self, const AheadscaleEditorValues *values)
- {
-     self->loading = TRUE;
- 
-     if (!gtk_combo_box_set_active_id(GTK_COMBO_BOX(self->auth_combo), values->auth_mode))
+@@ -228 +228 @@ load_values_into_ui(NetbirdEditor *self, const NetbirdEditorValues *values)
 -        gtk_combo_box_set_active_id(GTK_COMBO_BOX(self->auth_combo), NETBIRD_AUTH_SSO);
 +        gtk_combo_box_set_active_id(GTK_COMBO_BOX(self->auth_combo), AHEADSCALE_AUTH_SSO);
- 
-     set_entry_text(self->management_url_entry, values->management_url);
-     set_entry_text(self->admin_url_entry, values->admin_url);
-@@ -240,35 +240,54 @@ load_values_into_ui(NetbirdEditor *self, const NetbirdEditorValues *values)
- }
- 
- static void
+@@ -243 +243,10 @@ static void
 -build_main_section(NetbirdEditor *self)
 +hide_managed_settings(GtkWidget *widget)
 +{
@@ -3137,29 +2705,21 @@ index 9b5828d..c23a674 100644
 +
 +static void
 +build_main_section(AheadscaleEditor *self)
- {
-     GtkWidget *section;
-     GtkWidget *grid;
- 
+@@ -248 +257 @@ build_main_section(NetbirdEditor *self)
 -    section = new_section("NetBird");
 +    section = new_section("Aheadscale");
-     grid = section_grid(section);
- 
-     self->auth_combo = gtk_combo_box_text_new();
+@@ -252,2 +261,2 @@ build_main_section(NetbirdEditor *self)
 -    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(self->auth_combo), NETBIRD_AUTH_SSO, "SSO");
 -    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(self->auth_combo), NETBIRD_AUTH_SETUP_KEY, "Setup key");
 +    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(self->auth_combo), AHEADSCALE_AUTH_SSO, "SSO");
 +    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(self->auth_combo), AHEADSCALE_AUTH_SETUP_KEY, "Setup key");
-     gtk_widget_set_hexpand(self->auth_combo, TRUE);
- 
-     self->management_url_entry = new_entry();
+@@ -257 +266 @@ build_main_section(NetbirdEditor *self)
 -    gtk_entry_set_placeholder_text(GTK_ENTRY(self->management_url_entry), "https://api.netbird.io");
 +    gtk_entry_set_placeholder_text(GTK_ENTRY(self->management_url_entry), "https://aheadscale.ru");
-     self->admin_url_entry = new_entry();
+@@ -259 +268 @@ build_main_section(NetbirdEditor *self)
 -    gtk_entry_set_placeholder_text(GTK_ENTRY(self->admin_url_entry), "https://app.netbird.io");
 +    gtk_entry_set_placeholder_text(GTK_ENTRY(self->admin_url_entry), "https://aheadscale.ru");
-     self->username_entry = new_entry();
- 
+@@ -262,4 +271,14 @@ build_main_section(NetbirdEditor *self)
 -    attach_row(grid, 0, "Auth mode", self->auth_combo);
 -    attach_row(grid, 1, "Management URL", self->management_url_entry);
 -    attach_row(grid, 2, "Admin URL", self->admin_url_entry);
@@ -3178,143 +2738,80 @@ index 9b5828d..c23a674 100644
 +    box_append_child(managed, self->username_entry);
 +    box_append_child(section, managed);
 +    hide_managed_settings(managed);
- 
-     box_append_child(self->widget, section);
- }
- 
- static void
+@@ -271 +290 @@ static void
 -build_setup_key_section(NetbirdEditor *self)
 +build_setup_key_section(AheadscaleEditor *self)
- {
-     GtkWidget *grid;
- 
-@@ -284,7 +303,7 @@ build_setup_key_section(NetbirdEditor *self)
- }
- 
- static void
+@@ -287 +306 @@ static void
 -build_advanced_section(NetbirdEditor *self)
 +build_advanced_section(AheadscaleEditor *self)
- {
-     GtkWidget *section;
-     GtkWidget *grid;
-@@ -302,12 +321,14 @@ build_advanced_section(NetbirdEditor *self)
-     attach_row(grid, 0, "Interface name", self->interface_name_entry);
-     attach_row(grid, 1, "Hostname", self->hostname_entry);
-     attach_row(grid, 2, "Pre-shared key", self->pre_shared_key_entry);
+@@ -305 +324,2 @@ build_advanced_section(NetbirdEditor *self)
 -
 +    /* Advanced service settings are managed by the installed package. */
 +    gtk_widget_set_sensitive(section, FALSE);
-     box_append_child(self->widget, section);
+@@ -306,0 +327 @@ build_advanced_section(NetbirdEditor *self)
 +    hide_managed_settings(section);
- }
- 
- static void
+@@ -310 +331 @@ static void
 -connect_ui_signals(NetbirdEditor *self)
 +connect_ui_signals(AheadscaleEditor *self)
- {
-     connect_changed(self, self->auth_combo);
-     connect_changed(self, self->management_url_entry);
-@@ -320,7 +341,7 @@ connect_ui_signals(NetbirdEditor *self)
- }
- 
- static void
+@@ -323 +344 @@ static void
 -netbird_editor_init(NetbirdEditor *self)
 +aheadscale_editor_init(AheadscaleEditor *self)
- {
-     self->widget = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
-     set_widget_margin(self->widget, 12);
-@@ -333,71 +354,71 @@ netbird_editor_init(NetbirdEditor *self)
- }
- 
- static void
+@@ -336 +357 @@ static void
 -netbird_editor_dispose(GObject *object)
 +aheadscale_editor_dispose(GObject *object)
- {
+@@ -338 +359 @@ netbird_editor_dispose(GObject *object)
 -    NetbirdEditor *self = NETBIRD_EDITOR(object);
 +    AheadscaleEditor *self = AHEADSCALE_EDITOR(object);
- 
-     g_clear_object(&self->widget);
+@@ -341 +362 @@ netbird_editor_dispose(GObject *object)
 -    G_OBJECT_CLASS(netbird_editor_parent_class)->dispose(object);
 +    G_OBJECT_CLASS(aheadscale_editor_parent_class)->dispose(object);
- }
- 
- static void
+@@ -345 +366 @@ static void
 -netbird_editor_class_init(NetbirdEditorClass *klass)
 +aheadscale_editor_class_init(AheadscaleEditorClass *klass)
- {
-     GObjectClass *object_class = G_OBJECT_CLASS(klass);
- 
+@@ -349 +370 @@ netbird_editor_class_init(NetbirdEditorClass *klass)
 -    object_class->dispose = netbird_editor_dispose;
 +    object_class->dispose = aheadscale_editor_dispose;
- }
- 
- static GObject *
- get_widget(NMVpnEditor *editor)
- {
+@@ -355 +376 @@ get_widget(NMVpnEditor *editor)
 -    return G_OBJECT(NETBIRD_EDITOR(editor)->widget);
 +    return G_OBJECT(AHEADSCALE_EDITOR(editor)->widget);
- }
- 
- static gboolean
- update_connection(NMVpnEditor *editor, NMConnection *connection, GError **error)
- {
+@@ -361,2 +382,2 @@ update_connection(NMVpnEditor *editor, NMConnection *connection, GError **error)
 -    NetbirdEditor *self = NETBIRD_EDITOR(editor);
 -    NetbirdEditorValues values;
 +    AheadscaleEditor *self = AHEADSCALE_EDITOR(editor);
 +    AheadscaleEditorValues values;
-     gboolean ok;
- 
-     fill_values_from_ui(self, &values);
+@@ -366,2 +387,2 @@ update_connection(NMVpnEditor *editor, NMConnection *connection, GError **error)
 -    ok = netbird_editor_values_save(&values, connection, error);
 -    netbird_editor_values_clear(&values);
 +    ok = aheadscale_editor_values_save(&values, connection, error);
 +    aheadscale_editor_values_clear(&values);
-     return ok;
- }
- 
- static void
+@@ -372 +393 @@ static void
 -netbird_editor_iface_init(NMVpnEditorInterface *iface)
 +aheadscale_editor_iface_init(NMVpnEditorInterface *iface)
- {
-     iface->get_widget = get_widget;
-     iface->update_connection = update_connection;
- }
- 
- NMVpnEditor *
+@@ -379 +400 @@ NMVpnEditor *
 -netbird_editor_new(NMConnection *connection, GError **error)
 +aheadscale_editor_new(NMConnection *connection, GError **error)
- {
+@@ -381,2 +402,2 @@ netbird_editor_new(NMConnection *connection, GError **error)
 -    NetbirdEditor *editor;
 -    NetbirdEditorValues values;
 +    AheadscaleEditor *editor;
 +    AheadscaleEditorValues values;
- 
-     (void) error;
- 
+@@ -386 +407 @@ netbird_editor_new(NMConnection *connection, GError **error)
 -    editor = g_object_new(NETBIRD_TYPE_EDITOR, NULL);
 +    editor = g_object_new(AHEADSCALE_TYPE_EDITOR, NULL);
- 
+@@ -388,2 +409,2 @@ netbird_editor_new(NMConnection *connection, GError **error)
 -    netbird_editor_values_init(&values);
 -    netbird_editor_values_load(&values, connection);
 +    aheadscale_editor_values_init(&values);
 +    aheadscale_editor_values_load(&values, connection);
-     load_values_into_ui(editor, &values);
+@@ -391 +412 @@ netbird_editor_new(NMConnection *connection, GError **error)
 -    netbird_editor_values_clear(&values);
 +    aheadscale_editor_values_clear(&values);
- 
-     return NM_VPN_EDITOR(editor);
- }
- 
- NMVpnEditor *
+@@ -397 +418 @@ NMVpnEditor *
 -nm_vpn_editor_factory_netbird(NMVpnEditorPlugin *editor_plugin, NMConnection *connection, GError **error)
 +nm_vpn_editor_factory_aheadscale(NMVpnEditorPlugin *editor_plugin, NMConnection *connection, GError **error)
- {
-     (void) editor_plugin;
- 
-     g_type_ensure(NMA_VPN_TYPE_PASSWORD_DIALOG);
+@@ -402 +423 @@ nm_vpn_editor_factory_netbird(NMVpnEditorPlugin *editor_plugin, NMConnection *co
 -    return netbird_editor_new(connection, error);
 +    return aheadscale_editor_new(connection, error);
- }
 diff --git a/properties/nm-aheadscale-editor.h b/properties/nm-aheadscale-editor.h
 new file mode 100644
 index 0000000..7923aa3
@@ -3699,24 +3196,13 @@ diff --git a/scripts/build-fedora-selinux-policy.sh b/scripts/build-fedora-selin
 index 714551c..1cefdd4 100755
 --- a/scripts/build-fedora-selinux-policy.sh
 +++ b/scripts/build-fedora-selinux-policy.sh
-@@ -9,7 +9,7 @@ set -eu
- # artifacts.
- 
- repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+@@ -12 +12 @@ repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 -fedora_image=${FEDORA_IMAGE:-fedora:44}
 +fedora_image=${FEDORA_IMAGE:-registry.fedoraproject.org/fedora@sha256:12151022b0ec7cb4d70ae14e4a4d319377323265d7198b69dd53ec92713198d5}
- runtime=${CONTAINER_RUNTIME:-}
- 
- if [ -z "$runtime" ]; then
-@@ -43,15 +43,15 @@ esac
-     store=$(mktemp -d)
-     trap '\''rm -rf "$store"'\'' EXIT
-     cp -a /var/lib/selinux/targeted "$store/"
+@@ -46 +46 @@ esac
 -    semodule -s targeted -S "$store" -N -i packaging/selinux/nm_netbird.pp
 +    semodule -s targeted -S "$store" -N -i packaging/selinux/nm_aheadscale.pp
- 
-     if [ "${HOST_UID:-0}" != 0 ]; then
-       for path in \
+@@ -50,5 +50,5 @@ esac
 -        packaging/selinux/nm_netbird.pp \
 -        packaging/selinux/nm_netbird.mod \
 -        packaging/selinux/nm_netbird.mod.fc \
@@ -3727,13 +3213,7 @@ index 714551c..1cefdd4 100755
 +        packaging/selinux/nm_aheadscale.mod.fc \
 +        packaging/selinux/nm_aheadscale.if \
 +        packaging/selinux/nm_aheadscale.fc.tmp \
-         packaging/selinux/tmp; do
-         [ -e "$path" ] || continue
-         chown -R "$HOST_UID:${HOST_GID:-$HOST_UID}" "$path" 2>/dev/null || true
-@@ -63,11 +63,11 @@ esac
- # steps and local cleanups can read/remove the artifacts without sudo.
- if [ "$(id -u)" -ne 0 ]; then
-   for path in \
+@@ -66,5 +66,5 @@ if [ "$(id -u)" -ne 0 ]; then
 -    "$repo_root/packaging/selinux/nm_netbird.pp" \
 -    "$repo_root/packaging/selinux/nm_netbird.mod" \
 -    "$repo_root/packaging/selinux/nm_netbird.mod.fc" \
@@ -3744,6 +3224,3 @@ index 714551c..1cefdd4 100755
 +    "$repo_root/packaging/selinux/nm_aheadscale.mod.fc" \
 +    "$repo_root/packaging/selinux/nm_aheadscale.if" \
 +    "$repo_root/packaging/selinux/nm_aheadscale.fc.tmp" \
-     "$repo_root/packaging/selinux/tmp"; do
-     [ -e "$path" ] || continue
-     if chown -R "$(id -u):$(id -g)" "$path" 2>/dev/null; then
