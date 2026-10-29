@@ -106,12 +106,18 @@ jobs:
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
         with:
           go-version: '1.26.7'
-      - name: Подтверждение email и SMTP TLS
-        run: go test -race ./management/server/registration
-      - name: Восстановление регистрации и штатные адреса Dex
-        run: go test -race ./idp/dex -run '^TestVerifiedRegistration'
-      - name: Отдельные аккаунты, сети и лимиты устройств
-        run: go test -race -tags devcert ./management/server -run '^TestAheadscale'
+      - name: Выбранные проверки auth
+        run: python3 -B testing/aheadscale/run.py --suite auth --output ci-results/auth
+      - name: Сводка
+        if: always()
+        run: cat ci-results/auth/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: test-results-auth
+          path: ci-results/auth/
+          retention-days: 7
+          if-no-files-found: error
   unit:
     if: needs.ci-contract.outputs.unit == 'true'
     needs: ci-contract
@@ -122,14 +128,18 @@ jobs:
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
         with:
           go-version: '1.26.7'
-      - name: Client configuration and identity tests
-        run: go test ./client/cmd ./client/status ./client/internal/auth ./client/internal/templates ./client/internal/profilemanager ./client/internal/daemonaddr ./client/internal/selfroute ./client/internal/ipcauth ./client/net ./client/internal/routemanager/systemops ./client/configs -count=1
-      - name: Проверки DNS и остановки Linux-клиента
-        env:
-          DBUS_SYSTEM_BUS_ADDRESS: unix:path=/tmp/aheadscale-unit-no-system-bus
-        run: go test -race -tags devcert ./client/internal/dns ./client/internal ./client/server
-      - name: Preview updater policy
-        run: go test ./client/internal/updater -run TestAheadscale -count=1
+      - name: Выбранные проверки unit
+        run: python3 -B testing/aheadscale/run.py --suite unit --output ci-results/unit
+      - name: Сводка
+        if: always()
+        run: cat ci-results/unit/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: test-results-unit
+          path: ci-results/unit/
+          retention-days: 7
+          if-no-files-found: error
   packaging-tests:
     if: needs.ci-contract.outputs.packaging == 'true'
     needs: ci-contract
@@ -170,7 +180,7 @@ jobs:
       contains(fromJSON('["build","full"]'), inputs.suite) &&
       needs.ci-contract.result == 'success' &&
       !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
-    needs: [ci-contract, unit, packaging-tests, windows-identity]
+    needs: [ci-contract, unit, packaging-tests, windows-identity, auth]
     strategy:
       fail-fast: false
       matrix:
