@@ -1,4 +1,5 @@
 name: Aheadscale desktop previews
+run-name: ${{ inputs.suite || 'ci-contract' }} · ${{ inputs.targets || 'no-build' }} · ${{ github.ref_name }}
 on:
   push:
     branches: [aheadscale, 'codex/**']

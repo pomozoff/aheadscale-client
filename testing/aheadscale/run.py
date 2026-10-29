@@ -46,7 +46,8 @@ def suite_checks(suite):
     if suite == "auth":
         return [Check("registration-account-device-isolation", go + ["-race", "-tags", "devcert", "./management/server", "-run", "^TestAheadscale"], 1500)]
     if suite == "networkmanager":
-        return [Check("native-controller", go + ["-race", "./client/internal/linuxvpn"], 600)]
+        return [Check("native-controller", go + ["-race", "./client/internal/linuxvpn"], 600),
+                Check("plugin-protocol-dbus", [sys.executable, "-B", "testing/aheadscale/networkmanager.py"], 900)]
     raise ValueError("Неизвестный набор проверок: " + suite)
 
 
