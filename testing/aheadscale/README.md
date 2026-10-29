@@ -39,3 +39,29 @@ JSON и JUnit; ошибка одного процесса не теряется 
 
 Сценарии настоящего VK/Яндекс с MFA/CAPTCHA/согласием явно MANUAL; наш OAuth
 callback/state/PKCE подлежат автоматизации на тестовом провайдере.
+
+
+## Подтверждённый этап переноса — 29 октября 2026
+
+Проверки исполнялись на GitHub; успешные полные журналы агент не читал.
+Результат относится к указанной ревизии и набору, а не ко всей приёмке продукта.
+
+| Набор | Ревизия | Результат Actions |
+| --- | --- | --- |
+| Unit | fc13fd2 | [PASS](https://github.com/pomozoff/aheadscale-client/actions/runs/40826553651) |
+| Упаковка | fc13fd2 | [PASS](https://github.com/pomozoff/aheadscale-client/actions/runs/40826553917) |
+| Серверная регистрация / аккаунты / квоты | fc13fd2 | [PASS](https://github.com/pomozoff/aheadscale-client/actions/runs/40826553873) |
+| NM controller и Go/D-Bus закреплённого плагина | b3c4b20 | [PASS](https://github.com/pomozoff/aheadscale-client/actions/runs/40828090874) |
+| Контракт runner, включая прерывание и сохранение FAIL | 3cb2613 | [PASS](https://github.com/pomozoff/aheadscale-client/actions/runs/40829117507) |
+
+Приватный coordinator включён в main подписанным коммитом e67d7d9 через
+[PR #1](https://github.com/pomozoff/aheadscale-tests/pull/1) с разрешения владельца.
+[Контрольный запуск](https://github.com/pomozoff/aheadscale-tests/actions/runs/40829277353)
+подтвердил: каталог проходит, приёмка **BLOCKED**, задание lab **SKIPPED**, поскольку
+изолированный исполнитель и тестовый сервер ещё не подготовлены. GitHub отображает
+такой запуск красным; это ожидаемая проверка барьера, а не пройденный VPN-тест.
+
+Следующие этапы: C/GTK/Plasma в hosted Actions, отдельная управляющая ВМ и
+одноразовые гости, реальный браузерный auth/device E2E с почтой, затем остальные
+ОС и архитектуры. Вход, письмо подтверждения, удаление устройств, GUI/VPN/reboot
+пока не считаются перенесёнными. Подтверждение email ещё требует серверной доработки.
