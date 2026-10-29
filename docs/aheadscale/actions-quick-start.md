@@ -2,6 +2,8 @@
 
 Все перечисленные jobs выполняются на GitHub-hosted runners. Рабочий сервер на Mac mini остаётся на месте; workflow не развёртывает собранные пакеты.
 
+Проверенная конфигурация опубликована в ветке `codex/hosted-ci` и перенесена в локальную `main`. Для запуска в GitHub выбирай `codex/hosted-ci` или новую рабочую ветку с этими изменениями. Удалённая `main` содержит отдельную upstream-историю NetBird; её не перезаписываем. Старая конфигурация в `aheadscale` этим изменением не заменяется.
+
 ## Обычная работа
 
 - Push в `main`, `aheadscale` или `codex/**` выполняет только короткий контракт выбора тестов и отчётов. Он не собирает установщики.
@@ -29,9 +31,9 @@
 Примеры для агента:
 
 ```bash
-gh workflow run aheadscale-client.yml --repo pomozoff/aheadscale-client --ref <ветка> -f suite=auth
-gh workflow run aheadscale-client.yml --repo pomozoff/aheadscale-client --ref <ветка> -f suite=build -f targets=linux-arm64
-gh workflow run aheadscale-client.yml --repo pomozoff/aheadscale-client --ref <ветка> -f suite=server
+gh workflow run aheadscale-client.yml --repo pomozoff/aheadscale-client --ref codex/hosted-ci -f suite=auth
+gh workflow run aheadscale-client.yml --repo pomozoff/aheadscale-client --ref codex/hosted-ci -f suite=build -f targets=linux-arm64
+gh workflow run aheadscale-client.yml --repo pomozoff/aheadscale-client --ref codex/hosted-ci -f suite=server
 ```
 
 Отдельный workflow **Aheadscale Windows VPN prototype** запускается вручную для выбранной архитектуры; его сборка также не начинается при push. Он включает native VPN-компонент и объединённый установщик, которых нет в обычной сборке `build`.
