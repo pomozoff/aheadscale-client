@@ -115,3 +115,10 @@ GUI, CLI и системное состояние согласованы, поз
 Два public Desktop ARM64 пакета обновлены; KDE-зависимости RPM условны.
 Обе ВМ оставлены OFF. Свежий SSO, ARM lifecycle, CLI ARM64, amd64 KDE producer
 и полная матрица остаются открыты.
+
+[ARM64 lifecycle `.31.6`](smoke-results/2026-10-29-linux-arm31-6-lifecycle.md):
+Fedora прошла четыре перехода Desktop ↔ CLI, OFF remove/reinstall, reboot с GUI
+ON и VPN ON/OFF; исходные настройки возвращены. Ubuntu прошла первые два
+перехода и OFF remove/reinstall, завершение после reboot ждёт восстановления UTM.
+Самостоятельные CLI ARM64 проверены реальным трафиком; всего в прогоне 16 HTTP.
+GUI autostart OFF, свежий SSO, чистые Server ARM64 и полная матрица ещё открыты.

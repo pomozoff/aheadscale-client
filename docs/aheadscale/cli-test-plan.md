@@ -83,3 +83,14 @@ C15/RG39: фиксировать поведение up с параметрами
 [Linux-пакеты `.26`](smoke-results/2026-10-28-linux26-packages.md): public Desktop Fedora x64/ARM64 и Ubuntu ARM64, CLI-only Ubuntu Server 24 x64 обновлены с сохранением конфигураций; действующие GUI сверены с установленным payload. Реальный системный Disconnect на трёх Desktop согласован с GUI/CLI и удалением интерфейса; на ARM64 выдержан OFF 12 секунд и выполнен GUI Connect без SSO. Restart службы четырёх узлов и 72 HTTP/DNS приняты. На CLI x64 проверены статусы/справки и три положительных health-check; переходный Connecting не трактовался как готовность трафика. Это частичные R05/C01/C02/C05/C07/C09/C10/C13, без reboot/lifecycle новых пакетов и полного UI/CLI. Предыдущие PASS `.24/.24.1` не переобозначаются результатами `.26`.
 
 [Linux `.26`: lifecycle](smoke-results/2026-10-28-linux26-lifecycle.md): C09/C13: Ubuntu Server x64 без GUI/NM — reboot с ON и OFF, enabled и OFF remove/reinstall; Ubuntu/Fedora ARM64 — Desktop ↔ CLI, сохранённый OFF при Desktop remove/reinstall. Всего 42 HTTP/DNS, прежние профили/IP/FQDN, исходные настройки возвращены. Это выбранный lifecycle, не полный C01–C24 или чистая ARM64 CLI-установка; GUI autostart OFF, R05 и graceful reboot Ubuntu Desktop остаются отдельными проверками.
+
+## Целевой ARM64-прогон `.31.6`, 29 октября
+
+[Ubuntu Plasma и Fedora GNOME](smoke-results/2026-10-29-linux-arm31-6-lifecycle.md):
+самостоятельные public CLI DEB/RPM установлены без собственных компонентов NM
+и GUI; 8 двусторонних IP/DNS/HTTP прошли. Проверены up/down и настройка
+автоподключения, сохранность устройства при смене варианта. Fedora прошла все
+четыре перехода Desktop ↔ CLI при ON/OFF; Ubuntu — первые два, затем ожидает
+восстановления ВМ после reboot. Это не полный CLI-прогон, не чистые Server ARM64
+и не доказательство headless boot ARM64. Для перехода выбирать согласованные
+Desktop/CLI `.31.6`: старый CLI `.31.3` не знает новый ресурс Plasma.

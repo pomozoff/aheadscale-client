@@ -159,3 +159,11 @@
 Plasma Connect и Cancel PASS. Подробности и оставшаяся матрица —
 [отчёт `.31.6`](../../aheadscale/smoke-results/2026-10-29-linux-native31-6.md).
 Задача 8 целиком ещё не завершена.
+
+[ARM64 lifecycle `.31.6`](../../aheadscale/smoke-results/2026-10-29-linux-arm31-6-lifecycle.md):
+Fedora — четыре перехода Desktop ↔ CLI ON/OFF, OFF remove/reinstall и reboot
+GUI ON/VPN OFF PASS; исходные ON возвращены. Ubuntu — два перехода и OFF
+remove/reinstall PASS, boot требует восстановления UTM. CLI ARM64: 8 HTTP,
+всего прогон 16 HTTP. Согласованные CLI `.31.6` упакованы из существующего ядра;
+попытка старого CLI `.31.3` отвергнута квитанцией и не считается PASS.
+Полная задача 8 остаётся открытой.
