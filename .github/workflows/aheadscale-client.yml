@@ -74,7 +74,7 @@ jobs:
       - name: Собрать только сервер с проверенной регистрацией
         run: |
           mkdir -p "$RUNNER_TEMP/aheadscale-server"
-          go build -trimpath -ldflags '-s -w -X github.com/netbirdio/netbird/version.version=0.80.0-aheadscale.email.1' -o "$RUNNER_TEMP/aheadscale-server/aheadscale-server" ./combined
+          go build -trimpath -ldflags '-s -w -X github.com/netbirdio/netbird/version.version=0.80.0-aheadscale.email.2' -o "$RUNNER_TEMP/aheadscale-server/aheadscale-server" ./combined
           "$RUNNER_TEMP/aheadscale-server/aheadscale-server" --help > /dev/null
           go version -m "$RUNNER_TEMP/aheadscale-server/aheadscale-server" > "$RUNNER_TEMP/aheadscale-server/build-info.txt"
           git rev-parse HEAD > "$RUNNER_TEMP/aheadscale-server/source.txt"
@@ -108,7 +108,10 @@ jobs:
         with:
           go-version: '1.26.7'
       - name: Выбранные проверки auth
-        run: python3 -B testing/aheadscale/run.py --suite ${{ inputs.suite == 'email' && 'email' || 'auth' }} --output ci-results/auth
+        run: |
+          mkdir -p ci-results/auth
+          gofmt -d management/server/registration > ci-results/auth/gofmt.patch
+          python3 -B testing/aheadscale/run.py --suite ${{ inputs.suite == 'email' && 'email' || 'auth' }} --output ci-results/auth
       - name: Сводка
         if: always()
         run: cat ci-results/auth/summary.md >> "$GITHUB_STEP_SUMMARY"

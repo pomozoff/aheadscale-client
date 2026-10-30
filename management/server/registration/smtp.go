@@ -4,9 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
-	"fmt"
-	"io"
-	"mime"
 	"net"
 	"net/mail"
 	"net/smtp"
@@ -18,12 +15,13 @@ import (
 
 type SMTPMailer struct {
 	Host, Port, Mode, Username, Password, From string
+	LinkTTL                                    time.Duration
 	tlsConfig                                  *tls.Config
 }
 
 // ConfigFromEnvironment does not accept passwords in environment variables.
 func ConfigFromEnvironment(issuer string) (Config, *SMTPMailer, error) {
-	c := Config{Issuer: issuer}
+	c := Config{Issuer: issuer, LinkTTL: 30 * time.Minute}
 	for _, v := range []struct {
 		name string
 		dst  *time.Duration
@@ -36,7 +34,7 @@ func ConfigFromEnvironment(issuer string) (Config, *SMTPMailer, error) {
 			*v.dst = d
 		}
 	}
-	m := &SMTPMailer{Host: os.Getenv("AS_SMTP_HOST"), Port: os.Getenv("AS_SMTP_PORT"), Mode: os.Getenv("AS_SMTP_TLS"), Username: os.Getenv("AS_SMTP_USERNAME"), From: os.Getenv("AS_SMTP_FROM")}
+	m := &SMTPMailer{Host: os.Getenv("AS_SMTP_HOST"), Port: os.Getenv("AS_SMTP_PORT"), Mode: os.Getenv("AS_SMTP_TLS"), Username: os.Getenv("AS_SMTP_USERNAME"), From: os.Getenv("AS_SMTP_FROM"), LinkTTL: c.LinkTTL}
 	if m.Port == "" {
 		m.Port = "587"
 	}
@@ -82,6 +80,10 @@ func (m *SMTPMailer) send(ctx context.Context, to, link string) error {
 	}
 	if m.Mode != "starttls" && m.Mode != "implicit" {
 		return ErrDelivery
+	}
+	message, err := buildVerificationMessage(from, to, link, m.LinkTTL)
+	if err != nil {
+		return err
 	}
 	conn, err := (&net.Dialer{Timeout: 5 * time.Second}).DialContext(ctx, "tcp", net.JoinHostPort(m.Host, m.Port))
 	if err != nil {
@@ -132,8 +134,7 @@ func (m *SMTPMailer) send(ctx context.Context, to, link string) error {
 	if err != nil {
 		return err
 	}
-	message := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nDate: %s\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nПодтвердите email для регистрации в Aheadscale:\r\n\r\n%s\r\n\r\nСсылка действует ограниченное время. Если вы не начинали регистрацию, не переходите по ней.\r\n", from.String(), to, mime.QEncoding.Encode("UTF-8", "Подтвердите email в Aheadscale"), time.Now().Format(time.RFC1123Z), link)
-	if _, err = io.WriteString(body, message); err != nil {
+	if _, err = body.Write(message); err != nil {
 		_ = body.Close()
 		return err
 	}
