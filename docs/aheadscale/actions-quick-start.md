@@ -2,7 +2,7 @@
 
 Все перечисленные jobs выполняются на GitHub-hosted runners. Рабочий сервер на Mac mini остаётся на месте; workflow не развёртывает собранные пакеты.
 
-Проверенная конфигурация опубликована в ветке `codex/hosted-ci` и перенесена в локальную `main`. Для запуска в GitHub выбирай `codex/hosted-ci` или новую рабочую ветку с этими изменениями. Удалённая `main` содержит отдельную upstream-историю NetBird; её не перезаписываем. Старая конфигурация в `aheadscale` этим изменением не заменяется.
+Проверенная конфигурация опубликована в ветке `codex/beta-linux-integration` и перенесена в локальную `main`. Для запуска в GitHub выбирай `codex/beta-linux-integration` или новую рабочую ветку с этими изменениями. Удалённая `main` содержит отдельную upstream-историю NetBird; её не перезаписываем. Старая конфигурация в `aheadscale` этим изменением не заменяется.
 
 ## Обычная работа
 
@@ -19,23 +19,30 @@
 | `ci-contract` | Короткие проверки запуска и выбора наборов; значение по умолчанию |
 | `unit` | Клиентские unit-тесты, DNS/служба, политика обновлений |
 | `packaging` | Регрессии упаковки и синтаксис сценариев без пересборки GUI |
+| `networkmanager` | Контроллер, поколения, Cancel/restart и настоящий протокол плагина в изолированном D-Bus |
+| `gtk-editors` | Настройки и фабрики GTK3/GTK4 |
+| `plasma` | Нативная сборка и проверки отдельного KDE-компонента выбранной Linux-архитектуры |
+| `plasma-input` | Только проверка происхождения ранее собранного KDE-компонента |
+| `policy` | SELinux policy в отдельном тестовом Fedora store |
 | `email` | Только пакет регистрации: MIME, шаблон, SMTP/TLS и срок ссылки |
 | `auth` | Подтверждение email, восстановление регистрации, изоляция аккаунтов и квоты |
 | `windows` | Проверка идентификатора адаптера на Windows |
-| `checks` | Все перечисленные продуктовые наборы без установщиков |
+| `checks` | Unit, упаковка, auth, Windows identity, NetworkManager и GTK без установщиков; KDE producer и policy запускаются отдельно |
 | `build` | Установщики выбранных платформ и применимые предварительные проверки |
 | `server` | Серверный бинарный файл и готовый контейнер Linux x64, проверка запуска без сети |
-| `full` | Все продуктовые наборы и установщики выбранных платформ; не заменяет приёмку на ВМ |
+| `full` | Наборы `checks` и установщики выбранных платформ; не заменяет отдельные producer/policy и приёмку на ВМ |
 
 `targets`: одна из `linux-amd64`, `linux-arm64`, `windows-amd64`, `windows-arm64`, `macos-arm64`; `all` — все пять. Старые группы `current` и `arm64` сохранены. По умолчанию выбрана только `linux-amd64`. macOS Intel не добавлена.
 
 Примеры для агента:
 
 ```bash
-gh workflow run aheadscale-client.yml --repo pomozoff/aheadscale-client --ref codex/hosted-ci -f suite=auth
-gh workflow run aheadscale-client.yml --repo pomozoff/aheadscale-client --ref codex/hosted-ci -f suite=build -f targets=linux-arm64
-gh workflow run aheadscale-client.yml --repo pomozoff/aheadscale-client --ref codex/hosted-ci -f suite=server
+gh workflow run aheadscale-client.yml --repo pomozoff/aheadscale-client --ref codex/beta-linux-integration -f suite=auth
+gh workflow run aheadscale-client.yml --repo pomozoff/aheadscale-client --ref codex/beta-linux-integration -f suite=build -f targets=linux-arm64 -f plasma_run_id=<успешный_ARM64_producer_run>
+gh workflow run aheadscale-client.yml --repo pomozoff/aheadscale-client --ref codex/beta-linux-integration -f suite=server
 ```
+
+Для Linux `build` и `plasma-input` нужен успешный `suite=plasma` с доступным артефактом нужной архитектуры: его номер задаётся в `plasma_run_id`. В составной матрице `all` укажи оба `plasma_amd64_run_id` и `plasma_arm64_run_id`; они имеют приоритет над общим полем. Workflow проверяет источник, архитектуру, SDK и закреплённый SHA256 компонента, а не доверяет одному номеру запуска. Проверенный компонент повторно не собирается без изменения исходников/SDK или истечения срока хранения.
 
 Отдельный workflow **Aheadscale Windows VPN prototype** запускается вручную для выбранной архитектуры; его сборка также не начинается при push. Он включает native VPN-компонент и объединённый установщик, которых нет в обычной сборке `build`.
 
