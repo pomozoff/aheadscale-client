@@ -4,6 +4,11 @@ on:
     branches: [main, aheadscale, 'codex/**']
     paths: ['packaging/aheadscale/downloads.py', 'testing/aheadscale/test_downloads.py', '.github/workflows/aheadscale-downloads.yml']
   workflow_dispatch:
+    inputs:
+      delivery_smoke:
+        description: Проверить реальную HTTPS-доставку закреплённого preview .33 (без записи в сервис)
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -21,3 +26,59 @@ jobs:
         env:
           RESULT: ${{ job.status }}
         run: echo "Каталог загрузок — $RESULT. Сборки клиентов и полная приёмка не запускались." >> "$GITHUB_STEP_SUMMARY"
+  https-delivery:
+    if: github.event_name == 'workflow_dispatch' && inputs.delivery_smoke
+    needs: catalog
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - name: Реальная доставка с независимого GitHub runner
+        run: |
+          python3 -B - <<'PY'
+          import hashlib, json, urllib.request, urllib.error, os
+          base = 'https://aheadscale.ru/downloads'
+          version = '0.80.0-aheadscale.33'
+          # SHA из уже проверенного локального экспорта, а не с проверяемого origin.
+          expected_manifest = '7f04c13e76bd6f53ee6848ffcea5197b63023f000c9e3dcfb7a39faea58e8944'
+          expected_beta = 'ed680548cc70d1ccd9258c8b4777594b62c3af0a2dfa528579db5f2c665e5496'
+          with urllib.request.urlopen(f'{base}/preview/{version}/manifest.json', timeout=30) as r:
+              raw = r.read()
+          assert hashlib.sha256(raw).hexdigest() == expected_manifest, 'Подмена манифеста'
+          manifest = json.loads(raw)
+          assert manifest['channel'] == 'preview' and manifest['releaseReady'] is False
+          assert len(manifest['packages']) == 8
+          total = 0
+          for p in manifest['packages']:
+              relative = f"linux-{p['architecture']}/{p['name']}"
+              assert p['url'] == f'{base}/preview/{version}/{relative}'
+              with urllib.request.urlopen(p['url'], timeout=90) as r:
+                  assert r.status == 200
+                  assert r.headers.get('X-Content-Type-Options') == 'nosniff'
+                  h, size = hashlib.sha256(), 0
+                  while block := r.read(1024 * 1024):
+                      h.update(block); size += len(block)
+              assert h.hexdigest() == p['sha256'] and size == p['size'], p['name']
+              total += size
+          with urllib.request.urlopen(base + '/beta/manifest.json', timeout=30) as r:
+              raw = r.read()
+          assert hashlib.sha256(raw).hexdigest() == expected_beta
+          beta = json.loads(raw)
+          assert beta['packages'] == [] and beta['releaseReady'] is False
+          for path, method, expected in [(f'/preview/{version}/missing.deb', 'GET', 404),
+                                         (f'/preview/{version}/', 'GET', 404),
+                                         ('/beta/manifest.json', 'POST', 405)]:
+              try:
+                  with urllib.request.urlopen(urllib.request.Request(base + path, method=method), timeout=30) as r:
+                      status = r.status
+              except urllib.error.HTTPError as error:
+                  status = error.code
+              assert status == expected, (path, status)
+          sums = urllib.request.urlopen(f'{base}/preview/{version}/SHA256SUMS', timeout=30).read().decode()
+          expected_sums = {f"{p['sha256']}  linux-{p['architecture']}/{p['name']}" for p in manifest['packages']}
+          assert set(sums.splitlines()) == expected_sums
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as out:
+              out.write(f'HTTPS: PASS — 8 пакетов, {total} байт, SHA256, закреплённый манифест, пустая бета, 404/405.\n')
+          PY
