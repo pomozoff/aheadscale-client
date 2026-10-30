@@ -19,6 +19,9 @@ const networkManagerRuntimeDirectory = "/run/NetworkManager/conf.d"
 
 // PrepareNetworkManagerInterface coordinates ownership before creating the interface.
 func PrepareNetworkManagerInterface(ifaceName string) (func() error, error) {
+	return PrepareNetworkManagerInterfaceForMode(ifaceName, false)
+}
+func PrepareNetworkManagerInterfaceForMode(ifaceName string, native bool) (func() error, error) {
 	running, err := networkManagerIsRunning()
 	if err != nil {
 		return nil, err
@@ -30,7 +33,7 @@ func PrepareNetworkManagerInterface(ifaceName string) (func() error, error) {
 	if err != nil {
 		return nil, fmt.Errorf("detect DNS owner before interface creation: %w", err)
 	}
-	release, _, err := networkManagerRuntimeRule(networkManagerRuntimeDirectory, ifaceName, manager != networkManager)
+	release, _, err := networkManagerRuntimeRule(networkManagerRuntimeDirectory, ifaceName, native || manager != networkManager)
 	if err != nil {
 		return nil, err
 	}

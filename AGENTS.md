@@ -10,6 +10,11 @@
 Выбирай затронутый набор и платформу; полную приёмку выполняй для релизного
 кандидата. Сначала читай Summary/JSON, подробные логи — только при ошибке.
 
+Для согласованного выпуска сначала завершать выбранный базовый функционал
+с целевыми регрессиями, затем выполнять короткий smoke затронутого блока.
+Документы не требуют продуктового регресса; исправления безопасности проверять
+сразу. Не расширять стенд вместо завершения релиза.
+
 **NetBird** is an open source connectivity platform: a WireGuard®-based overlay
 network with a control plane. The **agent** (`client/`) runs on user machines as
 a privileged daemon and manages the WireGuard interface, routing, firewall, and

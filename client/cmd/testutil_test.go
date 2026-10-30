@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"go.uber.org/mock/gomock"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel"
+	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc"
 
 	"github.com/netbirdio/netbird/management/server/integrations/integrated_validator/validator"
@@ -59,7 +59,7 @@ func startTestingServices(t *testing.T) string {
 
 func startSignal(t *testing.T) (*grpc.Server, net.Listener) {
 	t.Helper()
-	lis, err := net.Listen("tcp", ":0")
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +80,7 @@ func startSignal(t *testing.T) (*grpc.Server, net.Listener) {
 func startManagement(t *testing.T, config *config.Config, testFile string) (*grpc.Server, net.Listener) {
 	t.Helper()
 
-	lis, err := net.Listen("tcp", ":0")
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}

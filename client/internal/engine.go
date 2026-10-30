@@ -666,7 +666,7 @@ func (e *Engine) Start(netbirdConfig *mgmProto.NetbirdConfig, mgmtURL *url.URL) 
 		log.Errorf("failed to pull up wgInterface [%s]: %s", e.wgInterface.Name(), err.Error())
 		return fmt.Errorf("up wg interface: %w", err)
 	}
-	if err := dns.ConfigureNetworkManagerInterface(e.config.WgIfaceName); err != nil {
+	if err := dns.ConfigureNetworkManagerInterfaceForMode(e.config.WgIfaceName, dns.NativeNetworkManagerEnabled(e.ctx)); err != nil {
 		log.Warnf("configure NetworkManager interface visibility: %v", err)
 	}
 	e.wgDevice.Store(e.wgInterface.GetWGDevice())
@@ -2250,7 +2250,7 @@ func (e *Engine) newWgIface() (*iface.WGIface, error) {
 
 func (e *Engine) wgInterfaceCreate() (err error) {
 	if e.networkManagerCleanup == nil {
-		e.networkManagerCleanup, err = dns.PrepareNetworkManagerInterface(e.config.WgIfaceName)
+		e.networkManagerCleanup, err = dns.PrepareNetworkManagerInterfaceForMode(e.config.WgIfaceName, dns.NativeNetworkManagerEnabled(e.ctx))
 		if err != nil {
 			return err
 		}

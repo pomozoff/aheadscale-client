@@ -30,6 +30,10 @@ if [[ $platform == windows ]]; then extension=.exe; fi
 version=$(<packaging/aheadscale/version.txt)
 ldflags="-s -w -X github.com/netbirdio/netbird/version.version=$version -X github.com/netbirdio/netbird/client/internal/profilemanager.DefaultManagementURL=$origin -X github.com/netbirdio/netbird/client/internal/profilemanager.DefaultAdminURL=$origin -X github.com/netbirdio/netbird/client/internal/profilemanager.LockedServerOrigin=$origin"
 CGO_ENABLED=0 go build -trimpath -ldflags "$ldflags" -o "$out/aheadscale$extension" ./client
+if [[ $platform == linux ]]; then
+  CGO_ENABLED=0 go build -trimpath -ldflags "$ldflags" -o "$out/aheadscale-nm-controller" ./client/nmcontroller
+  packaging/aheadscale/networkmanager/build-components.sh "$out"
+fi
 export CGO_ENABLED=1
 export VITE_AHEADSCALE_MANAGEMENT_URL=$origin
 pushd client/ui >/dev/null

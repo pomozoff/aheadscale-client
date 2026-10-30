@@ -21,6 +21,10 @@ func TestLogin(t *testing.T) {
 		return
 	}
 
+	origDefaultConfigPath := profilemanager.DefaultConfigPath
+	origConfigOverride := profilemanager.ConfigDirOverride
+	profilemanager.DefaultConfigPath = tempDir + "/default.json"
+	profilemanager.ConfigDirOverride = tempDir
 	origDefaultProfileDir := profilemanager.DefaultConfigPathDir
 	origActiveProfileStatePath := profilemanager.ActiveProfileStatePath
 	profilemanager.DefaultConfigPathDir = tempDir
@@ -35,6 +39,8 @@ func TestLogin(t *testing.T) {
 	}
 
 	t.Cleanup(func() {
+		profilemanager.DefaultConfigPath = origDefaultConfigPath
+		profilemanager.ConfigDirOverride = origConfigOverride
 		profilemanager.DefaultConfigPathDir = origDefaultProfileDir
 		profilemanager.ActiveProfileStatePath = origActiveProfileStatePath
 	})

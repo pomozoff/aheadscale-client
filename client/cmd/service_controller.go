@@ -144,7 +144,7 @@ func (p *program) serve(daemonListener, jsonListener *socketListener) error {
 		return nil
 	}
 
-	serverInstance := server.New(p.ctx, util.FindFirstLogPath(logFiles), configPath, profilesDisabled, updateSettingsDisabled, captureEnabled, networksDisabled)
+	serverInstance := server.New(p.ctx, util.FindFirstLogPath(logFiles), configPath, profilesDisabled, updateSettingsDisabled, captureEnabled, networksDisabled, server.WithNativeNetworkManager(nativeNetworkManager))
 	if err := serverInstance.Start(); err != nil {
 		return fmt.Errorf("start daemon: %w", err)
 	}

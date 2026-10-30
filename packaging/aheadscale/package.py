@@ -43,11 +43,13 @@ def copy(source, target):
 
 if args.platform == 'linux':
     copy(binaries / 'aheadscale', staging / 'usr/bin/aheadscale')
+    staging.joinpath('usr/bin/aheadscale').chmod(0o755)
     cleanup = staging / 'usr/lib/aheadscale/cleanup-networkmanager'
     copy(scripts / 'cleanup-networkmanager', cleanup)
     cleanup.chmod(0o755)
     if not args.cli_only:
         copy(binaries / 'aheadscale-ui', staging / 'usr/bin/aheadscale-ui')
+        staging.joinpath('usr/bin/aheadscale-ui').chmod(0o755)
         copy(root / 'packaging/aheadscale/icon.png', staging / 'usr/share/icons/hicolor/512x512/apps/aheadscale.png')
         desktop = staging / 'usr/share/applications/org.wails.aheadscale.desktop'
         desktop.parent.mkdir(parents=True, exist_ok=True)
@@ -55,6 +57,8 @@ if args.platform == 'linux':
             '[Desktop Entry]\nType=Application\nName=Aheadscale\n'
             'Exec=/usr/bin/aheadscale-ui\nIcon=aheadscale\nTerminal=false\n'
             'Categories=Network;\nStartupWMClass=org.wails.aheadscale\n')
+    from networkmanager_package import stage_networkmanager, deb_hooks, normalize_directories
+    nm_manifest = stage_networkmanager(root, binaries, staging, args.cli_only, args.format or 'deb', args.channel, args.arch)
     copy(root / 'LICENSE', staging / 'usr/share/doc/aheadscale/LICENSE')
     copy(root / 'packaging/aheadscale/NOTICES.md', staging / 'usr/share/doc/aheadscale/NOTICES.md')
     if args.format == 'rpm':
@@ -63,17 +67,16 @@ if args.platform == 'linux':
     else:
         control = staging / 'DEBIAN'
         control.mkdir()
-        depends = 'iproute2, iptables'
+        depends = 'iproute2, iptables, python3'
         if not args.cli_only:
-            depends += ', libgtk-4-1 (>= 4.14), libwebkitgtk-6.0-4'
+            depends += ', libgtk-4-1 (>= 4.14), libwebkitgtk-6.0-4, network-manager, systemd-resolved, libnm0, libnma0, libnma-gtk4-0, libgtk-3-0t64 | libgtk-3-0'
         control.joinpath('control').write_text(
             f'Package: aheadscale\nVersion: {args.version.replace("-", "~", 1)}\n'
             f'Architecture: {args.arch}\nMaintainer: Aheadscale <hello@aheadscale.ru>\n'
             f'Depends: {depends}\nConflicts: aheadscale-cli\n'
             'Section: net\nPriority: optional\nDescription: Aheadscale private network client\n')
-        for source, target in [('postinst', 'postinst'), ('prerm', 'prerm')]:
-            copy(scripts / source, control / target)
-            control.joinpath(target).chmod(0o755)
+        deb_hooks(root, staging, nm_manifest)
+        normalize_directories(staging)
         # Installer is one package containing both UI and service; no second download.
         subprocess.run(['dpkg-deb', '--root-owner-group', '--build', str(staging), str(output / (name + '.deb'))], check=True)
         subprocess.run(['dpkg-deb', '--info', str(output / (name + '.deb'))], check=True)

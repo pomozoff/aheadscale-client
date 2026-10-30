@@ -1,6 +1,9 @@
 # Готовые проверенные бинарники не изменяются упаковщиком и не получают debug-пакет.
 %global debug_package %{nil}
 %global __strip /bin/true
+# Only the optional Plasma module is handled by its conditional Requires below.
+# Dependencies of the main UI, GTK editors and all other files stay automatic.
+%global __requires_exclude_from ^/usr/lib64/qt6/plugins/plasma/network/vpn/plasmanetworkmanagement_aheadscaleui[.]so$
 Name: @NAME@
 Version: @VERSION@
 Release: @RELEASE@
@@ -12,7 +15,10 @@ BuildRequires: systemd-rpm-macros
 %{?systemd_requires}
 Requires: iproute
 Requires: iptables-nft
+Requires: python3
+Requires(pre): python3
 @GUI_REQUIRES@
+@PLASMA_REQUIRES@
 Conflicts: @CONFLICT@
 
 %description
@@ -38,6 +44,7 @@ fi
 if [ -d "%{_rundir}/systemd/system" ]; then
 @RPM_LIFECYCLE@
     aheadscale_rpm_snapshot "%{_rundir}/aheadscale-rpm/transaction" || exit 1
+@NM_PREPARE@
 fi
 
 %post
@@ -47,9 +54,13 @@ fi
 if [ -d "%{_rundir}/systemd/system" ]; then
 @RPM_LIFECYCLE@
     aheadscale_rpm_restore "%{_rundir}/aheadscale-rpm/transaction" || exit 1
+@NM_APPLY@
 fi
 
 %preun
+if [ "$1" -eq 0 ]; then
+    /usr/lib/aheadscale/networkmanager-lifecycle remove || exit 1
+fi
 %systemd_preun aheadscale.service
 if [ "$1" -eq 0 ]; then
     /usr/lib/aheadscale/cleanup-networkmanager || :

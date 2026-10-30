@@ -12,7 +12,22 @@ on:
         type: choice
         required: true
         default: ci-contract
-        options: [ci-contract, unit, packaging, email, auth, windows, checks, build, server, full]
+        options: [ci-contract, unit, packaging, networkmanager, gtk-editors, plasma, plasma-input, policy, email, auth, windows, checks, build, server, full]
+      plasma_run_id:
+        description: Успешный KDE producer для выбранной единственной Linux-архитектуры
+        type: string
+        required: false
+        default: ''
+      plasma_amd64_run_id:
+        description: KDE producer amd64 для составной матрицы (приоритет над plasma_run_id)
+        type: string
+        required: false
+        default: ''
+      plasma_arm64_run_id:
+        description: KDE producer arm64 для составной матрицы (приоритет над plasma_run_id)
+        type: string
+        required: false
+        default: ''
       targets:
         description: Платформы сборки (macos-arm64 — только macOS ARM64)
         type: choice
@@ -178,13 +193,163 @@ jobs:
           go-version: '1.26.7'
       - name: Independent Windows adapter identity
         run: go test ./client/iface/device -run TestAheadscale -count=1
+  networkmanager-tests:
+    if: >-
+      (github.event_name == 'pull_request' && (needs.ci-contract.outputs.unit == 'true' || needs.ci-contract.outputs.packaging == 'true')) ||
+      (github.event_name == 'workflow_dispatch' && (contains(fromJSON('["checks","full","networkmanager"]'), inputs.suite) ||
+      (inputs.suite == 'build' && !startsWith(inputs.targets, 'windows-') && inputs.targets != 'macos-arm64')))
+    needs: ci-contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.7'
+      - name: Зависимость изолированных D-Bus тестов
+        run: sudo apt-get update -qq && sudo apt-get install -y dbus
+      - name: Поколения, Cancel, restart и контроллер
+        run: python3 -B testing/aheadscale/run.py --suite networkmanager --output ci-results/networkmanager
+      - name: Краткий результат
+        if: always()
+        run: cat ci-results/networkmanager/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Отчёт NetworkManager
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: test-results-networkmanager
+          path: ci-results/networkmanager/
+          retention-days: 7
+          if-no-files-found: error
+  gtk-editor-tests:
+    if: >-
+      (github.event_name == 'pull_request' && (needs.ci-contract.outputs.unit == 'true' || needs.ci-contract.outputs.packaging == 'true')) ||
+      (github.event_name == 'workflow_dispatch' && (contains(fromJSON('["checks","full","gtk-editors"]'), inputs.suite) ||
+      (inputs.suite == 'build' && !startsWith(inputs.targets, 'windows-') && inputs.targets != 'macos-arm64')))
+    needs: ci-contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - name: Зависимости настоящих C/GTK тестов
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends gcc pkg-config libnm-dev libnma-dev libnma-gtk4-dev libgtk-3-dev libgtk-4-dev meson ninja-build
+      - name: Модель редактора и одновременная загрузка upstream/Aheadscale factory
+        run: python3 -B testing/aheadscale/run.py --suite gtk-editors --output ci-results/gtk-editors
+      - name: Краткий результат
+        if: always()
+        run: cat ci-results/gtk-editors/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Отчёт GTK редакторов
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: test-results-gtk-editors
+          path: ci-results/gtk-editors/
+          retention-days: 7
+          if-no-files-found: error
+  plasma-tests:
+    if: github.event_name == 'workflow_dispatch' && inputs.suite == 'plasma'
+    needs: ci-contract
+    strategy:
+      fail-fast: false
+      matrix:
+        include: >-
+          ${{ fromJSON((inputs.targets == 'linux-arm64' || inputs.targets == 'arm64') &&
+          '[{"arch":"arm64","runner":"ubuntu-26.04-arm"}]' ||
+          '[{"arch":"amd64","runner":"ubuntu-26.04"}]') }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - name: Нативный Qt/KDE toolchain
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends cmake g++ pkg-config qt6-base-dev libkf6coreaddons-dev libkf6networkmanagerqt-dev libkf6widgetsaddons-dev libnm-dev plasma-nm
+      - name: KDE factory, настройки, браузерный SSO и уничтожение диалога
+        run: python3 -B testing/aheadscale/run.py --suite plasma --output ci-results/plasma
+      - name: Краткий результат
+        if: always()
+        run: test ! -f ci-results/plasma/summary.md || cat ci-results/plasma/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: test-results-plasma-${{ matrix.arch }}
+          path: ci-results/plasma/
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: plasma-component-${{ matrix.arch }}
+          path: ci-results/plasma-component/
+          if-no-files-found: error
+          retention-days: 7
+  plasma-input-tests:
+    if: github.event_name == 'workflow_dispatch' && inputs.suite == 'plasma-input'
+    needs: ci-contract
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: ${{ fromJSON((inputs.targets == 'linux-arm64' || inputs.targets == 'arm64') && '["arm64"]' || '["amd64"]') }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - name: Проверить выбранный KDE producer run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PLASMA_RUN_ID: ${{ matrix.arch == 'arm64' && (inputs.plasma_arm64_run_id || inputs.plasma_run_id) || inputs.plasma_amd64_run_id || inputs.plasma_run_id }}
+        run: |
+          python3 -c 'import os,re; assert re.fullmatch("[1-9][0-9]*",os.environ["PLASMA_RUN_ID"]), "Сначала нужен успешный suite=plasma и его run ID"'
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PLASMA_RUN_ID" > "$RUNNER_TEMP/plasma-run.json"
+          source_sha=$(python3 -B testing/aheadscale/plasma.py --run-metadata "$RUNNER_TEMP/plasma-run.json" --run-id "$PLASMA_RUN_ID")
+          printf 'AHEADSCALE_PLASMA_RUN_SOURCE=%s\nAHEADSCALE_PLASMA_RUN_ID=%s\n' "$source_sha" "$PLASMA_RUN_ID" >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ env.AHEADSCALE_PLASMA_RUN_ID }}
+          name: plasma-component-${{ matrix.arch }}
+          path: build/plasma-input/${{ matrix.arch }}
+      - name: Проверить KDE ELF, SHA256, SDK и ревизию producer
+        env:
+          AHEADSCALE_PLASMA_COMPONENT: ${{ github.workspace }}/build/plasma-input/${{ matrix.arch }}/plasmanetworkmanagement_aheadscaleui.so
+          AHEADSCALE_PLASMA_ARCH: ${{ matrix.arch }}
+        run: python3 -B testing/aheadscale/run.py --suite plasma-input --output ci-results/plasma-input
+      - name: Краткий результат
+        if: always()
+        run: test ! -f ci-results/plasma-input/summary.md || cat ci-results/plasma-input/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: test-results-plasma-input-${{ matrix.arch }}
+          path: ci-results/plasma-input/
+          if-no-files-found: error
+          retention-days: 7
+  policy-tests:
+    if: github.event_name == 'workflow_dispatch' && inputs.suite == 'policy'
+    needs: ci-contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - name: Настоящая policy и проверка отдельной копии Fedora store
+        run: python3 -B testing/aheadscale/run.py --suite policy --output ci-results/policy
+      - name: Краткий результат
+        if: always()
+        run: test ! -f ci-results/policy/summary.md || cat ci-results/policy/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: test-results-policy
+          path: ci-results/policy/
+          if-no-files-found: error
+          retention-days: 7
   build:
     if: >-
       always() && github.event_name == 'workflow_dispatch' &&
       contains(fromJSON('["build","full"]'), inputs.suite) &&
       needs.ci-contract.result == 'success' &&
       !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
-    needs: [ci-contract, unit, packaging-tests, windows-identity, auth]
+    needs: [ci-contract, unit, packaging-tests, windows-identity, auth, networkmanager-tests, gtk-editor-tests]
     strategy:
       fail-fast: false
       matrix:
@@ -203,10 +368,36 @@ jobs:
           {"platform":"darwin","arch":"arm64","runner":"macos-26"}]') }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
+    permissions:
+      contents: read
+      actions: read
     env:
       GOTOOLCHAIN: local
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - name: Проверить выбранный KDE producer run
+        if: matrix.platform == 'linux'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PLASMA_RUN_ID: ${{ matrix.arch == 'arm64' && (inputs.plasma_arm64_run_id || inputs.plasma_run_id) || inputs.plasma_amd64_run_id || inputs.plasma_run_id }}
+        run: |
+          python3 -c 'import os,re; assert re.fullmatch("[1-9][0-9]*",os.environ["PLASMA_RUN_ID"]), "Сначала нужен успешный suite=plasma и его run ID"'
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PLASMA_RUN_ID" > "$RUNNER_TEMP/plasma-run.json"
+          source_sha=$(python3 -B testing/aheadscale/plasma.py --run-metadata "$RUNNER_TEMP/plasma-run.json" --run-id "$PLASMA_RUN_ID")
+          printf 'AHEADSCALE_PLASMA_RUN_SOURCE=%s\nAHEADSCALE_PLASMA_RUN_ID=%s\n' "$source_sha" "$PLASMA_RUN_ID" >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        if: matrix.platform == 'linux'
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ env.AHEADSCALE_PLASMA_RUN_ID }}
+          name: plasma-component-${{ matrix.arch }}
+          path: build/plasma-input/${{ matrix.arch }}
+      - name: Проверить KDE ELF, SHA256, SDK и ревизию producer
+        if: matrix.platform == 'linux'
+        run: |
+          component="$PWD/build/plasma-input/${{ matrix.arch }}/plasmanetworkmanagement_aheadscaleui.so"
+          python3 -B testing/aheadscale/plasma.py --verify-component "$component" --provenance "${component%/*}/provenance.json" --arch '${{ matrix.arch }}' --expected-revision "$AHEADSCALE_PLASMA_RUN_SOURCE"
+          printf 'AHEADSCALE_PLASMA_COMPONENT=%s\n' "$component" >> "$GITHUB_ENV"
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
         with:
           go-version: '1.26.7'
@@ -221,13 +412,19 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev libsoup-3.0-dev
+          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev libsoup-3.0-dev libnm-dev libnma-dev libnma-gtk4-dev libgtk-3-dev meson ninja-build
           if [[ '${{ matrix.platform }}' == windows ]]; then
             sudo apt-get install -y nsis p7zip-full
             if [[ '${{ matrix.arch }}' == amd64 ]]; then
               sudo apt-get install -y gcc-mingw-w64-x86-64
             fi
           fi
+      - name: SELinux policy Linux из закреплённого upstream
+        if: matrix.platform == 'linux'
+        run: |
+          packaging/aheadscale/networkmanager/build-policy.sh "$PWD/build/networkmanager-policy/nm_aheadscale.pp"
+          printf 'AHEADSCALE_SELINUX_POLICY=%s\n' "$PWD/build/networkmanager-policy/nm_aheadscale.pp" >> "$GITHUB_ENV"
+          printf 'AHEADSCALE_SOURCE_REVISION=%s\n' "$GITHUB_SHA" >> "$GITHUB_ENV"
       - name: Windows native dependencies
         if: matrix.platform == 'windows'
         shell: bash
@@ -316,6 +513,23 @@ jobs:
       - name: Linux preview installation and removal
         if: matrix.platform == 'linux'
         run: |
+          # Hosted image makes /usr/share directories world-writable. Preserve
+          # the installer's production checks; harden only this disposable VM.
+          sudo python3 - <<'PYHOST'
+          import importlib.machinery, os, pathlib, stat
+          m = importlib.machinery.SourceFileLoader('nm_lifecycle', 'packaging/aheadscale/scripts/networkmanager-lifecycle').load_module()
+          paths = set()
+          for name in m.OWNED | {m.PRIVATE, m.STATE, m.HANDOVER, m.TRANSACTION}:
+              paths.update(pathlib.Path(name).parents)
+          for path in sorted(paths):
+              if not path.exists(): continue
+              info = path.lstat()
+              if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0:
+                  raise SystemExit('Unexpected runner system directory: ' + str(path))
+              if info.st_mode & 0o022:
+                  print('Harden disposable runner directory:', path)
+                  path.chmod(stat.S_IMODE(info.st_mode) & ~0o022)
+          PYHOST
           sudo apt-get install -y ./dist/aheadscale_*_linux_${{ matrix.arch }}_internal.deb
           sudo systemctl is-active --quiet aheadscale
           aheadscale status

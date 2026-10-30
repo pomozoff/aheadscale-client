@@ -217,3 +217,20 @@ func parseNsswitchResolveAhead(data []byte) bool {
 	}
 	return false
 }
+
+func nativeDNSManager(resolved, nss, stub bool) (osManagerType, error) {
+	if !resolved || (!nss && !stub) {
+		return netbirdManager, fmt.Errorf("системный VPN Aheadscale требует systemd-resolved, используемый системой для DNS")
+	}
+	return systemdManager, nil
+}
+func newHostManagerForMode(wgInterface string, native bool) (hostManager, error) {
+	if !native {
+		return newHostManager(wgInterface)
+	}
+	manager, err := nativeDNSManager(isSystemdResolvedRunning(), isLibnssResolveUsed(), checkStub())
+	if err != nil {
+		return nil, err
+	}
+	return newHostManagerFromType(wgInterface, manager)
+}

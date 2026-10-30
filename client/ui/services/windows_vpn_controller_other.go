@@ -1,4 +1,4 @@
-//go:build (!windows || !windowsvpnprototype) && !android && !ios && !freebsd && !js
+//go:build !linux && (!windows || !windowsvpnprototype) && !android && !ios && !freebsd && !js
 
 package services
 

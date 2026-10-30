@@ -123,6 +123,9 @@ func upFunc(cmd *cobra.Command, args []string) error {
 		ctx = context.WithValue(ctx, system.DeviceNameCtxKey, hostName)
 	}
 
+	if handled, err := nativeDesktopCommand(cmd, true); handled {
+		return err
+	}
 	pm := profilemanager.NewProfileManager()
 
 	username, err := profilemanager.InvokingUser()

@@ -12,3 +12,10 @@ func PrepareNetworkManagerInterface(string) (func() error, error) {
 
 // ConfigureNetworkManagerInterface has no NetworkManager integration on this platform.
 func ConfigureNetworkManagerInterface(string) error { return nil }
+
+func PrepareNetworkManagerInterfaceForMode(name string, _ bool) (func() error, error) {
+	return PrepareNetworkManagerInterface(name)
+}
+func ConfigureNetworkManagerInterfaceForMode(name string, _ bool) error {
+	return ConfigureNetworkManagerInterface(name)
+}

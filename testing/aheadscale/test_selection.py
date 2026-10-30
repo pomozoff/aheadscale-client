@@ -46,6 +46,11 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(select_checks("workflow_dispatch", "email", "all", []),
                          dict(unit=False, packaging=False, auth=True, windows=False))
 
+    def test_native_manual_suites_do_not_start_unrelated_checks(self):
+        for suite in ("networkmanager", "gtk-editors", "plasma", "plasma-input", "policy"):
+            with self.subTest(suite=suite):
+                self.assertFalse(any(select_checks("workflow_dispatch", suite, "linux-arm64", []).values()))
+
     def test_invalid_manual_input_fails_closed(self):
         with self.assertRaises(ValueError):
             select_checks("workflow_dispatch", "typo", "all", [])
