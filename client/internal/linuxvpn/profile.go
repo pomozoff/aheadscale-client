@@ -71,3 +71,33 @@ func validateProfile(settings connectionSettings, id string) error {
 	}
 	return nil
 }
+
+// godbus.Store unwraps tuple arrays inside variants into slices of interface{}.
+// Restore the concrete legacy IPv6 types before sending settings back to NM;
+// otherwise even empty address/route lists acquire the invalid signature aav.
+func normalizeIPv6TupleVariants(settings connectionSettings) error {
+	if value, ok := settings["ipv6"]["addresses"]; ok {
+		var addresses []struct {
+			Address []byte
+			Prefix  uint32
+			Gateway []byte
+		}
+		if err := value.Store(&addresses); err != nil {
+			return fmt.Errorf("не удалось сохранить IPv6-адреса профиля: %w", err)
+		}
+		settings["ipv6"]["addresses"] = dbus.MakeVariant(addresses)
+	}
+	if value, ok := settings["ipv6"]["routes"]; ok {
+		var routes []struct {
+			Destination []byte
+			Prefix      uint32
+			Gateway     []byte
+			Metric      uint32
+		}
+		if err := value.Store(&routes); err != nil {
+			return fmt.Errorf("не удалось сохранить IPv6-маршруты профиля: %w", err)
+		}
+		settings["ipv6"]["routes"] = dbus.MakeVariant(routes)
+	}
+	return nil
+}

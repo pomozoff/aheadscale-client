@@ -176,6 +176,9 @@ func (m *Manager) EnsureProfile(ctx context.Context) error {
 		// including an explicitly chosen nonzero timeout and the display name.
 		value, present := settings["vpn"]["timeout"]
 		if !present || value.Value() == uint32(0) {
+			if err := normalizeIPv6TupleVariants(settings); err != nil {
+				return err
+			}
 			settings["vpn"]["timeout"] = dbus.MakeVariant(vpnActivationTimeoutSeconds)
 			return conn.Object(owner, path).CallWithContext(ctx, nmDest+".Settings.Connection.Update", 0, settings).Err
 		}
