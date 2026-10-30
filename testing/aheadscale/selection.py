@@ -25,7 +25,8 @@ def select_checks(event, suite, targets, paths):
             selected.update(("unit", "packaging"))
             if targets.startswith("windows-") or targets in ("current", "all", "arm64"):
                 selected.add("windows")
-        elif suite not in ("ci-contract", "server"):
+        elif suite not in ("ci-contract", "server", "networkmanager", "gtk-editors",
+                           "plasma", "plasma-input", "policy"):
             raise ValueError("Неизвестный набор: " + suite)
     elif event == "pull_request":
         for path in paths:
