@@ -30,7 +30,11 @@
     login.value = result.email; form.action = next.href; form.method = 'post'; form.submit();
    } else {
     password.value = ''; form.hidden = true;
-    status.textContent = 'Account created. Return to the Aheadscale app and sign in to connect.';
+    document.querySelector('main').classList.add('as-registration-complete');
+    document.getElementById('as-success').hidden = false;
+    document.getElementById('as-heading').textContent = 'Registration Successful';
+    document.title = 'Registration successful — Aheadscale';
+    status.textContent = 'Your account has been successfully created. Return to the Aheadscale app and sign in to connect.';
    }
   } catch (problem) { error.textContent = problem.message || 'Please try again.'; error.hidden = false; pending = false; finish.disabled = false; }
  };

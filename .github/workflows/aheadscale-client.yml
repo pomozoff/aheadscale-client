@@ -74,7 +74,7 @@ jobs:
       - name: Собрать только сервер с проверенной регистрацией
         run: |
           mkdir -p "$RUNNER_TEMP/aheadscale-server"
-          go build -trimpath -ldflags '-s -w -X github.com/netbirdio/netbird/version.version=0.80.0-aheadscale.email.2' -o "$RUNNER_TEMP/aheadscale-server/aheadscale-server" ./combined
+          go build -trimpath -ldflags '-s -w -X github.com/netbirdio/netbird/version.version=0.80.0-aheadscale.email.3' -o "$RUNNER_TEMP/aheadscale-server/aheadscale-server" ./combined
           "$RUNNER_TEMP/aheadscale-server/aheadscale-server" --help > /dev/null
           go version -m "$RUNNER_TEMP/aheadscale-server/aheadscale-server" > "$RUNNER_TEMP/aheadscale-server/build-info.txt"
           git rev-parse HEAD > "$RUNNER_TEMP/aheadscale-server/source.txt"
