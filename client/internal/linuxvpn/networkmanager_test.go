@@ -9,6 +9,7 @@ import (
 	"github.com/godbus/dbus/v5"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"sync"
 	"testing"
 )
@@ -21,6 +22,7 @@ type fixtureNM struct {
 	active   bool
 	state    uint32
 	calls    []string
+	wireIPv6 map[string]dbus.Variant
 }
 
 func (f *fixtureNM) GetConnectionByUuid(id string) (dbus.ObjectPath, *dbus.Error) {
@@ -96,13 +98,24 @@ func TestManagerCommandsUseOwnedNMProfile(t *testing.T) {
 	}
 	address := scanner.Text()
 	t.Setenv("DBUS_SYSTEM_BUS_ADDRESS", address)
-	conn, err := dbus.Connect(address)
+	id := "aabbccdd-1111-4222-8333-001122334455"
+	f := &fixtureNM{missing: true, settings: profileSettings(id, "https://aheadscale.ru", "https://aheadscale.ru")}
+	conn, err := dbus.Connect(address, dbus.WithIncomingInterceptor(func(message *dbus.Message) {
+		if message.Headers[dbus.FieldMember].Value() != "Update" || len(message.Body) != 1 {
+			return
+		}
+		settings, ok := message.Body[0].(map[string]map[string]dbus.Variant)
+		if !ok {
+			return
+		}
+		f.mu.Lock()
+		f.wireIPv6 = settings["ipv6"]
+		f.mu.Unlock()
+	}))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer conn.Close()
-	id := "aabbccdd-1111-4222-8333-001122334455"
-	f := &fixtureNM{missing: true, settings: profileSettings(id, "https://aheadscale.ru", "https://aheadscale.ru")}
 	for _, export := range []struct {
 		path  dbus.ObjectPath
 		iface string
@@ -118,9 +131,26 @@ func TestManagerCommandsUseOwnedNMProfile(t *testing.T) {
 	if err = m.EnsureProfile(context.Background()); err != nil {
 		t.Fatal(err)
 	}
+	// NetworkManager returns legacy IPv6 tuple arrays even for disabled IPv6.
+	// Observe the real wire message before godbus converts exported arguments.
+	type ipv6Address struct {
+		Address []byte
+		Prefix uint32
+		Gateway []byte
+	}
+	type ipv6Route struct {
+		Destination []byte
+		Prefix uint32
+		Gateway []byte
+		Metric uint32
+	}
+	addresses := []ipv6Address{{Address: []byte{0xfd, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}, Prefix: 64, Gateway: make([]byte, 16)}}
+	routes := []ipv6Route{{Destination: make([]byte, 16), Prefix: 0, Gateway: []byte{0xfd, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2}, Metric: 7}}
 	// Upgrade a pre-timeout profile without changing its UUID or user label.
 	f.mu.Lock()
 	f.settings["vpn"]["timeout"] = dbus.MakeVariant(uint32(0))
+	f.settings["ipv6"]["addresses"] = dbus.MakeVariant(addresses)
+	f.settings["ipv6"]["routes"] = dbus.MakeVariant(routes)
 	f.settings["connection"]["id"] = dbus.MakeVariant("My Aheadscale")
 	f.mu.Unlock()
 	if err = m.EnsureProfile(context.Background()); err != nil {
@@ -129,7 +159,22 @@ func TestManagerCommandsUseOwnedNMProfile(t *testing.T) {
 	f.mu.Lock()
 	gotTimeout := f.settings["vpn"]["timeout"].Value()
 	gotName := f.settings["connection"]["id"].Value()
+	wireAddresses, wireRoutes := f.wireIPv6["addresses"], f.wireIPv6["routes"]
 	f.mu.Unlock()
+	if wireAddresses.Signature().String() != "a(ayuay)" || wireRoutes.Signature().String() != "a(ayuayu)" {
+		t.Fatalf("IPv6 wire types corrupted during timeout migration: addresses=%s routes=%s", wireAddresses.Signature(), wireRoutes.Signature())
+	}
+	var gotAddresses []ipv6Address
+	var gotRoutes []ipv6Route
+	if err := wireAddresses.Store(&gotAddresses); err != nil {
+		t.Fatal(err)
+	}
+	if err := wireRoutes.Store(&gotRoutes); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(gotAddresses, addresses) || !reflect.DeepEqual(gotRoutes, routes) {
+		t.Fatal("IPv6 values changed during timeout migration")
+	}
 	if gotTimeout != uint32(720) || gotName != "My Aheadscale" {
 		t.Fatalf("legacy profile was not safely upgraded: timeout=%v name=%v", gotTimeout, gotName)
 	}
