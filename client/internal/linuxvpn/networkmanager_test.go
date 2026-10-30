@@ -110,8 +110,20 @@ func TestManagerCommandsUseOwnedNMProfile(t *testing.T) {
 	if err = m.EnsureProfile(context.Background()); err != nil {
 		t.Fatal(err)
 	}
+	// Upgrade a pre-timeout profile without changing its UUID or user label.
+	f.mu.Lock()
+	f.settings["vpn"]["timeout"] = dbus.MakeVariant(uint32(0))
+	f.settings["connection"]["id"] = dbus.MakeVariant("My Aheadscale")
+	f.mu.Unlock()
 	if err = m.EnsureProfile(context.Background()); err != nil {
 		t.Fatal(err)
+	}
+	f.mu.Lock()
+	gotTimeout := f.settings["vpn"]["timeout"].Value()
+	gotName := f.settings["connection"]["id"].Value()
+	f.mu.Unlock()
+	if gotTimeout != uint32(720) || gotName != "My Aheadscale" {
+		t.Fatalf("legacy profile was not safely upgraded: timeout=%v name=%v", gotTimeout, gotName)
 	}
 	// A delayed plugin Begin must not turn a user-cancelled NM session ON.
 	f.mu.Lock()
@@ -200,5 +212,12 @@ func (f *fixtureNM) Delete() *dbus.Error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.missing = true
+	return nil
+}
+
+func (f *fixtureNM) Update(settings connectionSettings) *dbus.Error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.settings = settings
 	return nil
 }
