@@ -135,7 +135,7 @@ func TestManagerCommandsUseOwnedNMProfile(t *testing.T) {
 	// Observe the real wire message before godbus converts exported arguments.
 	type ipv6Address struct {
 		Address []byte
-		Prefix uint32
+		Prefix  uint32
 		Gateway []byte
 	}
 	type ipv6Route struct {
@@ -149,8 +149,11 @@ func TestManagerCommandsUseOwnedNMProfile(t *testing.T) {
 	// Upgrade a pre-timeout profile without changing its UUID or user label.
 	f.mu.Lock()
 	f.settings["vpn"]["timeout"] = dbus.MakeVariant(uint32(0))
-	f.settings["ipv6"]["addresses"] = dbus.MakeVariant(addresses)
-	f.settings["ipv6"]["routes"] = dbus.MakeVariant(routes)
+	f.settings["ipv6"] = map[string]dbus.Variant{
+		"method": dbus.MakeVariant("manual"),
+		"addresses": dbus.MakeVariant(addresses),
+		"routes": dbus.MakeVariant(routes),
+	}
 	f.settings["connection"]["id"] = dbus.MakeVariant("My Aheadscale")
 	f.mu.Unlock()
 	if err = m.EnsureProfile(context.Background()); err != nil {
