@@ -1,0 +1,23 @@
+name: Aheadscale download catalog
+on:
+  push:
+    branches: ['codex/downloads-preview']
+    paths: ['packaging/aheadscale/downloads.py', 'testing/aheadscale/test_downloads.py', '.github/workflows/aheadscale-downloads.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  catalog:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - name: Целевые проверки каталога загрузок
+        run: python3 -B -m unittest discover -s testing/aheadscale -p test_downloads.py -v
+      - name: Сводка
+        if: always()
+        env:
+          RESULT: ${{ job.status }}
+        run: echo "Каталог загрузок — $RESULT. Сборки клиентов и полная приёмка не запускались." >> "$GITHUB_STEP_SUMMARY"
