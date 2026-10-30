@@ -6,6 +6,13 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"html"
+	"io"
+	"mime"
+	"mime/multipart"
+	"net/mail"
+	"os"
+	"path/filepath"
 	"net"
 	"net/http/httptest"
 	"net/textproto"
@@ -14,7 +21,8 @@ import (
 	"time"
 )
 
-func TestSMTPDeliveryUsesTLSAndContainsOnlyVerificationLink(t *testing.T) {
+func captureSMTPVerification(t *testing.T, m *SMTPMailer, link string) string {
+	t.Helper()
 	// httptest provides a real test certificate; the SMTP protocol below uses it.
 	certServer := httptest.NewTLSServer(nil)
 	cert := certServer.TLS.Certificates[0]
@@ -73,19 +81,105 @@ func TestSMTPDeliveryUsesTLSAndContainsOnlyVerificationLink(t *testing.T) {
 	roots := x509.NewCertPool()
 	roots.AddCert(root)
 	_, port, _ := net.SplitHostPort(listener.Addr().String())
-	m := &SMTPMailer{Host: "127.0.0.1", Port: port, Mode: "implicit", Username: "ci", Password: "smtp-only-secret", From: "Aheadscale <noreply@aheadscale.ru>", tlsConfig: &tls.Config{RootCAs: roots}}
-	if err = m.Send(context.Background(), "owner@example.test", "https://aheadscale.ru/oauth2/verify-email#one-time-link"); err != nil {
+	m.Host, m.Port, m.Mode = "127.0.0.1", port, "implicit"
+	m.tlsConfig = &tls.Config{RootCAs: roots}
+	if err = m.Send(context.Background(), "owner@example.test", link); err != nil {
 		t.Fatal(err)
 	}
 	select {
 	case body := <-messages:
-		if !strings.Contains(body, "https://aheadscale.ru/oauth2/verify-email#one-time-link") || strings.Contains(body, "smtp-only-secret") || !strings.Contains(body, "From: ") {
-			t.Fatal("incorrect verification email")
-		}
+		return body
 	case err := <-failures:
 		t.Fatal(err)
 	case <-time.After(5 * time.Second):
 		t.Fatal("SMTP message not received")
+	}
+	return ""
+}
+
+func verificationParts(t *testing.T, raw string) map[string]string {
+	t.Helper()
+	message, err := mail.ReadMessage(strings.NewReader(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	kind, params, err := mime.ParseMediaType(message.Header.Get("Content-Type"))
+	if err != nil || kind != "multipart/alternative" {
+		t.Fatalf("expected text and HTML alternatives, got %q", kind)
+	}
+	subject, err := new(mime.WordDecoder).DecodeHeader(message.Header.Get("Subject"))
+	if err != nil || subject != "Подтвердите email — Aheadscale" {
+		t.Fatal("incorrect UTF-8 subject")
+	}
+	parts := make(map[string]string)
+	reader := multipart.NewReader(message.Body, params["boundary"])
+	order := []string{}
+	for {
+		part, err := reader.NextPart()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		kind, params, err := mime.ParseMediaType(part.Header.Get("Content-Type"))
+		if err != nil || !strings.EqualFold(params["charset"], "UTF-8") {
+			t.Fatal("missing UTF-8 MIME part")
+		}
+		body, err := io.ReadAll(part)
+		if err != nil {
+			t.Fatal(err)
+		}
+		parts[kind] = string(body)
+		order = append(order, kind)
+	}
+	if strings.Join(order, ",") != "text/plain,text/html" {
+		t.Fatal("incorrect alternative order")
+	}
+	return parts
+}
+
+func TestSMTPDeliveryUsesTLSAndContainsOnlyVerificationLink(t *testing.T) {
+	link := "https://aheadscale.ru/oauth2/verify-email?source=signup&lang=ru#one-time-link"
+	m := &SMTPMailer{Username: "ci", Password: "smtp-only-secret", From: "Aheadscale <noreply@aheadscale.ru>"}
+	raw := captureSMTPVerification(t, m, link)
+	parts := verificationParts(t, raw)
+	for kind, body := range parts {
+		if !strings.Contains(html.UnescapeString(body), link) || !strings.Contains(body, "30 минут") || strings.Contains(body, "smtp-only-secret") {
+			t.Fatalf("incorrect content in %s", kind)
+		}
+		if strings.Contains(body, "you@example.com") || strings.Contains(body, "#preview") {
+			t.Fatal("preview values leaked into registration mail")
+		}
+	}
+	body := parts["text/html"]
+	if !strings.Contains(body, "Подтвердить email") || !strings.Contains(body, "aheadscale-logo-v1.png") || !strings.Contains(body, "source=signup&amp;lang=ru") {
+		t.Fatal("missing branded HTML or escaped verification link")
+	}
+	if strings.Count(html.UnescapeString(body), link) != 3 {
+		t.Fatal("button, fallback href and fallback text must use the same link")
+	}
+}
+
+func TestSMTPRegistrationLifetimeFromEnvironment(t *testing.T) {
+	secret := filepath.Join(t.TempDir(), "smtp-password")
+	if err := os.WriteFile(secret, []byte("smtp-only-secret"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("AS_SMTP_HOST", "127.0.0.1")
+	t.Setenv("AS_SMTP_USERNAME", "ci")
+	t.Setenv("AS_SMTP_FROM", "Aheadscale <noreply@aheadscale.ru>")
+	t.Setenv("AS_SMTP_PASSWORD_FILE", secret)
+	t.Setenv("AS_REGISTRATION_LINK_TTL", "90m")
+	config, m, err := ConfigFromEnvironment("https://aheadscale.ru/oauth2")
+	if err != nil || config.LinkTTL != 90*time.Minute {
+		t.Fatal("incorrect registration configuration")
+	}
+	parts := verificationParts(t, captureSMTPVerification(t, m, "https://aheadscale.ru/oauth2/verify-email#one-time-link"))
+	for kind, body := range parts {
+		if !strings.Contains(body, "90 минут") {
+			t.Fatalf("configured lifetime missing in %s", kind)
+		}
 	}
 }
 

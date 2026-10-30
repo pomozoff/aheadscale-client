@@ -42,6 +42,10 @@ class SelectionTests(unittest.TestCase):
         self.assertTrue(select_checks("workflow_dispatch", "build", "windows-arm64", [])["windows"])
         self.assertTrue(all(select_checks("workflow_dispatch", "full", "all", []).values()))
 
+    def test_email_selects_only_registration_job(self):
+        self.assertEqual(select_checks("workflow_dispatch", "email", "all", []),
+                         dict(unit=False, packaging=False, auth=True, windows=False))
+
     def test_invalid_manual_input_fails_closed(self):
         with self.assertRaises(ValueError):
             select_checks("workflow_dispatch", "typo", "all", [])

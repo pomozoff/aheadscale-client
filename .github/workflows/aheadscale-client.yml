@@ -12,7 +12,7 @@ on:
         type: choice
         required: true
         default: ci-contract
-        options: [ci-contract, unit, packaging, auth, windows, checks, build, server, full]
+        options: [ci-contract, unit, packaging, email, auth, windows, checks, build, server, full]
       targets:
         description: Платформы сборки (macos-arm64 — только macOS ARM64)
         type: choice
@@ -108,7 +108,7 @@ jobs:
         with:
           go-version: '1.26.7'
       - name: Выбранные проверки auth
-        run: python3 -B testing/aheadscale/run.py --suite auth --output ci-results/auth
+        run: python3 -B testing/aheadscale/run.py --suite ${{ inputs.suite == 'email' && 'email' || 'auth' }} --output ci-results/auth
       - name: Сводка
         if: always()
         run: cat ci-results/auth/summary.md >> "$GITHUB_STEP_SUMMARY"

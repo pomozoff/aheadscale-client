@@ -15,6 +15,8 @@ def select_checks(event, suite, targets, paths):
     if event == "workflow_dispatch":
         if suite in CHECKS:
             selected.add(suite)
+        elif suite == "email":
+            selected.add("auth")
         elif suite in ("checks", "full"):
             selected.update(CHECKS)
         elif suite == "build":

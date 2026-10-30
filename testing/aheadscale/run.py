@@ -14,7 +14,7 @@ import time
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
-SUITES = ("ci-contract", "unit", "packaging", "networkmanager", "auth", "gtk-editors", "plasma", "plasma-input", "policy")
+SUITES = ("ci-contract", "unit", "packaging", "networkmanager", "email", "auth", "gtk-editors", "plasma", "plasma-input", "policy")
 
 
 @dataclass
@@ -52,6 +52,8 @@ def suite_checks(suite):
         return [Check("plasma-factory-and-dialog", [sys.executable, "-B", "testing/aheadscale/plasma.py", "--output", "ci-results/plasma-component"], 600)]
     if suite == "gtk-editors":
         return [Check("gtk-model-and-factories", [sys.executable, "-B", "testing/aheadscale/editors.py"], 300)]
+    if suite == "email":
+        return [Check("registration-email-proof", go + ["-race", "./management/server/registration"], 900)]
     if suite == "auth":
         return [Check("registration-email-proof", go + ["-race", "./management/server/registration"], 900),
                 Check("registration-idp-recovery", go + ["-race", "./idp/dex", "-run", "^TestVerifiedRegistration"], 600),
