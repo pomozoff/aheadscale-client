@@ -12,9 +12,10 @@ import (
 	"github.com/google/uuid"
 )
 
+// The plugin allows 10 minutes for SSO plus time for engine activation.
+const vpnActivationTimeoutSeconds uint32 = 720
+
 const (
-	// The plugin allows 10 minutes for SSO plus time for engine activation.
-	vpnActivationTimeoutSeconds uint32 = 720
 	ServiceType       = "org.freedesktop.NetworkManager.aheadscale"
 	ReceiptPath       = "/var/lib/aheadscale/networkmanager-install.json"
 	PublicReceiptPath = "/etc/aheadscale-desktop/networkmanager-profile.json"
