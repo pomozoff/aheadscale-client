@@ -42,22 +42,26 @@ func getOwner(ctx context.Context, conn *dbus.Conn) (string, error) {
 	return owner, err
 }
 func (m *Manager) profile(ctx context.Context, conn *dbus.Conn, owner string) (dbus.ObjectPath, error) {
+	path, _, err := m.profileSnapshot(ctx, conn, owner)
+	return path, err
+}
+func (m *Manager) profileSnapshot(ctx context.Context, conn *dbus.Conn, owner string) (dbus.ObjectPath, connectionSettings, error) {
 	var path dbus.ObjectPath
 	if err := conn.Object(owner, settingsPath).CallWithContext(ctx, nmDest+".Settings.GetConnectionByUuid", 0, m.receipt.UUID).Store(&path); err != nil {
-		return "", fmt.Errorf("постоянный профиль Aheadscale недоступен: %w", err)
+		return "", nil, fmt.Errorf("постоянный профиль Aheadscale недоступен: %w", err)
 	}
 	var settings connectionSettings
 	if err := conn.Object(owner, path).CallWithContext(ctx, nmDest+".Settings.Connection.GetSettings", 0).Store(&settings); err != nil {
-		return "", err
+		return "", nil, err
 	}
 	if err := validateProfile(settings, m.receipt.UUID); err != nil {
-		return "", err
+		return "", nil, err
 	}
 	data, ok := settings["vpn"]["data"].Value().(map[string]string)
 	if !ok || data["management-url"] != m.receipt.ManagementURL || data["admin-url"] != m.receipt.AdminURL || data["interface-name"] != "Aheadscale" {
-		return "", fmt.Errorf("параметры собственного профиля Aheadscale изменены")
+		return "", nil, fmt.Errorf("параметры собственного профиля Aheadscale изменены")
 	}
-	return path, nil
+	return path, settings, nil
 }
 func (m *Manager) active(ctx context.Context, conn *dbus.Conn, owner string) (dbus.ObjectPath, uint32, error) {
 	properties, err := getAll(ctx, conn, owner, nmPath, nmDest)
@@ -166,14 +170,21 @@ func (m *Manager) EnsureProfile(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if _, err = m.profile(ctx, conn, owner); err == nil {
+	path, settings, err := m.profileSnapshot(ctx, conn, owner)
+	if err == nil {
+		// Upgrade only the legacy/default timeout. Preserve user settings,
+		// including an explicitly chosen nonzero timeout and the display name.
+		value, present := settings["vpn"]["timeout"]
+		if !present || value.Value() == uint32(0) {
+			settings["vpn"]["timeout"] = dbus.MakeVariant(vpnActivationTimeoutSeconds)
+			return conn.Object(owner, path).CallWithContext(ctx, nmDest+".Settings.Connection.Update", 0, settings).Err
+		}
 		return nil
 	}
 	var notFound dbus.Error
 	if !errors.As(err, &notFound) || notFound.Name != nmDest+".Settings.InvalidConnection" {
 		return err
 	}
-	var path dbus.ObjectPath
 	if err = conn.Object(owner, settingsPath).CallWithContext(ctx, nmDest+".Settings.AddConnection", 0, profileSettings(m.receipt.UUID, m.receipt.ManagementURL, m.receipt.AdminURL)).Store(&path); err != nil {
 		return err
 	}

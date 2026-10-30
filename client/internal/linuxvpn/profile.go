@@ -13,6 +13,8 @@ import (
 )
 
 const (
+	// The plugin allows 10 minutes for SSO plus time for engine activation.
+	vpnActivationTimeoutSeconds uint32 = 720
 	ServiceType       = "org.freedesktop.NetworkManager.aheadscale"
 	ReceiptPath       = "/var/lib/aheadscale/networkmanager-install.json"
 	PublicReceiptPath = "/etc/aheadscale-desktop/networkmanager-profile.json"
@@ -56,7 +58,7 @@ func loadReceipt(path string) (Receipt, error) {
 func profileSettings(id, managementURL, adminURL string) connectionSettings {
 	return connectionSettings{
 		"connection": {"id": dbus.MakeVariant("Aheadscale"), "uuid": dbus.MakeVariant(id), "type": dbus.MakeVariant("vpn"), "autoconnect": dbus.MakeVariant(false)},
-		"vpn":        {"service-type": dbus.MakeVariant(ServiceType), "persistent": dbus.MakeVariant(false), "data": dbus.MakeVariant(map[string]string{"auth": "sso", "management-url": managementURL, "admin-url": adminURL, "interface-name": "Aheadscale"})},
+		"vpn":        {"timeout": dbus.MakeVariant(vpnActivationTimeoutSeconds), "service-type": dbus.MakeVariant(ServiceType), "persistent": dbus.MakeVariant(false), "data": dbus.MakeVariant(map[string]string{"auth": "sso", "management-url": managementURL, "admin-url": adminURL, "interface-name": "Aheadscale"})},
 	}
 }
 func validateProfile(settings connectionSettings, id string) error {

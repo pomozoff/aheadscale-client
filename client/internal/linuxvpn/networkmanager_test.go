@@ -34,7 +34,15 @@ func (f *fixtureNM) GetConnectionByUuid(id string) (dbus.ObjectPath, *dbus.Error
 func (f *fixtureNM) GetSettings() (connectionSettings, *dbus.Error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return f.settings, nil
+	// D-Bus can still marshal the reply after this method releases the lock.
+	copy := make(connectionSettings, len(f.settings))
+	for name, group := range f.settings {
+		copy[name] = make(map[string]dbus.Variant, len(group))
+		for key, value := range group {
+			copy[name][key] = value
+		}
+	}
+	return copy, nil
 }
 func (f *fixtureNM) ActivateConnection(profile, device, specific dbus.ObjectPath) (dbus.ObjectPath, *dbus.Error) {
 	f.mu.Lock()
