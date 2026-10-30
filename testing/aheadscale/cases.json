@@ -4,7 +4,7 @@
     "docs/aheadscale/smoke-test-plan.md": "6ed75dff6fd9ae28f38ff68f8f92186f755840cc29961185f877f4df7f0ebf3f",
     "docs/aheadscale/ui-test-plan.md": "b9edbf227313a6a6b0efa070062f48c3551b72fe4e08230bd5e6a18dff872355",
     "docs/aheadscale/cli-test-plan.md": "090dbcf9d70a1154b2f249d7a6141b1361dc829722442f28bb036671b6bf59ab",
-    "docs/aheadscale/regression-test-plan.md": "07915f6d548a5144968a015529ae7c1edd89223cea8cd71ba97fd444ebccc554"
+    "docs/aheadscale/regression-test-plan.md": "a7958beaab2ed1cb9fa5a1b7f955b28209eead130667b9c30cade2c406a2634a"
   },
   "cases": [
     {
@@ -771,7 +771,7 @@
       "id": "RG45",
       "description": "Две строки Aheadscale в Plasma при одном профиле NM: проверять после установки/обновления и restart NM при ON/OFF",
       "source": "docs/aheadscale/regression-test-plan.md",
-      "definition": "| RG45 | Две строки Aheadscale в Plasma при одном профиле NM: проверять после установки/обновления и restart NM при ON/OFF | [Ubuntu ARM64 `.31.3`](smoke-results/2026-10-29-linux-native31-3.md): дубликат отображения подтверждён снимком при единственном UUID; перезапуск панели восстановил одну строку без изменения профиля. Один повторный restart NM при OFF не воспроизвёл дубликат. Триггер не установлен, постоянное исправление не заявлено; открыт |",
+      "definition": "| RG45 | Две строки Aheadscale в Plasma/GNOME при одном профиле NM: после установки/обновления, restart NM при ON/OFF и тестового переключения native ↔ standalone проверять отдельно строки панели, UUID и активные туннели | [Ubuntu ARM64 `.31.3`](smoke-results/2026-10-29-linux-native31-3.md): дубликат отображения подтверждён при единственном UUID; перезапуск панели восстановил одну строку. [Повтор Ubuntu/Fedora ARM64 30 октября](smoke-results/2026-10-30-rg45-panel-repeat.md): владелец сообщил о двух строках в обеих системах; при диагностике по одному профилю и нет активного туннеля, после закрытия/открытия панелей по одной строке. Постоянная причина не установлена, код не исправлялся; открыт [Продолжение 30 октября](smoke-results/2026-10-30-linux-native-sso-rg45.md): на Fedora воспроизведены две записи разных типов при тестовом native → standalone; native после восстановления содержит один профиль. Это объясняет тестовый источник второй записи, но зависшая строка открытой панели не воспроизведена; RG45 открыт. |",
       "automation": {
         "status": "NOT_RUN",
         "executor": null
@@ -781,7 +781,7 @@
       "id": "RG46",
       "description": "Plasma отказывает системному Connect: `missing support for 'aheadscale' VPN connections`",
       "source": "docs/aheadscale/regression-test-plan.md",
-      "definition": "| RG46 | Plasma отказывает системному Connect: `missing support for 'aheadscale' VPN connections` | [Ubuntu ARM64 `.31.4`](smoke-results/2026-10-29-linux-plasma31-4.md): отсутствовал KDE VpnUiPlugin. Модуль добавлен; реальный загрузчик RED→GREEN, 11 случаев и весь packaging/race PASS. DEB сохранил OFF и регистрацию, системный загрузчик PASS; владелец подтвердил настоящий Connect → Connected и одну запись. Целевой отказ Connect исправлен; [`.31.6`](smoke-results/2026-10-29-linux-native31-6.md): настоящий Cancel Plasma также PASS. Свежий браузерный вход и остальные ABI ещё не приняты |",
+      "definition": "| RG46 | Plasma отказывает системному Connect: `missing support for 'aheadscale' VPN connections` | [Ubuntu ARM64 `.31.4`](smoke-results/2026-10-29-linux-plasma31-4.md): отсутствовал KDE VpnUiPlugin. Модуль добавлен; реальный загрузчик RED→GREEN, 11 случаев и весь packaging/race PASS. DEB сохранил OFF и регистрацию, системный загрузчик PASS; владелец подтвердил настоящий Connect → Connected и одну запись. Целевой отказ Connect исправлен; [`.31.6`](smoke-results/2026-10-29-linux-native31-6.md): настоящий Cancel Plasma также PASS. Свежий браузерный вход и остальные ABI ещё не приняты [Свежий SSO 30 октября](smoke-results/2026-10-30-linux-native-sso-rg45.md): найден короткий внешний NM-таймаут, регрессии RED→GREEN в Actions. Fedora вошла после операторской настройки; Ubuntu Plasma не открывает браузер, причина агента ещё не установлена. Новый пакет и автоматическая миграция пока не приняты. |",
       "automation": {
         "status": "NOT_RUN",
         "executor": null
