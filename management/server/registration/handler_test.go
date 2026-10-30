@@ -48,6 +48,46 @@ func TestHTTPVerificationGETDoesNotConsumeAndOriginIsRequired(t *testing.T) {
 
 func (*recordingIdentity) DeleteUser(context.Context, string) error { return nil }
 
+func TestExistingAccountMessageRequiresValidEmailProof(t *testing.T) {
+	s, mail, identities, _ := newTestService(t)
+	identities.users["owner@example.test"] = "existing-owner"
+	h := NewHandler(s.config.Issuer, &recordingIdentity{}, s.provision, http.NotFoundHandler(), s)
+	post := func(path string, input map[string]string) *httptest.ResponseRecorder {
+		t.Helper()
+		body, err := json.Marshal(input)
+		if err != nil {
+			t.Fatal(err)
+		}
+		r := httptest.NewRequest(http.MethodPost, path, strings.NewReader(string(body)))
+		r.Header.Set("Origin", "https://aheadscale.ru")
+		r.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		return w
+	}
+	existing := post("/oauth2/signup", map[string]string{"email": "owner@example.test"})
+	token := tokenFromMail(t, mail)
+	fresh := post("/oauth2/signup", map[string]string{"email": "new@example.test"})
+	if existing.Code != http.StatusAccepted || fresh.Code != existing.Code || fresh.Body.String() != existing.Body.String() {
+		t.Fatal("signup disclosed whether an account already exists")
+	}
+	invalid := post("/oauth2/signup/complete", map[string]string{"token": strings.Repeat("x", 43), "password": "correct-horse-123"})
+	if invalid.Code != http.StatusBadRequest || strings.Contains(invalid.Body.String(), "already exists") {
+		t.Fatal("an invalid link disclosed account existence")
+	}
+	inspection := post("/oauth2/signup/inspect", map[string]string{"token": token})
+	if inspection.Code != http.StatusOK || strings.Contains(inspection.Body.String(), "already exists") {
+		t.Fatal("inspection rejected a valid link or disclosed account existence")
+	}
+	completion := post("/oauth2/signup/complete", map[string]string{"token": token, "password": "correct-horse-123"})
+	if completion.Code != http.StatusConflict || !strings.Contains(completion.Body.String(), "An account already exists for this email. Sign in to continue.") {
+		t.Fatalf("valid email proof should explain the account conflict: HTTP %d, body %q", completion.Code, completion.Body.String())
+	}
+	if identities.users["owner@example.test"] != "existing-owner" {
+		t.Fatal("existing account was replaced")
+	}
+}
+
 // A client using the previous payload must not bypass email proof.
 func TestLegacySignupCannotActivateAccount(t *testing.T) {
 	identities := &recordingIdentity{}
