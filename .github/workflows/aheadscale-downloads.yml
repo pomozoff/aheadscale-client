@@ -1,7 +1,7 @@
 name: Aheadscale download catalog
 on:
   push:
-    branches: ['codex/downloads-preview']
+    branches: [main, aheadscale, 'codex/**']
     paths: ['packaging/aheadscale/downloads.py', 'testing/aheadscale/test_downloads.py', '.github/workflows/aheadscale-downloads.yml']
   workflow_dispatch:
 permissions:
