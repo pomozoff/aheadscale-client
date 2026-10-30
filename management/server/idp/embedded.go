@@ -20,6 +20,9 @@ import (
 	nbjwt "github.com/netbirdio/netbird/shared/auth/jwt"
 )
 
+// ErrRegistrationAccountExists reports a conflict after email ownership is proven.
+var ErrRegistrationAccountExists = dex.ErrRegistrationAccountExists
+
 const (
 	StaticClientDashboard      = "netbird-dashboard"
 	StaticClientCLI            = "netbird-cli"

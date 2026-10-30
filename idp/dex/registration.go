@@ -13,6 +13,9 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// ErrRegistrationAccountExists preserves an existing identity and password.
+var ErrRegistrationAccountExists = errors.New("account already exists; sign in")
+
 // EnsureRegistrationUser resumes only the identity reserved by this registration.
 // Matching an email is never sufficient to replace somebody else's password.
 func (p *Provider) EnsureRegistrationUser(ctx context.Context, email, password, rawID string) (string, error) {
@@ -21,7 +24,7 @@ func (p *Provider) EnsureRegistrationUser(ctx context.Context, email, password, 
 	}
 	check := func(existing storage.Password) (string, error) {
 		if existing.UserID != rawID || bcrypt.CompareHashAndPassword(existing.Hash, []byte(password)) != nil {
-			return "", errors.New("account already exists; sign in")
+			return "", ErrRegistrationAccountExists
 		}
 		return EncodeDexUserID(rawID, LocalConnectorID), nil
 	}

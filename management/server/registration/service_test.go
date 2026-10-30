@@ -32,7 +32,7 @@ type testIdentity struct{ users map[string]string }
 
 func (i *testIdentity) EnsureRegistrationUser(_ context.Context, email, password, rawID string) (*idp.UserData, error) {
 	if old, ok := i.users[email]; ok && old != rawID {
-		return nil, errors.New("existing account")
+		return nil, idp.ErrRegistrationAccountExists
 	}
 	i.users[email] = rawID
 	return &idp.UserData{ID: rawID, Email: email}, nil

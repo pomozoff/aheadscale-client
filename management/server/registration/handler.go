@@ -192,6 +192,8 @@ func NewHandler(issuer string, _ identityStore, _ func(context.Context, *idp.Use
 				http.Error(w, "Enter a valid email and use a current sign-in page", 400)
 			case errors.Is(err, ErrToken):
 				http.Error(w, "Invalid or expired link. Request a new email, or sign in if already registered.", 400)
+			case errors.Is(err, ErrAccountExists):
+				http.Error(w, "An account already exists for this email. Sign in to continue.", http.StatusConflict)
 			case errors.Is(err, ErrDelivery):
 				http.Error(w, "Email could not be sent. Please try again shortly.", 503)
 			default:

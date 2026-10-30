@@ -26,6 +26,9 @@ var (
 	ErrDelivery    = errors.New("email delivery is temporarily unavailable")
 )
 
+// ErrAccountExists is exposed only after a valid verification token is claimed.
+var ErrAccountExists = idp.ErrRegistrationAccountExists
+
 type Config struct {
 	RedirectURIs         []string
 	Issuer               string
@@ -223,7 +226,7 @@ func (s *Service) Complete(ctx context.Context, token, password, binding string)
 	}
 	user, err := s.identities.EnsureRegistrationUser(ctx, row.Email, password, row.RawID)
 	if err != nil {
-		return result, ErrToken
+		return result, err
 	}
 	if err = s.provision(ctx, user); err != nil {
 		return result, errors.New("could not create network; retry this link shortly")
