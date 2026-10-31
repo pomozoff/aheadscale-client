@@ -813,3 +813,26 @@ h1 {
     padding-inline:12px
   }
 }
+
+/* Keep the network caption clear of its links, including narrow phones. */
+.hero-headline { display:block; }
+@media (max-width:1120px) {
+  .header { min-height:72px; }
+  .hero { padding-block:20px 46px; }
+  .hero-actions .button { min-height:44px; }
+  .features-band { padding-block:32px; }
+  .feature-icon { width:48px; height:48px; }
+  .steps-section { padding-block:45px 55px; }
+  .step-number { width:38px; height:38px; font-size:18px; }
+}
+@media (max-width:800px) {
+  .header { min-height:80px; }
+  .hero { padding-block:25px 38px; }
+  .features-band { padding-block:30px; }
+  .steps-section { padding-block:40px; }
+}
+@media (max-width:480px) {
+  .network { aspect-ratio:1; }
+  .device-icon { height:66px; width:98px; }
+  .device-icon svg { height:46px; width:46px; }
+}

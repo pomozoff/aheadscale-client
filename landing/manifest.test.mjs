@@ -47,7 +47,7 @@ for (const [field, value] of [
   ['url',`https://aheadscale.ru/downloads/${name}#fragment`],
   ['url','https://aheadscale.ru/oauth2/callback'],
   ['url','https://github.com/pomozoff/aheadscale-client/actions/runs/1'],
-  ['sha256','a'.repeat(63)], ['sha256','z'.repeat(64)],
+  ['sha256','a'.repeat(64)+'\n'], ['sha256','a'.repeat(63)], ['sha256','z'.repeat(64)],
   ['size',0], ['size',-1], ['size','42'], ['size',1.5],
   ['platform','android'], ['architecture','mips'], ['kind','unknown'],
   ['format','sh'], ['name','<img src=x onerror=alert(1)>.deb'],

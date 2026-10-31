@@ -19,7 +19,7 @@ export function parseManifest(value) {
     requireValue(['desktop','cli'].includes(p.kind));
     requireValue(typeof p.name==='string' && /^aheadscale_[A-Za-z0-9_.-]{1,180}$/.test(p.name));
     requireValue(p.name.includes(version) && p.name.endsWith('.'+p.format) && !names.has(p.name));
-    requireValue(typeof p.sha256==='string' && /^[0-9a-f]{64}$/.test(p.sha256));
+    requireValue(typeof p.sha256==='string' && p.sha256.length===64 && /^[0-9a-f]{64}$/.test(p.sha256));
     requireValue(Number.isSafeInteger(p.size) && p.size>0);
     requireValue(typeof p.url==='string' && /^https:\/\/aheadscale\.ru\/downloads\/[A-Za-z0-9_./-]+$/.test(p.url));
     const url=new URL(p.url);
