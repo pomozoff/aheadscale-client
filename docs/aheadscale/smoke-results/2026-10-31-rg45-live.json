@@ -235,8 +235,16 @@
     "caseStatus": "PASS",
     "source": "owner-visual-confirmation",
     "ownerReply": "OFF совпал; GUI Connect успешен на обеих, одна строка",
-    "ubuntu": {"offAgreed": true, "guiConnect": "Connected", "panelRows": 1},
-    "fedora": {"offAgreed": true, "guiConnect": "Connected", "panelRows": 1}
+    "ubuntu": {
+      "offAgreed": true,
+      "guiConnect": "Connected",
+      "panelRows": 1
+    },
+    "fedora": {
+      "offAgreed": true,
+      "guiConnect": "Connected",
+      "panelRows": 1
+    }
   },
   "guiDisconnectAndCancelAttempt": {
     "method": "AT-SPI action on Toggle Aheadscale connection in Aheadscale GUI",
@@ -246,7 +254,10 @@
       "afterDisconnectIP": "",
       "afterDisconnectActiveStates": [],
       "cancel": "NOT_EXERCISED",
-      "observedNMStates": [1, 2],
+      "observedNMStates": [
+        1,
+        2
+      ],
       "reason": "Во время наблюдаемой активации GUI не разрешал отмену; соединение установилось до разблокировки переключателя",
       "finalState": "Connected",
       "finalIP": "100.88.19.208/16",
@@ -258,14 +269,44 @@
       "afterDisconnectIP": "",
       "afterDisconnectActiveStates": [],
       "cancel": "NOT_EXERCISED",
-      "observedNMStates": [1, 2],
+      "observedNMStates": [
+        1,
+        2
+      ],
       "reason": "Во время наблюдаемой активации GUI не разрешал отмену; соединение установилось до разблокировки переключателя",
       "finalState": "Connected",
       "finalIP": "100.88.54.63/16",
       "savedOwnedProfileCount": 1
     }
   },
-  "systemPanelCancelCurrentRound": "PENDING",
+  "systemPanelCancelCurrentRound": {
+    "caseStatus": "PASS",
+    "activationCancellationSource": "owner-visual-confirmation",
+    "ownerReply": "На всех успел отменить, все показывают Disconnected",
+    "independentPostconditionCheck": "SSH CLI + NetworkManager + link list + GUI AT-SPI",
+    "ubuntu": {
+      "daemonStatus": "Idle",
+      "ownIP": "",
+      "ownedProfileCount": 1,
+      "ownedUUID": "c701447b-709b-4d4b-b46f-1498235d301c",
+      "ownedVPNActive": false,
+      "interfaceExists": false,
+      "guiToggleShowing": true,
+      "guiToggleChecked": false
+    },
+    "fedora": {
+      "daemonStatus": "Idle",
+      "ownIP": "",
+      "ownedProfileCount": 1,
+      "ownedUUID": "38e464d1-b98c-4d3b-b245-58a97a4babc4",
+      "ownedVPNActive": false,
+      "interfaceExists": false,
+      "guiToggleShowing": true,
+      "guiToggleChecked": false
+    },
+    "finalStateLeft": "OFF",
+    "limits": "Момент отмены до Connected подтверждён владельцем; удалённая проверка независимо подтверждает только конечное состояние."
+  },
   "identityPublicKeySha256": {
     "ubuntu": "8987b1c7e478cc566262ebf869f8369539e78af63f7bb251de15725260e74eec",
     "fedora": "9d2aa368d8adfcc0ab5f0b22d5f9b5cca732810c20af0e04577e4beabbd4a877"
