@@ -231,7 +231,41 @@
       }
     }
   },
-  "guiAfterCancelAndConnect": "PENDING",
+  "guiAfterCancelAndConnect": {
+    "caseStatus": "PASS",
+    "source": "owner-visual-confirmation",
+    "ownerReply": "OFF совпал; GUI Connect успешен на обеих, одна строка",
+    "ubuntu": {"offAgreed": true, "guiConnect": "Connected", "panelRows": 1},
+    "fedora": {"offAgreed": true, "guiConnect": "Connected", "panelRows": 1}
+  },
+  "guiDisconnectAndCancelAttempt": {
+    "method": "AT-SPI action on Toggle Aheadscale connection in Aheadscale GUI",
+    "ubuntu": {
+      "disconnect": "PASS",
+      "afterDisconnect": "Idle",
+      "afterDisconnectIP": "",
+      "afterDisconnectActiveStates": [],
+      "cancel": "NOT_EXERCISED",
+      "observedNMStates": [1, 2],
+      "reason": "Во время наблюдаемой активации GUI не разрешал отмену; соединение установилось до разблокировки переключателя",
+      "finalState": "Connected",
+      "finalIP": "100.88.19.208/16",
+      "savedOwnedProfileCount": 1
+    },
+    "fedora": {
+      "disconnect": "PASS",
+      "afterDisconnect": "Idle",
+      "afterDisconnectIP": "",
+      "afterDisconnectActiveStates": [],
+      "cancel": "NOT_EXERCISED",
+      "observedNMStates": [1, 2],
+      "reason": "Во время наблюдаемой активации GUI не разрешал отмену; соединение установилось до разблокировки переключателя",
+      "finalState": "Connected",
+      "finalIP": "100.88.54.63/16",
+      "savedOwnedProfileCount": 1
+    }
+  },
+  "systemPanelCancelCurrentRound": "PENDING",
   "identityPublicKeySha256": {
     "ubuntu": "8987b1c7e478cc566262ebf869f8369539e78af63f7bb251de15725260e74eec",
     "fedora": "9d2aa368d8adfcc0ab5f0b22d5f9b5cca732810c20af0e04577e4beabbd4a877"
