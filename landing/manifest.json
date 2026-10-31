@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "channel": "beta",
+  "releaseReady": false,
+  "availability": "not-released",
+  "warning": "Публичная бета ещё не выпущена. Допущенных платформ пока нет.",
+  "packages": []
+}

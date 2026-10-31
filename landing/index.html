@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="description" content="Aheadscale объединяет ваши компьютеры и серверы в одну приватную сеть. Приватный предпросмотр ограниченной беты.">
+  <meta name="aheadscale-manifest" content="./manifest.json">
+  <title>Aheadscale — ваши устройства в одной приватной сети</title>
+  <link rel="icon" type="image/png" href="./brand.png">
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./app.mjs"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">К содержимому</a>
+  <svg class="icon-definitions" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="laptop" viewBox="0 0 48 48"><rect x="9" y="7" width="30" height="25" rx="2"/><path d="M9 32 4 39h40l-5-7M19 39h10"/></symbol>
+    <symbol id="monitor" viewBox="0 0 48 48"><rect x="5" y="6" width="38" height="28" rx="3"/><path d="M24 34v8m-9 0h18"/></symbol>
+    <symbol id="server" viewBox="0 0 48 48"><rect x="6" y="6" width="36" height="15" rx="3"/><rect x="6" y="27" width="36" height="15" rx="3"/><path d="M12 13h1m-1 22h1m16-22h7m-7 22h7"/></symbol>
+    <symbol id="globe" viewBox="0 0 48 48"><circle cx="24" cy="24" r="19"/><ellipse cx="24" cy="24" rx="8" ry="19"/><path d="M6 17h36M6 31h36"/></symbol>
+    <symbol id="terminal" viewBox="0 0 48 48"><rect x="5" y="7" width="38" height="34" rx="5"/><path d="m13 18 7 6-7 6m12 0h10"/></symbol>
+    <symbol id="windows" viewBox="0 0 48 48"><path d="M5 9 22 7v16H5zm20-2 18-3v19H25zM5 26h17v16L5 39zm20 0h18v19l-18-3z" stroke="none" fill="currentColor"/></symbol>
+  </svg>
+  <header class="header container">
+    <a class="brand" href="#main" aria-label="Aheadscale — в начало"><img src="./brand.png" width="38" height="38" alt=""><span>Aheadscale</span></a>
+    <nav aria-label="Основная навигация"><a href="#features">Возможности</a><a href="#steps">Как подключиться</a><a href="#downloads">Приложения</a></nav>
+    <div class="header-actions"><button id="theme-toggle" class="theme-toggle" type="button" aria-label="Включить тёмную тему" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14A8 8 0 0 1 10 4a8 8 0 1 0 10 10Z"/></svg></button><a class="button button-small button-outline" href="https://aheadscale.ru/peers">Войти</a></div>
+  </header>
+  <main id="main">
+    <section class="hero container" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <h1 id="hero-title">Ваши устройства — в одной приватной сети</h1>
+        <p>Подключайте ноутбуки, рабочие компьютеры и серверы. Открывайте свои внутренние сервисы по приватным именам и адресам из одной сети Aheadscale.</p>
+        <div class="hero-actions"><a class="button" href="#downloads">Начать бесплатно</a><a class="button button-outline" href="#steps">Как это работает</a></div>
+        <p class="caption">Бесплатный тестовый тариф — до 5 устройств.</p>
+      </div>
+      <figure class="network" aria-label="Пример сети из трёх ваших устройств">
+        <figcaption>Пример сети</figcaption>
+        <svg class="network-lines" viewBox="0 0 500 400" preserveAspectRatio="none" aria-hidden="true"><path d="M250 137V180Q250 209 219 209H151Q115 209 115 242M250 180Q250 209 281 209H350Q385 209 385 242"/><circle cx="250" cy="137" r="5"/><circle cx="115" cy="242" r="5"/><circle cx="385" cy="242" r="5"/></svg>
+        <div class="device device-top"><div class="device-icon"><svg aria-hidden="true"><use href="#laptop"/></svg></div><strong>Мой ноутбук</strong><span>laptop</span></div>
+        <div class="device device-left"><div class="device-icon"><svg aria-hidden="true"><use href="#monitor"/></svg></div><strong>Домашний ПК</strong><span>home-pc</span></div>
+        <div class="device device-right"><div class="device-icon"><svg aria-hidden="true"><use href="#server"/></svg></div><strong>Сервер</strong><span>server</span></div>
+      </figure>
+    </section>
+    <section class="features-band" id="features" aria-label="Возможности Aheadscale">
+      <div class="features container">
+        <article><svg class="feature-icon" aria-hidden="true"><use href="#laptop"/></svg><h2>Доступ к своим компьютерам</h2><p>Подключайтесь по SSH и RDP к устройствам, на которых уже настроены соответствующие службы.</p></article>
+        <article><svg class="feature-icon" aria-hidden="true"><use href="#server"/></svg><h2>Внутренние сервисы</h2><p>Открывайте серверы разработки, базы данных и другие внутренние инструменты через приватную сеть.</p></article>
+        <article><svg class="feature-icon" aria-hidden="true"><use href="#globe"/></svg><h2>Приватные имена</h2><p>Находите подключённые компьютеры в каталоге клиента и обращайтесь к ним по приватному имени.</p></article>
+      </div>
+    </section>
+    <section id="steps" class="steps-section container" aria-labelledby="steps-title">
+      <h2 id="steps-title" class="section-title">Подключение в три шага</h2>
+      <ol class="steps"><li><span class="step-number">1</span><div><h3>Установите Aheadscale</h3><p>Выберите клиент для своего устройства. Адрес сервера уже задан.</p></div></li><li><span class="step-number">2</span><div><h3>Войдите или создайте аккаунт</h3><p>Подтвердите email по ссылке из письма и задайте пароль.</p></div></li><li><span class="step-number">3</span><div><h3>Подключите второе устройство</h3><p>Войдите в тот же аккаунт и найдите устройство в каталоге.</p></div></li></ol>
+    </section>
+    <section id="downloads" class="download-section container" aria-labelledby="downloads-title">
+      <div class="download-panel">
+        <h2 id="downloads-title" class="section-title">Выберите приложение</h2>
+        <p class="section-intro" id="download-intro">Готовим ограниченную бету. Установщики появятся после проверки.</p>
+        <div class="platforms">
+          <article class="platform" data-platform="linux"><div class="platform-heading"><svg class="platform-icon" aria-hidden="true"><use href="#terminal"/></svg><h3>Linux</h3><span>Ubuntu и Fedora · x64 / ARM64</span><button type="button" class="button unavailable" disabled>Скоро</button></div><div class="package-list"></div></article>
+          <article class="platform" data-platform="windows"><div class="platform-heading"><svg class="platform-icon windows-icon" aria-hidden="true"><use href="#windows"/></svg><h3>Windows 11</h3><span>x64 / ARM64</span><button type="button" class="button unavailable" disabled>Скоро</button></div><div class="package-list"></div></article>
+          <article class="platform" data-platform="darwin"><div class="platform-heading"><svg class="platform-icon" aria-hidden="true"><use href="#monitor"/></svg><h3>macOS</h3><span>ARM64</span><button type="button" class="button unavailable" disabled>Скоро</button></div><div class="package-list"></div></article>
+        </div>
+        <div class="catalog-note"><p id="manifest-status" role="status" aria-live="polite">Публичная бета ещё не выпущена. Допущенных платформ пока нет.</p><button id="retry" class="text-button" type="button" hidden>Повторить</button></div>
+        <noscript><p class="caption">Для проверки доступности установщиков включите JavaScript. Пока загрузки закрыты.</p></noscript>
+      </div>
+    </section>
+    <section class="closing container" aria-labelledby="closing-title"><h2 id="closing-title" class="section-title">Личная сеть для ваших устройств</h2><p>Один аккаунт. До пяти устройств. Бесплатный тестовый доступ.</p><a class="button" href="#downloads">Начать бесплатно</a></section>
+  </main>
+  <footer class="footer container"><a class="brand" href="#main"><img src="./brand.png" width="30" height="30" alt=""><span>Aheadscale</span></a><nav aria-label="Дополнительные ссылки"><a href="#downloads">Приложения</a><a href="https://aheadscale.ru/peers">Кабинет</a></nav><span class="preview-label">Приватный предпросмотр</span></footer>
+</body>
+</html>
