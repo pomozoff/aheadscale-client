@@ -96,6 +96,140 @@
     "ubuntu": "Connected, одна строка",
     "fedora": "Connected, одна строка"
   },
-  "ownerVisualAfterRestart": "PENDING",
-  "scope": "Диагностика текущих владельческих ВМ, не полный release acceptance; RG45 OPEN"
+  "ownerVisualAfterRestart": {
+    "ubuntu": "одна строка, подключена",
+    "fedora": "одна строка, подключена"
+  },
+  "scope": "Диагностика текущих владельческих ВМ, не полный release acceptance; RG45 OPEN",
+  "offRestart": {
+    "ubuntu": {
+      "cliDownExitCode": 0,
+      "afterRestartDaemon": "Idle",
+      "ownIP": "",
+      "ownedUUIDActive": false,
+      "interfaceExists": false,
+      "ownedProfileCount": 1,
+      "cliUpExitCode": 0,
+      "afterUp": "Connected",
+      "sameUUIDAndIP": true
+    },
+    "fedora": {
+      "cliDownExitCode": 0,
+      "afterRestartDaemon": "Idle",
+      "ownIP": "",
+      "ownedUUIDActive": false,
+      "interfaceExists": false,
+      "ownedProfileCount": 1,
+      "cliUpExitCode": 0,
+      "afterUp": "Connected",
+      "sameUUIDAndIP": true
+    }
+  },
+  "reinstall": {
+    "ubuntu": {
+      "vm": "Ubuntu",
+      "phase": "same-package-reinstall-ON",
+      "packageSha256": "fb77d794dae5f05cae06d3a3ab8ef5553cb74a11fcd3fc13d1324b874686c12a",
+      "packageBuildRun": 41050957876,
+      "packageSource": "680cdf050be559b9030b23553ff64734e3e31cb9",
+      "installerExitCode": 0,
+      "state": "Connected",
+      "identityPreserved": true,
+      "ownedProfiles": [
+        "Aheadscale:c701447b-709b-4d4b-b46f-1498235d301c:vpn:enp0s1"
+      ],
+      "otherIP": [
+        "100.88.54.63"
+      ],
+      "vpnTcp": true
+    },
+    "fedora": {
+      "vm": "Fedora",
+      "phase": "same-package-reinstall-ON",
+      "packageSha256": "7a913d33e2245642b2efcd77ac3a3260afafb6c03213b8479bb54daadb9f131c",
+      "packageBuildRun": 41050957876,
+      "packageSource": "680cdf050be559b9030b23553ff64734e3e31cb9",
+      "installerExitCode": 0,
+      "state": "Connected",
+      "identityPreserved": true,
+      "ownedProfiles": [
+        "Aheadscale:38e464d1-b98c-4d3b-b245-58a97a4babc4:vpn:enp0s1"
+      ],
+      "otherIP": [
+        "100.88.19.208"
+      ],
+      "vpnTcp": true
+    }
+  },
+  "ownerVisualAfterReinstall": {
+    "ubuntu": "одна строка, подключена",
+    "fedora": "одна строка, подключена"
+  },
+  "cancel": {
+    "ubuntu": {
+      "cliStatusAttempt": {
+        "vm": "Ubuntu",
+        "phase": "CLI-cancel-while-connecting",
+        "connectingObserved": false,
+        "observedStates": [
+          "Connected"
+        ],
+        "upProcessExitCode": 1,
+        "settledState": "Idle",
+        "ownedUUIDActive": false,
+        "interfaceExists": false,
+        "ownProfileCount": 1,
+        "delayedReconnectObserved": false,
+        "caseStatus": "NOT_EXERCISED",
+        "note": "Observed Connected first; final OFF is valid but not proof of cancel during activation"
+      },
+      "nmActivatingAttempt": {
+        "vm": "Ubuntu",
+        "phase": "CLI-cancel-NM-activating",
+        "activationObserved": true,
+        "nmStates": [
+          1
+        ],
+        "upProcessExitCode": 1,
+        "settledState": "Idle",
+        "ownedUUIDActive": false,
+        "interfaceExists": false,
+        "ownProfileCount": 1,
+        "caseStatus": "PASS"
+      }
+    },
+    "fedora": {
+      "cliStatusAttempt": {
+        "vm": "Fedora",
+        "phase": "CLI-cancel-while-connecting",
+        "connectingObserved": false,
+        "observedStates": [
+          "Connected"
+        ],
+        "upProcessExitCode": 1,
+        "settledState": "Idle",
+        "ownedUUIDActive": false,
+        "interfaceExists": false,
+        "ownProfileCount": 1,
+        "delayedReconnectObserved": false,
+        "caseStatus": "NOT_EXERCISED",
+        "note": "Observed Connected first; final OFF is valid but not proof of cancel during activation"
+      },
+      "nmActivatingAttempt": {
+        "vm": "Fedora",
+        "phase": "CLI-cancel-NM-activating",
+        "activationObserved": true,
+        "nmStates": [
+          1
+        ],
+        "upProcessExitCode": 1,
+        "settledState": "Idle",
+        "ownedUUIDActive": false,
+        "interfaceExists": false,
+        "ownProfileCount": 1,
+        "caseStatus": "PASS"
+      }
+    }
+  },
+  "guiAfterCancelAndConnect": "PENDING"
 }
