@@ -231,5 +231,10 @@
       }
     }
   },
-  "guiAfterCancelAndConnect": "PENDING"
+  "guiAfterCancelAndConnect": "PENDING",
+  "identityPublicKeySha256": {
+    "ubuntu": "8987b1c7e478cc566262ebf869f8369539e78af63f7bb251de15725260e74eec",
+    "fedora": "9d2aa368d8adfcc0ab5f0b22d5f9b5cca732810c20af0e04577e4beabbd4a877"
+  },
+  "temporaryArtifactsCleaned": true
 }
