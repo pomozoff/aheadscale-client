@@ -55,6 +55,8 @@ type Provider struct {
 	logger       *slog.Logger
 	mu           sync.Mutex
 	running      bool
+	handlerOnce  sync.Once
+	handler      http.Handler
 }
 
 // NewProvider creates and initializes the Dex server
@@ -553,17 +555,20 @@ func (p *Provider) SetClientsMFAChain(ctx context.Context, clientIDs []string, m
 // Handler returns the Dex server as an http.Handler for embedding in another server.
 // The handler expects requests with path prefix "/oauth2/".
 func (p *Provider) Handler() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Dex's /logout endpoint requires id_token_hint for RP-initiated logout with
-		// post_logout_redirect_uri. If the dashboard calls logout without one, avoid
-		// rendering Dex's non-actionable Bad Request page and send the user home.
-		if strings.HasSuffix(r.URL.Path, "/logout") && r.FormValue("id_token_hint") == "" {
-			http.Redirect(w, r, "/", http.StatusSeeOther)
-			return
-		}
+	p.handlerOnce.Do(func() {
+		p.handler = limitLocalPasswordLogin(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Dex's /logout endpoint requires id_token_hint for RP-initiated logout with
+			// post_logout_redirect_uri. If the dashboard calls logout without one, avoid
+			// rendering Dex's non-actionable Bad Request page and send the user home.
+			if strings.HasSuffix(r.URL.Path, "/logout") && r.FormValue("id_token_hint") == "" {
+				http.Redirect(w, r, "/", http.StatusSeeOther)
+				return
+			}
 
-		p.dexServer.ServeHTTP(w, r)
+			p.dexServer.ServeHTTP(w, r)
+		}))
 	})
+	return p.handler
 }
 
 // CreateUser creates a new user with the given email, username, and password.

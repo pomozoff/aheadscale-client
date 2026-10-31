@@ -717,3 +717,24 @@ func TestHandler_AllowsDeviceEndpointsWhenGrantsDefault(t *testing.T) {
 	provider.Handler().ServeHTTP(rec, req)
 	assert.NotEqual(t, http.StatusNotFound, rec.Code)
 }
+
+func TestPasswordLoginLimitSharedAcrossHandlers(t *testing.T) {
+	ctx := context.Background()
+	provider, err := NewProvider(ctx, &Config{
+		Issuer:  "http://localhost:5556/oauth2",
+		Port:    5556,
+		DataDir: t.TempDir(),
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = provider.Stop(ctx) })
+
+	for attempt := 0; attempt < 20; attempt++ {
+		rec := httptest.NewRecorder()
+		provider.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/oauth2/auth/local/login", nil))
+		require.NotEqual(t, http.StatusTooManyRequests, rec.Code)
+	}
+	rec := httptest.NewRecorder()
+	provider.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/oauth2/auth/local/login", nil))
+	require.Equal(t, http.StatusTooManyRequests, rec.Code)
+	require.Equal(t, "1", rec.Header().Get("Retry-After"))
+}
