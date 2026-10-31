@@ -1,0 +1,101 @@
+{
+  "ubuntu": {
+    "phase": "after-NM-restart-ON",
+    "vm": "Ubuntu",
+    "version": "0.80.0-aheadscale.33",
+    "daemonStatus": "Connected",
+    "managementConnected": true,
+    "signalConnected": true,
+    "ownIP": "100.88.19.208/16",
+    "ownFQDN": "ubuntu-ahead.aheadscale.internal",
+    "profiles": [
+      [
+        "Aheadscale",
+        "c701447b-709b-4d4b-b46f-1498235d301c",
+        "vpn",
+        "enp0s1"
+      ]
+    ],
+    "otherDNS": {
+      "host": "fedora.aheadscale.internal",
+      "ips": [
+        "100.88.54.63"
+      ]
+    },
+    "vpnTcpBanner": "SSH-2.0-OpenSSH_10.2",
+    "binarySha256": {
+      "/usr/bin/aheadscale": "d92ccd0b139f2d69451b8fcb791c77311fae51fbccc5ecb483fca79094c0463f",
+      "/usr/libexec/aheadscale-nm-controller": "8e092704b30f8dc938ef31f85b42fbd75fa7ef380f5e3a7030c7af8f63fb6167"
+    },
+    "networkManagerEvents": [
+      "NetworkManager is running",
+      "Aheadscale: connection profile changed",
+      "Aheadscale: device created",
+      "Aheadscale: connection profile changed",
+      "Networkmanager is now in the 'connecting' state",
+      "Aheadscale: device removed",
+      "Aheadscale: connection profile removed",
+      "NetworkManager is stopped",
+      "Networkmanager is now in the 'disconnected' state",
+      "NetworkManager is running",
+      "Aheadscale: connection profile created",
+      "Networkmanager is now in the 'connected (site only)' state",
+      "Networkmanager is now in the 'connected' state",
+      "Aheadscale: connection profile changed",
+      "Aheadscale: device created"
+    ]
+  },
+  "fedora": {
+    "phase": "after-NM-restart-ON",
+    "vm": "Fedora",
+    "version": "0.80.0-aheadscale.33",
+    "daemonStatus": "Connected",
+    "managementConnected": true,
+    "signalConnected": true,
+    "ownIP": "100.88.54.63/16",
+    "ownFQDN": "fedora.aheadscale.internal",
+    "profiles": [
+      [
+        "Aheadscale",
+        "38e464d1-b98c-4d3b-b245-58a97a4babc4",
+        "vpn",
+        "enp0s1"
+      ]
+    ],
+    "otherDNS": {
+      "host": "ubuntu-ahead.aheadscale.internal",
+      "ips": [
+        "100.88.19.208"
+      ]
+    },
+    "vpnTcpBanner": "SSH-2.0-OpenSSH_10.2p1 Ubuntu-2ubuntu3.8",
+    "binarySha256": {
+      "/usr/bin/aheadscale": "d92ccd0b139f2d69451b8fcb791c77311fae51fbccc5ecb483fca79094c0463f",
+      "/usr/libexec/aheadscale-nm-controller": "8e092704b30f8dc938ef31f85b42fbd75fa7ef380f5e3a7030c7af8f63fb6167"
+    },
+    "networkManagerEvents": [
+      "NetworkManager is running",
+      "Aheadscale: connection profile changed",
+      "Aheadscale: connection profile changed",
+      "Aheadscale: connection profile changed",
+      "Aheadscale: device created",
+      "Networkmanager is now in the 'connected (site only)' state",
+      "Aheadscale: device removed",
+      "Aheadscale: connection profile removed",
+      "NetworkManager is stopped",
+      "Networkmanager is now in the 'disconnected' state",
+      "NetworkManager is running",
+      "Aheadscale: connection profile created",
+      "Networkmanager is now in the 'connected (site only)' state",
+      "Networkmanager is now in the 'connected' state",
+      "Aheadscale: connection profile changed",
+      "Aheadscale: device created"
+    ]
+  },
+  "ownerVisualBeforeRestart": {
+    "ubuntu": "Connected, одна строка",
+    "fedora": "Connected, одна строка"
+  },
+  "ownerVisualAfterRestart": "PENDING",
+  "scope": "Диагностика текущих владельческих ВМ, не полный release acceptance; RG45 OPEN"
+}
