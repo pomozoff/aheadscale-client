@@ -23,6 +23,8 @@ type fixtureNM struct {
 	state    uint32
 	calls    []string
 	wireIPv6 map[string]dbus.Variant
+	deactivateError *dbus.Error
+	vanishOnDeactivate bool
 }
 
 func (f *fixtureNM) GetConnectionByUuid(id string) (dbus.ObjectPath, *dbus.Error) {
@@ -61,6 +63,12 @@ func (f *fixtureNM) DeactivateConnection(active dbus.ObjectPath) *dbus.Error {
 	defer f.mu.Unlock()
 	if active != "/active/aheadscale" {
 		return dbus.MakeFailedError(fmt.Errorf("wrong deactivation"))
+	}
+	if f.deactivateError != nil {
+		if f.vanishOnDeactivate {
+			f.active = false
+		}
+		return f.deactivateError
 	}
 	f.active = false
 	f.calls = append(f.calls, "deactivate")
@@ -227,6 +235,33 @@ func TestManagerCommandsUseOwnedNMProfile(t *testing.T) {
 	if err = m.SetConnected(context.Background(), false); err != nil {
 		t.Fatal(err)
 	}
+	for _, tc := range []struct {
+		name string
+		errorName string
+		vanish bool
+		wantError bool
+	}{
+		{"already-disconnected", nmDest + ".ConnectionNotActive", true, false},
+		{"still-active", nmDest + ".ConnectionNotActive", false, true},
+		{"permission-denied", nmDest + ".PermissionDenied", true, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f.mu.Lock()
+			f.active = true
+			f.deactivateError = dbus.NewError(tc.errorName, []interface{}{"The connection was not active."})
+			f.vanishOnDeactivate = tc.vanish
+			f.mu.Unlock()
+			err := m.SetConnected(context.Background(), false)
+			if (err != nil) != tc.wantError {
+				t.Errorf("идемпотентное отключение: err=%v wantError=%v", err, tc.wantError)
+			}
+		})
+	}
+	f.mu.Lock()
+	f.active = false
+	f.deactivateError = nil
+	f.vanishOnDeactivate = false
+	f.mu.Unlock()
 	f.mu.Lock()
 	f.settings["vpn"]["service-type"] = dbus.MakeVariant("foreign")
 	f.mu.Unlock()
