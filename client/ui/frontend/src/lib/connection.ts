@@ -50,12 +50,13 @@ async function runSsoLogin(
         profileId: string;
     },
     state: SsoState,
-    signal?: AbortSignal,
+    cancelPromise: Promise<void>,
 ): Promise<void> {
     const uri = result.verificationUriComplete || result.verificationUri;
     if (uri) await openBrowserLoginUri(uri);
 
-    const cancelPromise = buildSsoCancelPromise(state, signal);
+    if (state.cancelled) return;
+
     // Combine wait + up in Go so the connection comes up the moment SSO
     // completes. During SSO the tray window is hidden and the webview is
     // suspended, so a frontend-driven Up (a promise continuation) would not
@@ -85,6 +86,7 @@ export async function startConnection(onSettled?: () => void, signal?: AbortSign
     connectionInFlight = true;
 
     const state: SsoState = { cancelled: false };
+    const cancelPromise = buildSsoCancelPromise(state, signal);
     let connectError: unknown;
 
     try {
@@ -102,7 +104,7 @@ export async function startConnection(onSettled?: () => void, signal?: AbortSign
 
         if (!state.cancelled && result.needsSsoLogin) {
             // runSsoLogin brings the connection up in Go once SSO completes.
-            await runSsoLogin(result, state, signal);
+            await runSsoLogin(result, state, cancelPromise);
         } else {
             if (!state.cancelled && signal?.aborted) state.cancelled = true;
             if (!state.cancelled) {

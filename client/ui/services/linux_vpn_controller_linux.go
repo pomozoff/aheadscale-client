@@ -41,6 +41,9 @@ func (c *linuxVPNController) Enabled(ctx context.Context) (bool, error) {
 	return features.GetNativeNetworkmanager(), nil
 }
 func (c *linuxVPNController) SetConnected(ctx context.Context, on bool) error {
+	if on {
+		return c.session.ConnectOrJoin(ctx)
+	}
 	return c.session.SetConnected(ctx, on)
 }
 func (c *linuxVPNController) Login(ctx context.Context, p LoginParams) (LoginResult, error) {

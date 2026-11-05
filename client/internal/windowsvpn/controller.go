@@ -25,12 +25,18 @@ type SessionSnapshot struct {
 
 // SessionController serializes side effects; a newer intent cancels the older
 // command and owns the only result that may update the visible state.
+type sessionOperation struct {
+	done chan struct{}
+	err error
+}
+
 type SessionController struct {
 	mu         sync.Mutex
 	serial     chan struct{}
 	generation uint64
 	state      ConnectionState
 	cancel     context.CancelFunc
+	pending    *sessionOperation
 	run        func(context.Context, bool) error
 }
 
@@ -47,29 +53,39 @@ func (c *SessionController) Snapshot() SessionSnapshot {
 }
 
 func (c *SessionController) SetConnected(ctx context.Context, connected bool) error {
-	return c.setConnected(ctx, connected, false, nil)
+	return c.setConnected(ctx, connected, false, nil, false)
 }
 
 // ConnectOrJoin joins a pending connect without replacing its cancellation owner.
 func (c *SessionController) ConnectOrJoin(ctx context.Context) error {
-	return c.SetConnected(ctx, true)
+	return c.setConnected(ctx, true, false, nil, true)
 }
 
 // StartOnLaunch resumes a saved connection only before any explicit user intent.
 func (c *SessionController) StartOnLaunch(ctx context.Context) error {
-	return c.setConnected(ctx, true, true, nil)
+	return c.setConnected(ctx, true, true, nil, false)
 }
 
 // ResumeAfterDaemonRestart восстанавливает только сохранившееся намерение Connect.
 func (c *SessionController) ResumeAfterDaemonRestart(ctx context.Context, generation uint64) error {
-	return c.setConnected(ctx, true, false, &generation)
+	return c.setConnected(ctx, true, false, &generation, false)
 }
 
-func (c *SessionController) setConnected(ctx context.Context, connected, startup bool, restartGeneration *uint64) error {
+func (c *SessionController) setConnected(ctx context.Context, connected, startup bool, restartGeneration *uint64, join bool) (result error) {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 	c.mu.Lock()
+	if join && c.state == Connecting && c.pending != nil {
+		pending := c.pending
+		c.mu.Unlock()
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-pending.done:
+			return pending.err
+		}
+	}
 	if (startup && c.generation != 0) || (restartGeneration != nil &&
 		(c.generation != *restartGeneration || (c.state != Connected && c.state != Connecting))) {
 		c.mu.Unlock()
@@ -83,6 +99,17 @@ func (c *SessionController) setConnected(ctx context.Context, connected, startup
 	}
 	operation, cancel := context.WithCancel(ctx)
 	c.cancel = cancel
+	pending := &sessionOperation{done: make(chan struct{})}
+	c.pending = pending
+	defer func() {
+		c.mu.Lock()
+		pending.err = result
+		if c.pending == pending {
+			c.pending = nil
+		}
+		close(pending.done)
+		c.mu.Unlock()
+	}()
 	if connected {
 		c.state = Connecting
 	} else {
