@@ -9,17 +9,17 @@ const code = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKi
 const deferred = () => Promise.withResolvers();
 
 // Только внешние Wails IPC и диалоги заменены: выполняется настоящий connection.ts.
-async function fixture(overrides = {}) {
+async function fixture(overrides = {}, windows = {}) {
     const handlers = new Set();
     const dialogs = [];
     const login = deferred();
-    let up = 0, wait = 0;
+    let up = 0, wait = 0, closed = 0;
     const context = vm.createContext({ console, DOMException });
     const dependencies = {
         "@wailsio/runtime": { Events: { On: (_, handler) => { handlers.add(handler); return () => handlers.delete(handler); } } },
         "@bindings/services": {
             Connection: { Login: () => login.promise, Up: async () => { up++; }, WaitSSOLoginAndUp: async () => { wait++; }, ...overrides },
-            WindowManager: { OpenBrowserLogin: async () => {}, CloseBrowserLogin: async () => {} },
+            WindowManager: { OpenBrowserLogin: async () => {}, CloseBrowserLogin: async () => { closed++; }, ...windows },
         },
         "@/lib/i18n": { default: { t: (key) => key } },
         "@/lib/errors.ts": { errorDialog: async (dialog) => dialogs.push(dialog), formatErrorMessage: String },
@@ -35,7 +35,7 @@ async function fixture(overrides = {}) {
     await module.evaluate();
     return { start: module.namespace.startConnection, login, dialogs, handlers,
         cancel: () => { for (const handler of handlers) handler(); },
-        calls: () => ({ up, wait }) };
+        calls: () => ({ up, wait }), closed: () => closed };
 }
 
 const result = { needsSsoLogin: false, verificationUri: "", verificationUriComplete: "", userCode: "", profileId: "default" };
@@ -94,6 +94,24 @@ test("ordinary browser SSO still waits and connects once", async () => {
     f.login.resolve({ ...result, needsSsoLogin: true, verificationUriComplete: "https://aheadscale.ru/oauth2/device" });
     await pending;
     assert.deepEqual(f.calls(), { up: 0, wait: 1 });
+    assert.deepEqual(f.dialogs, []);
+    assert.equal(f.handlers.size, 0);
+});
+
+
+test("Cancel while browser login opens closes that window without starting SSO", async () => {
+    const opened = deferred();
+    const release = deferred();
+    const f = await fixture({}, { OpenBrowserLogin: async () => { opened.resolve(); await release.promise; } });
+    const controller = new AbortController();
+    const pending = f.start(undefined, controller.signal);
+    f.login.resolve({ ...result, needsSsoLogin: true, verificationUriComplete: "https://aheadscale.ru/oauth2/device" });
+    await opened.promise;
+    controller.abort();
+    release.resolve();
+    await assert.rejects(pending, { name: "AbortError" });
+    assert.equal(f.closed(), 1, "окно браузерного входа должно закрыться после отмены");
+    assert.deepEqual(f.calls(), { up: 0, wait: 0 });
     assert.deepEqual(f.dialogs, []);
     assert.equal(f.handlers.size, 0);
 });
