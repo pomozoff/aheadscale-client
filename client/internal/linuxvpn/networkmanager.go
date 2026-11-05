@@ -113,7 +113,20 @@ func (m *Manager) SetConnected(ctx context.Context, connected bool) error {
 		if active == "" {
 			return nil
 		}
-		return conn.Object(owner, nmPath).CallWithContext(ctx, nmDest+".DeactivateConnection", 0, active).Err
+		err = conn.Object(owner, nmPath).CallWithContext(ctx, nmDest+".DeactivateConnection", 0, active).Err
+		var inactive dbus.Error
+		if !errors.As(err, &inactive) || inactive.Name != nmDest+".ConnectionNotActive" {
+			return err
+		}
+		currentOwner, ownerErr := getOwner(ctx, conn)
+		if ownerErr != nil || currentOwner != owner {
+			return err
+		}
+		remaining, _, checkErr := m.active(ctx, conn, owner)
+		if checkErr == nil && remaining == "" {
+			return nil
+		}
+		return errors.Join(err, checkErr)
 	}
 	if active != "" && (state == 1 || state == 2) {
 		return nil
