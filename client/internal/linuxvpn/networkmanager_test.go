@@ -246,6 +246,7 @@ func TestManagerCommandsUseOwnedNMProfile(t *testing.T) {
 		{"already-deactivating", nmDest + ".ConnectionNotActive", false, false, 3},
 		{"already-deactivated", nmDest + ".ConnectionNotActive", false, false, 4},
 		{"still-active", nmDest + ".ConnectionNotActive", false, true, 2},
+		{"unknown-state", nmDest + ".ConnectionNotActive", false, true, 99},
 		{"permission-denied", nmDest + ".PermissionDenied", true, true, 2},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

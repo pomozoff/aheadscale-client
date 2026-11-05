@@ -122,8 +122,8 @@ func (m *Manager) SetConnected(ctx context.Context, connected bool) error {
 		if ownerErr != nil || currentOwner != owner {
 			return err
 		}
-		remaining, _, checkErr := m.active(ctx, conn, owner)
-		if checkErr == nil && remaining == "" {
+		remaining, remainingState, checkErr := m.active(ctx, conn, owner)
+		if checkErr == nil && (remaining == "" || remainingState == 3 || remainingState == 4) {
 			return nil
 		}
 		return errors.Join(err, checkErr)
