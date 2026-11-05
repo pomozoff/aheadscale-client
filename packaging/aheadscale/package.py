@@ -69,7 +69,7 @@ if args.platform == 'linux':
         control.mkdir()
         depends = 'iproute2, iptables, python3'
         if not args.cli_only:
-            depends += ', libgtk-4-1 (>= 4.14), libwebkitgtk-6.0-4, network-manager, systemd-resolved, libnm0, libnma0, libnma-gtk4-0, libgtk-3-0t64 | libgtk-3-0'
+            depends += ', xdg-utils, libgtk-4-1 (>= 4.14), libwebkitgtk-6.0-4, network-manager, systemd-resolved, libnm0, libnma0, libnma-gtk4-0, libgtk-3-0t64 | libgtk-3-0'
         control.joinpath('control').write_text(
             f'Package: aheadscale\nVersion: {args.version.replace("-", "~", 1)}\n'
             f'Architecture: {args.arch}\nMaintainer: Aheadscale <hello@aheadscale.ru>\n'
