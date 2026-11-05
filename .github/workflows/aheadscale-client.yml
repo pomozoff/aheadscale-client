@@ -232,7 +232,12 @@ jobs:
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
       - name: Зависимости настоящих C/GTK тестов
-        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends gcc pkg-config libnm-dev libnma-dev libnma-gtk4-dev libgtk-3-dev libgtk-4-dev meson ninja-build
+        run: |
+          # Azure mirror на runner давал 22,8 МБ почти за весь лимит job.
+          # Меняем только официальный Ubuntu origin; проверка подписей APT остаётся.
+          sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list.d/ubuntu.sources
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update -qq
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y --no-install-recommends gcc pkg-config libnm-dev libnma-dev libnma-gtk4-dev libgtk-3-dev libgtk-4-dev meson ninja-build
       - name: Модель редактора и одновременная загрузка upstream/Aheadscale factory
         run: python3 -B testing/aheadscale/run.py --suite gtk-editors --output ci-results/gtk-editors
       - name: Краткий результат
