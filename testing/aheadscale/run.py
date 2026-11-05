@@ -59,7 +59,8 @@ def suite_checks(suite):
                 Check("registration-idp-recovery", go + ["-race", "./idp/dex", "-run", "^TestVerifiedRegistration"], 600),
                 Check("registration-account-device-isolation", go + ["-race", "-tags", "devcert", "./management/server", "-run", "^TestAheadscale"], 1500)]
     if suite == "networkmanager":
-        return [Check("native-controller", go + ["-race", "./client/internal/linuxvpn", "./client/internal/windowsvpn"], 600),
+        return [Check("frontend-login-cancel", ["node", "--experimental-vm-modules", "--test", "client/ui/frontend/tests/connection.test.mjs"], 60),
+                Check("native-controller", go + ["-race", "./client/internal/linuxvpn", "./client/internal/windowsvpn"], 600),
                 Check("plugin-protocol-dbus", [sys.executable, "-B", "testing/aheadscale/networkmanager.py"], 900)]
     raise ValueError("Неизвестный набор проверок: " + suite)
 
