@@ -86,3 +86,14 @@ test("successful Login still connects, real failures still open a dialog", async
     assert.equal(failed.dialogs.length, 1);
     assert.match(failed.dialogs[0].Message, /native service unavailable/);
 });
+
+
+test("ordinary browser SSO still waits and connects once", async () => {
+    const f = await fixture();
+    const pending = f.start();
+    f.login.resolve({ ...result, needsSsoLogin: true, verificationUriComplete: "https://aheadscale.ru/oauth2/device" });
+    await pending;
+    assert.deepEqual(f.calls(), { up: 0, wait: 1 });
+    assert.deepEqual(f.dialogs, []);
+    assert.equal(f.handlers.size, 0);
+});
