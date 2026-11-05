@@ -55,7 +55,10 @@ async function runSsoLogin(
     const uri = result.verificationUriComplete || result.verificationUri;
     if (uri) await openBrowserLoginUri(uri);
 
-    if (state.cancelled) return;
+    if (state.cancelled) {
+        WindowManager.CloseBrowserLogin().catch(console.error);
+        return;
+    }
 
     // Combine wait + up in Go so the connection comes up the moment SSO
     // completes. During SSO the tray window is hidden and the webview is

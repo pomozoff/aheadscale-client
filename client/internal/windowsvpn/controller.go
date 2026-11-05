@@ -23,13 +23,13 @@ type SessionSnapshot struct {
 	State      ConnectionState
 }
 
-// SessionController serializes side effects; a newer intent cancels the older
-// command and owns the only result that may update the visible state.
 type sessionOperation struct {
 	done chan struct{}
 	err error
 }
 
+// SessionController serializes side effects; a newer intent cancels the older
+// command and owns the only result that may update the visible state.
 type SessionController struct {
 	mu         sync.Mutex
 	serial     chan struct{}
