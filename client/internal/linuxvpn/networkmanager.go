@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -326,6 +327,10 @@ func (m *Manager) RemoveProfile(ctx context.Context) error {
 }
 
 func activationFailure(banner string) error {
- if banner != "" { return fmt.Errorf("подключение Aheadscale завершилось: %s", banner) }
- return fmt.Errorf("системный VPN Aheadscale не подключён; проверьте вход и журнал службы")
+	// Служебный баннер содержит адрес OAuth и параметры попытки. Он не
+	// является пользовательским сообщением, даже если пришёл от нашего плагина.
+	if strings.HasPrefix(banner, "Aheadscale SSO login required.") {
+		return fmt.Errorf("вход Aheadscale не завершён; для новой попытки нажмите Connect")
+	}
+	return fmt.Errorf("системный VPN Aheadscale не подключён; проверьте вход и журнал службы")
 }

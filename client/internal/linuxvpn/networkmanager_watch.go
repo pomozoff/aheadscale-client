@@ -23,7 +23,7 @@ type NMEvent struct {
 	Owner         string
 	Generation    uint64
 	UserRequested bool
-	Reason uint32
+	Reason        uint32
 }
 
 func parseNMStop(signal *dbus.Signal, owner string, path dbus.ObjectPath, generation uint64) (NMEvent, bool) {

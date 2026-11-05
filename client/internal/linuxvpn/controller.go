@@ -129,6 +129,10 @@ func (c *Controller) ObserveNMStop(ctx context.Context, owner string, generation
 	c.saved = next
 	if userRequested {
 		c.state = State{Generation: next.Intent.Generation, Phase: Connecting}
+	} else if reason == 9 || reason == 10 {
+		// Отказ входа или отмена запроса секретов требуют нового ручного
+		// Connect. Не превращаем их в сбой службы с автоматическим повтором.
+		c.state = State{Generation: next.Intent.Generation, Phase: NeedsLogin, NonInteractive: c.state.NonInteractive}
 	}
 	c.mu.Unlock()
 	if c.down != nil {
