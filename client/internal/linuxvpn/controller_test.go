@@ -365,7 +365,7 @@ func TestSameOwnerStopWaitsForClassification(t *testing.T) {
 	if action := c.Reconcile(Observation{Owner: ":1.1", EngineAvailable: true}); action != NoAction {
 		t.Fatal("reconnected before stop classification")
 	}
-	if err = c.ObserveNMStop(context.Background(), ":1.1", active.Generation, 0); err != nil {
+	if err = c.ObserveNMStop(context.Background(), ":1.1", active.Generation, 4); err != nil {
 		t.Fatal(err)
 	}
 	if action := c.Reconcile(Observation{Owner: ":1.1", EngineAvailable: true}); action != Activate {
@@ -522,6 +522,11 @@ func TestNMAuthenticationStopDoesNotRestartLogin(t *testing.T) {
 			}
 			if c.State().Phase != NeedsLogin || !c.Intent().Connected {
 				t.Fatal("lost manual-login requirement or saved ON intent")
+			}
+			// Новый явный Connect должен работать, а не оставаться заблокированным.
+			next, err := c.Handle(0, Message{Version: 2, Operation: "Begin"})
+			if err != nil || next.Generation <= active.Generation || next.Phase != Connecting {
+				t.Fatalf("manual retry blocked after authentication stop: %+v %v", next, err)
 			}
 		})
 	}
