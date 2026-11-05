@@ -50,6 +50,11 @@ func (c *SessionController) SetConnected(ctx context.Context, connected bool) er
 	return c.setConnected(ctx, connected, false, nil)
 }
 
+// ConnectOrJoin joins a pending connect without replacing its cancellation owner.
+func (c *SessionController) ConnectOrJoin(ctx context.Context) error {
+	return c.SetConnected(ctx, true)
+}
+
 // StartOnLaunch resumes a saved connection only before any explicit user intent.
 func (c *SessionController) StartOnLaunch(ctx context.Context) error {
 	return c.setConnected(ctx, true, true, nil)

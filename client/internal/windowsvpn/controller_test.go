@@ -198,3 +198,54 @@ func TestSessionControllerRestartDoesNotResumeDisconnectedSession(t *testing.T) 
 		t.Fatal("восстановление включило отключённый VPN")
 	}
 }
+
+// Повторный Login во время native Up не должен заменять браузерную попытку.
+func TestSessionControllerConnectJoinsPendingActivation(t *testing.T) {
+ entered := make(chan context.Context, 2)
+ release := make(chan struct{})
+ var calls atomic.Int32
+ c := NewSessionController(func(ctx context.Context, on bool) error {
+  if on { calls.Add(1); entered <- ctx; <-release }
+  return nil
+ })
+ firstDone := make(chan error, 1)
+ go func() { firstDone <- c.SetConnected(context.Background(), true) }()
+ first := <-entered
+ joinedDone := make(chan error, 1)
+ go func() { joinedDone <- c.ConnectOrJoin(context.Background()) }()
+ select {
+ case <-first.Done():
+  close(release)
+  receiveResult(t, firstDone)
+  receiveResult(t, joinedDone)
+  t.Fatal("повторный Login отменил исходный вход")
+ case <-time.After(100*time.Millisecond):
+ }
+ close(release)
+ if err := receiveResult(t, firstDone); err != nil { t.Fatal(err) }
+ if err := receiveResult(t, joinedDone); err != nil { t.Fatal(err) }
+ if calls.Load() != 1 || c.Snapshot().State != Connected {
+  t.Fatalf("ожидался один успешный вход: calls=%d state=%+v", calls.Load(), c.Snapshot())
+ }
+}
+
+func TestSessionControllerCancelJoinDoesNotCancelActivation(t *testing.T) {
+ entered := make(chan context.Context, 1)
+ release := make(chan struct{})
+ c := NewSessionController(func(ctx context.Context, on bool) error {
+  if on { entered <- ctx; <-release }
+  return nil
+ })
+ firstDone := make(chan error, 1)
+ go func() { firstDone <- c.SetConnected(context.Background(), true) }()
+ first := <-entered
+ ctx, cancel := context.WithCancel(context.Background())
+ joinedDone := make(chan error, 1)
+ go func() { joinedDone <- c.ConnectOrJoin(ctx) }()
+ time.Sleep(100*time.Millisecond)
+ cancel()
+ if err := receiveResult(t, joinedDone); !errors.Is(err, context.Canceled) { t.Fatalf("join: %v", err) }
+ select { case <-first.Done(): t.Error("отмена ожидающего отменила владельца входа"); default: }
+ close(release)
+ if err := receiveResult(t, firstDone); err != nil { t.Fatal(err) }
+}
