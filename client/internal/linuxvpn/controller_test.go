@@ -4,8 +4,6 @@ package linuxvpn
 
 import (
 	"context"
-"fmt"
-"github.com/godbus/dbus/v5"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -14,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/godbus/dbus/v5"
 )
 
 func TestCancelRejectsLateUp(t *testing.T) {
