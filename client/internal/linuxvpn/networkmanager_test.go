@@ -240,14 +240,18 @@ func TestManagerCommandsUseOwnedNMProfile(t *testing.T) {
 		errorName string
 		vanish bool
 		wantError bool
+		state uint32
 	}{
-		{"already-disconnected", nmDest + ".ConnectionNotActive", true, false},
-		{"still-active", nmDest + ".ConnectionNotActive", false, true},
-		{"permission-denied", nmDest + ".PermissionDenied", true, true},
+		{"already-disconnected", nmDest + ".ConnectionNotActive", true, false, 2},
+		{"already-deactivating", nmDest + ".ConnectionNotActive", false, false, 3},
+		{"already-deactivated", nmDest + ".ConnectionNotActive", false, false, 4},
+		{"still-active", nmDest + ".ConnectionNotActive", false, true, 2},
+		{"permission-denied", nmDest + ".PermissionDenied", true, true, 2},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f.mu.Lock()
 			f.active = true
+			f.state = tc.state
 			f.deactivateError = dbus.NewError(tc.errorName, []interface{}{"The connection was not active."})
 			f.vanishOnDeactivate = tc.vanish
 			f.mu.Unlock()
@@ -259,6 +263,7 @@ func TestManagerCommandsUseOwnedNMProfile(t *testing.T) {
 	}
 	f.mu.Lock()
 	f.active = false
+	f.state = 0
 	f.deactivateError = nil
 	f.vanishOnDeactivate = false
 	f.mu.Unlock()
