@@ -102,7 +102,7 @@ func (c *Controller) Complete(generation uint64, phase Phase) error {
 
 // ObserveNMStop is called only for a system-bus event verified against our UUID,
 // current unique NM owner, and the active path recorded at broker Begin.
-func (c *Controller) ObserveNMStop(ctx context.Context, owner string, generation uint64, userRequested bool) error {
+func (c *Controller) ObserveNMStop(ctx context.Context, owner string, generation uint64, reason uint32) error {
 	select {
 	case c.gate <- struct{}{}:
 	case <-ctx.Done():
@@ -114,6 +114,7 @@ func (c *Controller) ObserveNMStop(ctx context.Context, owner string, generation
 		c.mu.Unlock()
 		return nil
 	}
+	userRequested := reason == 2
 	next := c.saved
 	next.PendingCancel = false
 	next.ActivationGeneration = 0

@@ -172,7 +172,7 @@ func (c *Controller) Run(ctx context.Context) error {
 				}
 				return fmt.Errorf("наблюдение NetworkManager остановлено")
 			}
-			if err = c.ObserveNMStop(ctx, event.Owner, event.Generation, event.UserRequested); err != nil {
+			if err = c.ObserveNMStop(ctx, event.Owner, event.Generation, event.Reason); err != nil {
 				log.Printf("Aheadscale native VPN stop: %v", err)
 			}
 		case <-poll.C:

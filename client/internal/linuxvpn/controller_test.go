@@ -4,6 +4,8 @@ package linuxvpn
 
 import (
 	"context"
+"fmt"
+"github.com/godbus/dbus/v5"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -264,7 +266,7 @@ func TestNeedsLoginSurvivesPluginFailureCleanup(t *testing.T) {
 	if _, err = c.Handle(0, Message{Version: 2, Operation: "Cancel", Generation: active.Generation}); err != nil {
 		t.Fatal(err)
 	}
-	if err = c.ObserveNMStop(context.Background(), ":1.1", active.Generation, false); err != nil {
+	if err = c.ObserveNMStop(context.Background(), ":1.1", active.Generation, 0); err != nil {
 		t.Fatal(err)
 	}
 	if action := c.Reconcile(Observation{Owner: ":1.1", EngineAvailable: true}); action != NoAction {
@@ -306,19 +308,19 @@ func TestOnlyCurrentNMSessionCanSetOff(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = c.ObserveNMStop(context.Background(), ":1.0", active.Generation, true); err != nil {
+	if err = c.ObserveNMStop(context.Background(), ":1.0", active.Generation, 2); err != nil {
 		t.Fatal(err)
 	}
 	if !c.Intent().Connected {
 		t.Fatal("accepted old NM owner")
 	}
-	if err = c.ObserveNMStop(context.Background(), ":1.1", active.Generation+1, true); err != nil {
+	if err = c.ObserveNMStop(context.Background(), ":1.1", active.Generation+1, 2); err != nil {
 		t.Fatal(err)
 	}
 	if !c.Intent().Connected {
 		t.Fatal("accepted foreign session")
 	}
-	if err = c.ObserveNMStop(context.Background(), ":1.1", active.Generation, true); err != nil {
+	if err = c.ObserveNMStop(context.Background(), ":1.1", active.Generation, 2); err != nil {
 		t.Fatal(err)
 	}
 	if c.Intent().Connected {
@@ -363,7 +365,7 @@ func TestSameOwnerStopWaitsForClassification(t *testing.T) {
 	if action := c.Reconcile(Observation{Owner: ":1.1", EngineAvailable: true}); action != NoAction {
 		t.Fatal("reconnected before stop classification")
 	}
-	if err = c.ObserveNMStop(context.Background(), ":1.1", active.Generation, false); err != nil {
+	if err = c.ObserveNMStop(context.Background(), ":1.1", active.Generation, 0); err != nil {
 		t.Fatal(err)
 	}
 	if action := c.Reconcile(Observation{Owner: ":1.1", EngineAvailable: true}); action != Activate {
@@ -428,7 +430,7 @@ func TestNeedsLoginDoesNotAutoRetryAfterCleanup(t *testing.T) {
 	if err = c.Complete(active.Generation, NeedsLogin); err != nil {
 		t.Fatal(err)
 	}
-	if err = c.ObserveNMStop(context.Background(), ":1.1", active.Generation, false); err != nil {
+	if err = c.ObserveNMStop(context.Background(), ":1.1", active.Generation, 0); err != nil {
 		t.Fatal(err)
 	}
 	if action := c.Reconcile(Observation{Owner: ":1.1", EngineAvailable: true}); action != NoAction {
@@ -487,4 +489,27 @@ func TestAutomaticLeasePolicySurvivesControllerRestart(t *testing.T) {
 	if err != nil || !restored.State().NonInteractive {
 		t.Fatalf("lost automatic policy at restart: %+v %v", restored, err)
 	}
+}
+
+// Отмена запроса секретов и отказ входа требуют нового ручного действия,
+// а остановка службы должна сохранять прежнее восстановление.
+func TestNMAuthenticationStopDoesNotRestartLogin(t *testing.T) {
+ for _, reason := range []uint32{9, 10} {
+  t.Run(fmt.Sprint(reason), func(t *testing.T) {
+   c, err := NewController(filepath.Join(t.TempDir(), "state"), "boot", true)
+   if err != nil { t.Fatal(err) }
+   _ = c.Reconcile(Observation{Owner: ":1.1", EngineAvailable: true})
+   active, err := c.Handle(0, Message{Version: 2, Operation: "Begin"})
+   if err != nil { t.Fatal(err) }
+   if _, err = c.Handle(0, Message{Version: 2, Operation: "Cancel", Generation: active.Generation}); err != nil { t.Fatal(err) }
+   signal := &dbus.Signal{Sender: ":1.1", Path: "/active/aheadscale", Name: activeInterface+".StateChanged", Body: []interface{}{uint32(4), reason}}
+   event, ok := parseNMStop(signal, ":1.1", "/active/aheadscale", active.Generation)
+   if !ok { t.Fatal("lost terminal authentication event") }
+   if err = c.ObserveNMStop(context.Background(), event.Owner, event.Generation, event.Reason); err != nil { t.Fatal(err) }
+   for i:=0; i<3; i++ {
+    if action:=c.Reconcile(Observation{Owner:":1.1",EngineAvailable:true}); action!=NoAction { t.Fatalf("authentication stop restarted activation: %v",action) }
+   }
+   if c.State().Phase!=NeedsLogin || !c.Intent().Connected { t.Fatal("lost manual-login requirement or saved ON intent") }
+  })
+ }
 }

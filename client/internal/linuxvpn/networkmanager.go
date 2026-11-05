@@ -294,10 +294,7 @@ func (m *Manager) Connect(ctx context.Context) error {
 				return nil
 			}
 			if !observation.VPNConnecting {
-				if banner != "" {
-					return fmt.Errorf("подключение Aheadscale завершилось: %s", banner)
-				}
-				return fmt.Errorf("системный VPN Aheadscale не подключён; проверьте вход и журнал службы")
+				return activationFailure(banner)
 			}
 		}
 	}
@@ -326,4 +323,9 @@ func (m *Manager) RemoveProfile(ctx context.Context) error {
 		return err
 	}
 	return conn.Object(owner, profile).CallWithContext(ctx, nmDest+".Settings.Connection.Delete", 0).Err
+}
+
+func activationFailure(banner string) error {
+ if banner != "" { return fmt.Errorf("подключение Aheadscale завершилось: %s", banner) }
+ return fmt.Errorf("системный VPN Aheadscale не подключён; проверьте вход и журнал службы")
 }

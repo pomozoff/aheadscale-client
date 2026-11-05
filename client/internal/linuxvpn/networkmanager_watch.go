@@ -23,6 +23,7 @@ type NMEvent struct {
 	Owner         string
 	Generation    uint64
 	UserRequested bool
+	Reason uint32
 }
 
 func parseNMStop(signal *dbus.Signal, owner string, path dbus.ObjectPath, generation uint64) (NMEvent, bool) {
@@ -34,7 +35,7 @@ func parseNMStop(signal *dbus.Signal, owner string, path dbus.ObjectPath, genera
 	if !stateOK || !reasonOK || (state != 4 && !(state == 3 && reason == 2)) {
 		return NMEvent{}, false
 	}
-	return NMEvent{Owner: owner, Generation: generation, UserRequested: reason == 2}, true
+	return NMEvent{Owner: owner, Generation: generation, UserRequested: reason == 2, Reason: reason}, true
 }
 func (m *Manager) trackCurrentSession(ctx context.Context, generation uint64, intent Intent) (activationSession, error) {
 	return m.trackSession(ctx, generation, intent, false, false)

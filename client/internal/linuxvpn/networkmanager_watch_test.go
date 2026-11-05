@@ -5,6 +5,7 @@ package linuxvpn
 import (
 	"github.com/godbus/dbus/v5"
 	"testing"
+"strings"
 )
 
 func TestNativeNMStopFiltersOwnerPathAndReason(t *testing.T) {
@@ -29,4 +30,15 @@ func TestNativeNMStopFiltersOwnerPathAndReason(t *testing.T) {
 	if !ok || event.UserRequested {
 		t.Fatal("service failure became explicit OFF")
 	}
+}
+
+func TestActivationFailureDoesNotExposeSSOBanner(t *testing.T) {
+ for _, banner := range []string{
+  "Aheadscale SSO login required. Open: https://aheadscale.ru/oauth2/auth?code=private-test-code",
+  "unexpected https://example.invalid/?token=private-test-code",
+ } {
+  err:=activationFailure(banner)
+  if err==nil { t.Fatal("failed activation reported success") }
+  if strings.Contains(err.Error(),"https://") || strings.Contains(err.Error(),"private-test-code") { t.Fatal("internal authentication details exposed to UI") }
+ }
 }
