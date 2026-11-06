@@ -36,14 +36,23 @@
   },
   "package38": {
     "run": 42189966511,
+    "attempt": 2,
     "source": "5980467",
-    "status": "CANCELLATION_REQUESTED_FOR_DIAGNOSIS",
-    "reason": "Подготовка Linux build tools длится более16минут. Проверки unit/NetworkManager/packaging/GTK прошли; причина задержки APT до получения лога неизвестна.",
-    "nativeInstallerAcceptance": "NOT_RUN"
+    "status": "SUCCESS",
+    "publicDebSha256": "563065913d2fe65c034538726e2d2c5a6224504cc82193a624588bec2464cd97",
+    "firstAttempt": {
+      "status": "CANCELLED",
+      "reason": "Linux build tools не завершился за16+минут, обычная отмена не завершила runner; применена force-cancel. Журнал job недоступен (log not found), точная причина не доказана.",
+      "recovery": "На новом runner повторён только build-job. Успешные ci-contract/unit/NetworkManager/packaging/GTK переиспользованы. Та же подготовка прошла, workflow/проверки не ослаблялись."
+    },
+    "nativeInstallerAcceptance": "PASS адресного чистого smoke: snapshot до Aheadscale, apt exit0, журнал подтверждает Selecting previously unselected package aheadscale; зависимости доставлены автоматически. Проверенный KDE-компонент из пакета совпадает с закреплённым SHA256.",
+    "firstLaunch": "KRunner → aheadscale-ui → Continue; штатный VPN secrets содержит полный текст, Firefox автоматически открыт, callback53000 LISTEN.",
+    "nativeScreenshot": "assets/2026-11-06-kde38-package-login-label.png",
+    "nativeCancel": "PASS: через15с CLI Idle, callback закрыт, VPN-IP/активного VPN нет.",
+    "limits": "Вход владельца и обмен нового чистого устройства после SSO ещё не выполнены. Нативная приёмка установщиков ARM64 .38 не проводилась."
   },
   "remaining": [
-    "Получить журнал остановленной подготовки CI и исправить подтверждённую причину",
-    "Собрать установщик .38 и проверить его штатную установку",
-    "Первый полный вход владельца на чистом пакете остаётся открытым"
+    "Первый полный вход владельца и обмен на чистом пакете .38",
+    "Нативная проверка установщиков ARM64 .38, если включаются в окончательный комплект"
   ]
 }
