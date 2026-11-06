@@ -27,8 +27,8 @@
     }
   },
   "plasma_component_sha256": {
-    "arm64": "cbbeb47e1e61b73131f585fd238ae02daf13b9fe9045d84d21fe88742da2a22f",
-    "amd64": "b6d553089f5dc61b106f241b84ef98264650b07df903e547e751f0e192288983"
+    "arm64": "98fe093d4c77dc408a0feeea9a544ca9ce07421373c2b4ed41def076d0af458b",
+    "amd64": "2d12def0850ff9ed7926ea51d7a045e7575d966344298684983d25a20a69b09b"
   },
   "plasma_toolchain": {
     "os": "Ubuntu 26.04",
@@ -41,13 +41,13 @@
   "patch_format": "git-unified-0",
   "plasma_component_producer": {
     "amd64": {
-      "run_id": 40837726261,
-      "source_commit": "9bfbb2687efb76848c2fedf91bcb6b382c4a10e5",
+      "run_id": 42189018800,
+      "source_commit": "6539b719cd836c9027783c820c78c13bd467d374",
       "ctest": "PASS"
     },
     "arm64": {
-      "run_id": 40838793158,
-      "source_commit": "569d0471c8856c52878b79f52fa10fabb1f0c799",
+      "run_id": 42189644155,
+      "source_commit": "6539b719cd836c9027783c820c78c13bd467d374",
       "ctest": "PASS"
     }
   }
