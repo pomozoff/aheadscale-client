@@ -1,71 +1,142 @@
-diff --git a/cmd/nm-netbird-auth-dialog/main.go b/cmd/nm-aheadscale-auth-dialog/main.go
-similarity index 65%
-rename from cmd/nm-netbird-auth-dialog/main.go
-rename to cmd/nm-aheadscale-auth-dialog/main.go
-index cc444d4..4cbfa98 100644
---- a/cmd/nm-netbird-auth-dialog/main.go
+diff --git a/cmd/nm-aheadscale-auth-dialog/main.go b/cmd/nm-aheadscale-auth-dialog/main.go
+new file mode 100644
+index 0000000..4cbfa98
+--- /dev/null
 +++ b/cmd/nm-aheadscale-auth-dialog/main.go
-@@ -1 +1 @@
--// Command nm-netbird-auth-dialog handles NetworkManager VPN auth-dialog requests for NetBird.
+@@ -0,0 +1,12 @@
 +// Command nm-aheadscale-auth-dialog handles NetworkManager VPN auth-dialog requests for NetBird.
-diff --git a/cmd/nm-netbird-service/main.go b/cmd/nm-aheadscale-service/main.go
-similarity index 70%
-rename from cmd/nm-netbird-service/main.go
-rename to cmd/nm-aheadscale-service/main.go
-index 276c0cf..a76b7aa 100644
---- a/cmd/nm-netbird-service/main.go
++package main
++
++import (
++	"os"
++
++	"github.com/netbirdio/network-manager-plugin/internal/nmauthdialog"
++)
++
++func main() {
++	os.Exit(nmauthdialog.Run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr))
++}
+diff --git a/cmd/nm-aheadscale-service/main.go b/cmd/nm-aheadscale-service/main.go
+new file mode 100644
+index 0000000..a76b7aa
+--- /dev/null
 +++ b/cmd/nm-aheadscale-service/main.go
-@@ -1 +1 @@
--// Command nm-netbird-service exposes the NetBird NetworkManager VPN plugin service over D-Bus.
+@@ -0,0 +1,115 @@
 +// Command nm-aheadscale-service exposes the NetBird NetworkManager VPN plugin service over D-Bus.
-@@ -4,0 +5 @@ import (
++package main
++
++import (
 +	"context"
-@@ -6,0 +8 @@ import (
++	"flag"
++	"fmt"
 +	"github.com/netbirdio/network-manager-plugin/internal/aheadscale"
-@@ -21,0 +24,2 @@ func main() {
++	"log"
++	"os"
++	"os/signal"
++	"strings"
++	"syscall"
++	"time"
++
++	"github.com/godbus/dbus/v5"
++	"github.com/netbirdio/network-manager-plugin/internal/envconfig"
++	"github.com/netbirdio/network-manager-plugin/internal/initsystem"
++	"github.com/netbirdio/network-manager-plugin/internal/netbird/daemonclient"
++	"github.com/netbirdio/network-manager-plugin/internal/nmplugin"
++)
++
++func main() {
 +	ctx, cancel := context.WithCancel(context.Background())
 +	defer cancel()
-@@ -26,2 +30,2 @@ func main() {
--	daemonAddress := flag.String("daemon-address", defaultDaemonOptions.Address, "NetBird daemon gRPC address")
--	startDaemon := flag.Bool("start-daemon", defaultDaemonOptions.StartDaemon, "ask the configured init system to start the NetBird daemon if the first dial fails")
++	defaultDaemonOptions := daemonclient.DefaultOptionsFromEnv()
++
++	busType := flag.String("bus", "system", "D-Bus bus to use: system or session")
++	debug := flag.Bool("debug", false, "enable verbose logging")
 +	daemonAddress := flag.String("daemon-address", defaultDaemonOptions.Address, "Aheadscale daemon gRPC address")
 +	startDaemon := flag.Bool("start-daemon", defaultDaemonOptions.StartDaemon, "ask the configured init system to start the Aheadscale daemon if the first dial fails")
-@@ -30,4 +34,4 @@ func main() {
--	dialTimeout := flag.Duration("daemon-dial-timeout", defaultDaemonOptions.DialTimeout, "timeout for dialing the NetBird daemon")
--	rpcTimeout := flag.Duration("daemon-rpc-timeout", defaultDaemonOptions.RPCTimeout, "per-RPC timeout for NetBird daemon calls without an existing deadline")
--	activationTimeout := flag.Duration("activation-timeout", 90*time.Second, "maximum time to wait for NetBird activation phases other than interactive SSO")
--	ssoWaitTimeout := flag.Duration("sso-wait-timeout", 10*time.Minute, "maximum time to wait for interactive NetBird SSO completion")
++	daemonInitSystem := flag.String("daemon-init-system", envconfig.StringDefault(initsystem.EnvSystem, initsystem.DefaultSystem), "init system used with --start-daemon: auto or systemd")
++	daemonService := flag.String("daemon-service", defaultDaemonOptions.DaemonService, "daemon service name to start when --start-daemon is enabled")
 +	dialTimeout := flag.Duration("daemon-dial-timeout", defaultDaemonOptions.DialTimeout, "timeout for dialing the Aheadscale daemon")
 +	rpcTimeout := flag.Duration("daemon-rpc-timeout", defaultDaemonOptions.RPCTimeout, "per-RPC timeout for Aheadscale daemon calls without an existing deadline")
 +	activationTimeout := flag.Duration("activation-timeout", 90*time.Second, "maximum time to wait for Aheadscale activation phases other than interactive SSO")
 +	ssoWaitTimeout := flag.Duration("sso-wait-timeout", 10*time.Minute, "maximum time to wait for interactive Aheadscale SSO completion")
-@@ -36 +40 @@ func main() {
--	logger := log.New(os.Stdout, "nm-netbird-service: ", log.LstdFlags|log.Lmicroseconds)
++	flag.Parse()
++
 +	logger := log.New(os.Stdout, "nm-aheadscale-service: ", log.LstdFlags|log.Lmicroseconds)
-@@ -42,3 +46,5 @@ func main() {
--	defer func() {
--		_ = conn.Close()
--	}()
++
++	conn, err := connectBus(*busType)
++	if err != nil {
++		logger.Fatalf("connect %s bus: %v", *busType, err)
++	}
 +	defer func() { _ = conn.Close() }()
 +	ownerLost, err := aheadscale.WatchNetworkManagerOwner(ctx, conn)
 +	if err != nil {
 +		logger.Fatal(err)
 +	}
-@@ -63,3 +69,4 @@ func main() {
--		ClientFactory:     daemonclient.NewFactory(daemonOptions),
--		ActivationTimeout: *activationTimeout,
--		SSOWaitTimeout:    *ssoWaitTimeout,
++
++	daemonOptions := daemonclient.Options{
++		Address:       *daemonAddress,
++		DialTimeout:   *dialTimeout,
++		RPCTimeout:    *rpcTimeout,
++		StartDaemon:   *startDaemon,
++		DaemonService: *daemonService,
++		Logger:        logger,
++	}
++	if *startDaemon {
++		starter, err := initsystem.NewStarter(*daemonInitSystem)
++		if err != nil {
++			logger.Fatalf("configure daemon autostart: %v", err)
++		}
++		daemonOptions.Starter = starter
++	}
++
++	service := nmplugin.NewService(conn, logger, *debug, nmplugin.ServiceOptions{
 +		ActivationController: aheadscale.NewBroker(aheadscale.BrokerPath),
 +		ClientFactory:        daemonclient.NewFactory(daemonOptions),
 +		ActivationTimeout:    *activationTimeout,
 +		SSOWaitTimeout:       *ssoWaitTimeout,
-@@ -86 +93,5 @@ func main() {
--	<-signals
++	})
++	if err := service.Export(); err != nil {
++		logger.Fatalf("export service: %v", err)
++	}
++
++	reply, err := conn.RequestName(nmplugin.BusName, dbus.NameFlagDoNotQueue)
++	if err != nil {
++		logger.Fatalf("request bus name %s: %v", nmplugin.BusName, err)
++	}
++	if reply != dbus.RequestNameReplyPrimaryOwner {
++		logger.Fatalf("bus name %s is already owned (reply=%d)", nmplugin.BusName, reply)
++	}
++	defer func() {
++		_, _ = conn.ReleaseName(nmplugin.BusName)
++	}()
++
++	logger.Printf("serving %s on %s bus at %s", nmplugin.BusName, normalizedBusName(*busType), nmplugin.ObjectPath)
++
++	signals := make(chan os.Signal, 1)
++	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 +	select {
 +	case <-signals:
 +	case <-ownerLost:
 +	}
 +	_ = service.Disconnect()
++
++	logger.Printf("shutting down")
++}
++
++func connectBus(busType string) (*dbus.Conn, error) {
++	switch normalizedBusName(busType) {
++	case "session":
++		return dbus.SessionBus()
++	case "system":
++		return dbus.SystemBus()
++	default:
++		return nil, fmt.Errorf("unsupported bus %q; expected session or system", busType)
++	}
++}
++
++func normalizedBusName(busType string) string {
++	return strings.ToLower(strings.TrimSpace(busType))
++}
 diff --git a/internal/aheadscale/broker.go b/internal/aheadscale/broker.go
 new file mode 100644
 index 0000000..f54cd17
@@ -998,7 +1069,7 @@ index fce6c37..35bec2f 100644
 +	s.failActivation(failure, err)
 +}
 diff --git a/internal/nmplugin/service_test.go b/internal/nmplugin/service_test.go
-index d7f1bf0..d941721 100644
+index d7f1bf0..99a5831 100644
 --- a/internal/nmplugin/service_test.go
 +++ b/internal/nmplugin/service_test.go
 @@ -23,0 +24 @@ import (
@@ -1089,7 +1160,7 @@ index d7f1bf0..d941721 100644
 +			if cleanup != nil {
 +				<-cleanup
 +			}
-@@ -1732,0 +1744,213 @@ func connectTestBus(t *testing.T, address string) *dbus.Conn {
+@@ -1732,0 +1744,238 @@ func connectTestBus(t *testing.T, address string) *dbus.Conn {
 +
 +type rejectingActivationController struct {
 +	mu         sync.Mutex
@@ -1303,6 +1374,31 @@ index d7f1bf0..d941721 100644
 +	defer controller.mu.Unlock()
 +	require.Contains(t, controller.operations, "NeedsLogin")
 +}
++
++// Completion is scoped to the live activation, never an old dialog or zero ID.
++func TestSSOCompletionBelongsToCurrentLiveActivation(t *testing.T) {
++ obj, _ := newTestingBusObject(t)
++ check := func(id uint64, want bool) {
++  t.Helper()
++  var got bool
++  require.NoError(t, obj.Call(nmplugin.Interface+".SSOComplete", 0, id).Store(&got))
++  require.Equal(t, want, got)
++ }
++ check(0, false)
++ check(1, false)
++ require.NoError(t, obj.Call(nmplugin.Interface+".Connect", 0, setupKeyConnectionSettings()).Store())
++ waitForState(t, obj, nmplugin.ServiceStateStarted)
++ check(0, false)
++ check(1, true)
++ check(2, false)
++ require.NoError(t, obj.Call(nmplugin.Interface+".Disconnect", 0).Store())
++ check(1, false)
++ require.NoError(t, obj.Call(nmplugin.Interface+".Connect", 0, setupKeyConnectionSettings()).Store())
++ waitForState(t, obj, nmplugin.ServiceStateStarted)
++ check(1, false)
++ check(2, true)
++ require.NoError(t, obj.Call(nmplugin.Interface+".Disconnect", 0).Store())
++}
 diff --git a/internal/nmplugin/settings.go b/internal/nmplugin/settings.go
 index ea0dba9..f315ec0 100644
 --- a/internal/nmplugin/settings.go
@@ -1379,26 +1475,6 @@ index 0000000..2ab7525
 +
 +[libnm]
 +plugin=/usr/lib/NetworkManager/libnm-vpn-plugin-aheadscale.so
-diff --git a/packaging/NetworkManager/VPN/nm-netbird-service.name b/packaging/NetworkManager/VPN/nm-netbird-service.name
-deleted file mode 100644
-index 25c578a..0000000
---- a/packaging/NetworkManager/VPN/nm-netbird-service.name
-+++ /dev/null
-@@ -1,14 +0,0 @@
--[VPN Connection]
--name=netbird
--service=org.freedesktop.NetworkManager.netbird
--# NetworkManager executes this path directly; nm-netbird-service defaults to the system bus.
--program=/usr/libexec/nm-netbird-service
--supports-multiple-connections=false
--
--[GNOME]
--auth-dialog=/usr/libexec/nm-netbird-auth-dialog
--supports-external-ui-mode=true
--supports-hints=true
--
--[libnm]
--plugin=/usr/lib/NetworkManager/libnm-vpn-plugin-netbird.so
 diff --git a/packaging/dbus-1/system.d/nm-aheadscale-service.conf b/packaging/dbus-1/system.d/nm-aheadscale-service.conf
 new file mode 100644
 index 0000000..e1c2deb
@@ -1417,24 +1493,6 @@ index 0000000..e1c2deb
 +    <deny send_destination="org.freedesktop.NetworkManager.aheadscale"/>
 +  </policy>
 +</busconfig>
-diff --git a/packaging/dbus-1/system.d/nm-netbird-service.conf b/packaging/dbus-1/system.d/nm-netbird-service.conf
-deleted file mode 100644
-index c5ba6b1..0000000
---- a/packaging/dbus-1/system.d/nm-netbird-service.conf
-+++ /dev/null
-@@ -1,12 +0,0 @@
--<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-Bus Bus Configuration 1.0//EN"
-- "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
--<busconfig>
--  <policy user="root">
--    <allow own="org.freedesktop.NetworkManager.netbird"/>
--    <allow send_destination="org.freedesktop.NetworkManager.netbird"/>
--  </policy>
--  <policy context="default">
--    <deny own="org.freedesktop.NetworkManager.netbird"/>
--    <deny send_destination="org.freedesktop.NetworkManager.netbird"/>
--  </policy>
--</busconfig>
 diff --git a/packaging/selinux/Makefile b/packaging/selinux/Makefile
 index 4672fce..e0141b6 100644
 --- a/packaging/selinux/Makefile
@@ -1536,106 +1594,18 @@ index 0000000..9b0eb72
 +allow nm_aheadscale_t nm_aheadscale_runtime_t:dir { getattr search };
 +type_transition unconfined_service_t var_run_t:dir nm_aheadscale_runtime_t "aheadscale";
 +allow unconfined_service_t nm_aheadscale_runtime_t:dir { create getattr search write add_name remove_name };
-diff --git a/packaging/selinux/nm_netbird.fc b/packaging/selinux/nm_netbird.fc
-deleted file mode 100644
-index 1119592..0000000
---- a/packaging/selinux/nm_netbird.fc
-+++ /dev/null
-@@ -1,6 +0,0 @@
--# NetworkManager NetBird file contexts.
--
--/usr/libexec/nm-netbird-service	--	gen_context(system_u:object_r:nm_netbird_exec_t,s0)
--/usr/libexec/nm-netbird-auth-dialog -- gen_context(system_u:object_r:nm_netbird_exec_t,s0)
--/run/netbird\.sock	-s	gen_context(system_u:object_r:nm_netbird_runtime_t,s0)
--/var/run/netbird\.sock	-s	gen_context(system_u:object_r:nm_netbird_runtime_t,s0)
-diff --git a/packaging/selinux/nm_netbird.te b/packaging/selinux/nm_netbird.te
-deleted file mode 100644
-index 240e8f4..0000000
---- a/packaging/selinux/nm_netbird.te
-+++ /dev/null
-@@ -1,70 +0,0 @@
--policy_module(nm_netbird, 1.0.2)
--
--require {
--	type NetworkManager_t;
--	type system_dbusd_t;
--	type cgroup_t;
--	type sysfs_t;
--	type unconfined_service_t;
--	type var_run_t;
--	class dbus { acquire_svc send_msg };
--	class dir { getattr search };
--	class file { execute getattr map open read };
--	class sock_file { create getattr open read setattr unlink write };
--	class unix_stream_socket { connectto create getattr getopt ioctl read setopt shutdown write };
--}
--
--type nm_netbird_t;
--type nm_netbird_exec_t;
--init_daemon_domain(nm_netbird_t, nm_netbird_exec_t)
--
--# NetworkManager launches the VPN helper, which should run in its own domain.
--domtrans_pattern(NetworkManager_t, nm_netbird_exec_t, nm_netbird_t)
--
--type nm_netbird_runtime_t;
--ifdef(`files_runtime_file',`
--	files_runtime_file(nm_netbird_runtime_t)
--',`
--	files_pid_file(nm_netbird_runtime_t)
--')
--
--# Opt-in peer attribute for a distro or site-local policy that labels the
--# NetBird daemon with a dedicated SELinux domain.
--attribute nm_netbird_daemon_domain;
--
--allow nm_netbird_t self:unix_stream_socket { create getattr getopt ioctl read setopt shutdown write };
--
--allow nm_netbird_t cgroup_t:dir { getattr search };
--auth_use_nsswitch(nm_netbird_t)
--allow nm_netbird_t sysfs_t:file read;
--allow nm_netbird_t nm_netbird_runtime_t:sock_file { getattr open read write };
--
--dbus_system_bus_client(nm_netbird_t)
--allow nm_netbird_t system_dbusd_t:dbus acquire_svc;
--
--allow NetworkManager_t nm_netbird_t:dbus send_msg;
--allow nm_netbird_t NetworkManager_t:dbus send_msg;
--
--# Some distributions keep NetworkManager VPN helpers in NetworkManager_t.
--# Keep this limited to the labeled NetBird daemon socket.
--allow NetworkManager_t nm_netbird_runtime_t:sock_file { getattr open read write };
--
--# Prefer a dedicated NetBird daemon SELinux domain. A distro or site-local
--# policy can opt the daemon's actual type into nm_netbird_daemon_domain.
--allow nm_netbird_t nm_netbird_daemon_domain:unix_stream_socket connectto;
--allow NetworkManager_t nm_netbird_daemon_domain:unix_stream_socket connectto;
--type_transition nm_netbird_daemon_domain var_run_t:sock_file nm_netbird_runtime_t "netbird.sock";
--allow nm_netbird_daemon_domain nm_netbird_runtime_t:sock_file { create getattr open read setattr unlink write };
--
--# Fedora's upstream NetBird RPM can run netbird.service as unconfined_service_t.
--# SELinux checks unix_stream_socket connectto against the server process domain,
--# not the /run/netbird.sock path, so this explicit compatibility exception is
--# needed until NetBird ships a dedicated daemon domain that can opt into
--# nm_netbird_daemon_domain.
--allow nm_netbird_t unconfined_service_t:unix_stream_socket connectto;
--allow NetworkManager_t unconfined_service_t:unix_stream_socket connectto;
--
--# Keep daemon-created sockets labeled after netbird.service restarts, not only
--# after RPM postinstall restorecon of an already-existing socket.
--type_transition unconfined_service_t var_run_t:sock_file nm_netbird_runtime_t "netbird.sock";
--allow unconfined_service_t nm_netbird_runtime_t:sock_file { create getattr open read setattr unlink write };
 diff --git a/plasma/CMakeLists.txt b/plasma/CMakeLists.txt
 new file mode 100644
-index 0000000..c86dbe0
+index 0000000..56c6686
 --- /dev/null
 +++ b/plasma/CMakeLists.txt
-@@ -0,0 +1,45 @@
+@@ -0,0 +1,46 @@
 +cmake_minimum_required(VERSION 3.22)
 +project(aheadscale_plasma LANGUAGES CXX)
 +include(GNUInstallDirs)
 +set(CMAKE_CXX_STANDARD 17)
 +set(CMAKE_AUTOMOC ON)
-+find_package(Qt6 REQUIRED COMPONENTS Widgets Test)
++find_package(Qt6 REQUIRED COMPONENTS Widgets Test DBus)
 +find_package(KF6CoreAddons REQUIRED)
 +find_package(KF6NetworkManagerQt REQUIRED)
 +find_package(KF6WidgetsAddons REQUIRED)
@@ -1658,7 +1628,7 @@ index 0000000..c86dbe0
 +target_include_directories(aheadscale_plasma_sdk INTERFACE
 +    "${PLASMA_NM_SOURCE}/libs/editor" "${PLASMA_NM_SOURCE}/libs/editor/widgets"
 +    "${CMAKE_CURRENT_BINARY_DIR}")
-+target_link_libraries(aheadscale_plasma_sdk INTERFACE Qt6::Widgets
++target_link_libraries(aheadscale_plasma_sdk INTERFACE Qt6::Widgets Qt6::DBus
 +    KF6::CoreAddons KF6::NetworkManagerQt KF6::WidgetsAddons
 +    PkgConfig::LIBNM "${PLASMA_NM_EDITOR}")
 +if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/aheadscale.cpp")
@@ -1672,7 +1642,8 @@ index 0000000..c86dbe0
 +include(CTest)
 +add_executable(aheadscale-plasma-test aheadscale_test.cpp)
 +target_link_libraries(aheadscale-plasma-test PRIVATE aheadscale_plasma_sdk Qt6::Test)
-+add_test(NAME aheadscale-plasma COMMAND aheadscale-plasma-test)
++find_program(DBUS_RUN_SESSION dbus-run-session REQUIRED)
++add_test(NAME aheadscale-plasma COMMAND ${DBUS_RUN_SESSION} -- $<TARGET_FILE:aheadscale-plasma-test>)
 +set_tests_properties(aheadscale-plasma PROPERTIES ENVIRONMENT
 +    "QT_QPA_PLATFORM=offscreen;QT_PLUGIN_PATH=${CMAKE_CURRENT_BINARY_DIR}/plugins")
 diff --git a/plasma/README.md b/plasma/README.md
@@ -1734,7 +1705,7 @@ index 0000000..c6a43e5
 +публичный выпуск для всех дистрибутивов.
 diff --git a/plasma/aheadscale.cpp b/plasma/aheadscale.cpp
 new file mode 100644
-index 0000000..5c37bbb
+index 0000000..28b3d9a
 --- /dev/null
 +++ b/plasma/aheadscale.cpp
 @@ -0,0 +1,152 @@
@@ -1892,10 +1863,10 @@ index 0000000..5c37bbb
 +#include "aheadscale.moc"
 diff --git a/plasma/aheadscale_test.cpp b/plasma/aheadscale_test.cpp
 new file mode 100644
-index 0000000..1d68f15
+index 0000000..8f5e7e5
 --- /dev/null
 +++ b/plasma/aheadscale_test.cpp
-@@ -0,0 +1,158 @@
+@@ -0,0 +1,215 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +#include "vpnuiplugin.h"
 +#include <QDesktopServices>
@@ -1907,6 +1878,8 @@ index 0000000..1d68f15
 +#include <QTest>
 +#include <QUrl>
 +#include <memory>
++#include <QDBusConnection>
++#include <QSignalSpy>
 +
 +class BrowserCapture : public QObject {
 +    Q_OBJECT
@@ -1914,6 +1887,17 @@ index 0000000..1d68f15
 +    QList<QUrl> urls;
 +public Q_SLOTS:
 +    void capture(const QUrl &url) { urls.append(url); }
++};
++
++class CompletionFixture : public QObject {
++    Q_OBJECT
++    Q_CLASSINFO("D-Bus Interface", "org.freedesktop.NetworkManager.VPN.Plugin")
++public:
++    qulonglong current = 71;
++    bool ready = false;
++    int calls = 0;
++public Q_SLOTS:
++    bool SSOComplete(qulonglong activation) { ++calls; return ready && activation == current; }
 +};
 +
 +class AheadscalePlasmaTest : public QObject {
@@ -1931,6 +1915,50 @@ index 0000000..1d68f15
 +        return std::unique_ptr<VpnUiPlugin>(result.plugin);
 +    }
 +private Q_SLOTS:
++    void initTestCase() {
++        QVERIFY(!qEnvironmentVariableIsEmpty("DBUS_SESSION_BUS_ADDRESS"));
++        qputenv("DBUS_SYSTEM_BUS_ADDRESS", qgetenv("DBUS_SESSION_BUS_ADDRESS"));
++    }
++    void completion_data() {
++        QTest::addColumn<bool>("cancel");
++        QTest::addColumn<bool>("stale");
++        QTest::newRow("current-completes") << false << false;
++        QTest::newRow("old-generation-stays-open") << false << true;
++        QTest::newRow("cancel-cannot-revive") << true << false;
++    }
++    void completion() {
++        QFETCH(bool, cancel); QFETCH(bool, stale);
++        auto bus = QDBusConnection::sessionBus();
++        QVERIFY(bus.registerService(QString::fromLatin1(service)));
++        CompletionFixture fixture;
++        QVERIFY(bus.registerObject("/org/freedesktop/NetworkManager/VPN/Plugin", &fixture,
++            QDBusConnection::ExportAllSlots));
++        auto plugin = load(); QVERIFY(plugin);
++        BrowserCapture browser;
++        QDesktopServices::setUrlHandler("https", &browser, "capture");
++        QDialog dialog;
++        auto *layout = new QVBoxLayout(&dialog);
++        auto *widget = plugin->askUser(vpn(), {"x-aheadscale-activation-id=71",
++            "x-aheadscale-sso=true", "x-aheadscale-sso-verification-uri=https://aheadscale.ru/oauth2/auth"}, &dialog);
++        layout->addWidget(widget);
++        QSignalSpy accepted(&dialog, &QDialog::accepted);
++        dialog.show();
++        QTRY_COMPARE(browser.urls.size(), 1);
++        QTest::qWait(350);
++        QCOMPARE(accepted.size(), 0);
++        if (cancel) { dialog.reject(); delete widget; }
++        if (stale) fixture.current = 72;
++        fixture.ready = true;
++        if (!cancel && !stale) {
++            QTRY_COMPARE_WITH_TIMEOUT(accepted.size(), 1, 4000);
++        } else {
++            QTest::qWait(700); QCOMPARE(accepted.size(), 0);
++        }
++        if (!cancel) QTRY_VERIFY(fixture.calls > 0);
++        QDesktopServices::unsetUrlHandler("https");
++        bus.unregisterObject("/org/freedesktop/NetworkManager/VPN/Plugin");
++        bus.unregisterService(QString::fromLatin1(service));
++    }
 +    void discoverAndLoadLikePlasma() {
 +        const auto matches = KPluginMetaData::findPlugins(QStringLiteral("plasma/network/vpn"),
 +            [](const KPluginMetaData &md) {
@@ -2359,159 +2387,448 @@ index 0000000..b860364
 +    g_test_add_func("/aheadscale-editor/validation-invalid-interfaces", test_validation_rejects_invalid_interface_names);
 +    return g_test_run();
 +}
-diff --git a/properties/nm-netbird-editor-model.c b/properties/nm-aheadscale-editor-model.c
-similarity index 71%
-rename from properties/nm-netbird-editor-model.c
-rename to properties/nm-aheadscale-editor-model.c
-index 6cb30cb..375ec34 100644
---- a/properties/nm-netbird-editor-model.c
+diff --git a/properties/nm-aheadscale-editor-model.c b/properties/nm-aheadscale-editor-model.c
+new file mode 100644
+index 0000000..375ec34
+--- /dev/null
 +++ b/properties/nm-aheadscale-editor-model.c
-@@ -1 +1 @@
--#include "nm-netbird-editor-model.h"
+@@ -0,0 +1,436 @@
 +#include "nm-aheadscale-editor-model.h"
-@@ -6 +6 @@ static const char *const auth_keys[] = {
--    NETBIRD_KEY_AUTH,
++
++#include <string.h>
++
++static const char *const auth_keys[] = {
 +    AHEADSCALE_KEY_AUTH,
-@@ -14 +14 @@ static const char *const setup_key_keys[] = {
--    NETBIRD_KEY_SETUP_KEY,
++    "auth-mode",
++    "authentication",
++    "login-mode",
++    NULL,
++};
++
++static const char *const setup_key_keys[] = {
 +    AHEADSCALE_KEY_SETUP_KEY,
-@@ -16 +16 @@ static const char *const setup_key_keys[] = {
--    "netbird-setup-key",
++    "setupKey",
 +    "aheadscale-setup-key",
-@@ -21 +21 @@ static const char *const management_url_keys[] = {
--    NETBIRD_KEY_MANAGEMENT_URL,
++    NULL,
++};
++
++static const char *const management_url_keys[] = {
 +    AHEADSCALE_KEY_MANAGEMENT_URL,
-@@ -23 +23 @@ static const char *const management_url_keys[] = {
--    "netbird-management-url",
++    "managementUrl",
 +    "aheadscale-management-url",
-@@ -28 +28 @@ static const char *const admin_url_keys[] = {
--    NETBIRD_KEY_ADMIN_URL,
++    NULL,
++};
++
++static const char *const admin_url_keys[] = {
 +    AHEADSCALE_KEY_ADMIN_URL,
-@@ -30 +30 @@ static const char *const admin_url_keys[] = {
--    "netbird-admin-url",
++    "adminURL",
 +    "aheadscale-admin-url",
-@@ -38 +38 @@ static const char *const profile_name_keys[] = {
--    "netbird-profile-name",
++    NULL,
++};
++
++static const char *const profile_name_keys[] = {
++    "profile-name",
++    "profileName",
++    "profile",
 +    "aheadscale-profile-name",
-@@ -43 +43 @@ static const char *const username_keys[] = {
--    NETBIRD_KEY_USERNAME,
++    NULL,
++};
++
++static const char *const username_keys[] = {
 +    AHEADSCALE_KEY_USERNAME,
-@@ -46 +46 @@ static const char *const username_keys[] = {
--    "netbird-username",
++    "user-name",
++    "user",
 +    "aheadscale-username",
-@@ -51 +51 @@ static const char *const interface_name_keys[] = {
--    NETBIRD_KEY_INTERFACE_NAME,
++    NULL,
++};
++
++static const char *const interface_name_keys[] = {
 +    AHEADSCALE_KEY_INTERFACE_NAME,
-@@ -53 +53 @@ static const char *const interface_name_keys[] = {
--    "netbird-interface-name",
++    "interfaceName",
 +    "aheadscale-interface-name",
-@@ -58 +58 @@ static const char *const hostname_keys[] = {
--    NETBIRD_KEY_HOSTNAME,
++    NULL,
++};
++
++static const char *const hostname_keys[] = {
 +    AHEADSCALE_KEY_HOSTNAME,
-@@ -64 +64 @@ static const char *const pre_shared_key_keys[] = {
--    NETBIRD_KEY_PRE_SHARED_KEY,
++    "host-name",
++    NULL,
++};
++
++static const char *const pre_shared_key_keys[] = {
 +    AHEADSCALE_KEY_PRE_SHARED_KEY,
-@@ -71 +71 @@ GQuark
--netbird_editor_error_quark(void)
++    "preshared-key",
++    "preSharedKey",
++    NULL,
++};
++
++GQuark
 +aheadscale_editor_error_quark(void)
-@@ -73 +73 @@ netbird_editor_error_quark(void)
--    return g_quark_from_static_string("netbird-editor-error-quark");
++{
 +    return g_quark_from_static_string("aheadscale-editor-error-quark");
-@@ -77 +77 @@ void
--netbird_editor_values_init(NetbirdEditorValues *values)
++}
++
++void
 +aheadscale_editor_values_init(AheadscaleEditorValues *values)
-@@ -81 +81 @@ netbird_editor_values_init(NetbirdEditorValues *values)
--    values->auth_mode = g_strdup(NETBIRD_AUTH_SSO);
++{
++    g_return_if_fail(values != NULL);
++    memset(values, 0, sizeof(*values));
 +    values->auth_mode = g_strdup(AHEADSCALE_AUTH_SSO);
-@@ -85 +85 @@ void
--netbird_editor_values_clear(NetbirdEditorValues *values)
++}
++
++void
 +aheadscale_editor_values_clear(AheadscaleEditorValues *values)
-@@ -173 +173 @@ normalize_auth_mode(const char *value)
--        normalized = g_strdup(NETBIRD_AUTH_SSO);
++{
++    if (!values)
++        return;
++
++    g_clear_pointer(&values->auth_mode, g_free);
++    g_clear_pointer(&values->management_url, g_free);
++    g_clear_pointer(&values->admin_url, g_free);
++    g_clear_pointer(&values->username, g_free);
++    g_clear_pointer(&values->interface_name, g_free);
++    g_clear_pointer(&values->hostname, g_free);
++    g_clear_pointer(&values->setup_key, g_free);
++    g_clear_pointer(&values->pre_shared_key, g_free);
++}
++
++static char *
++dup_trimmed(const char *value)
++{
++    char *copy;
++
++    if (!value)
++        return g_strdup("");
++
++    copy = g_strdup(value);
++    g_strstrip(copy);
++    return copy;
++}
++
++static gboolean
++is_blank(const char *value)
++{
++    char *trimmed;
++    gboolean blank;
++
++    trimmed = dup_trimmed(value);
++    blank = trimmed[0] == '\0';
++    g_free(trimmed);
++    return blank;
++}
++
++static const char *
++vpn_data_first(NMSettingVpn *vpn, const char *const *keys)
++{
++    guint i;
++
++    if (!vpn)
++        return NULL;
++
++    for (i = 0; keys[i]; i++) {
++        const char *value = nm_setting_vpn_get_data_item(vpn, keys[i]);
++        if (value && value[0])
++            return value;
++    }
++    return NULL;
++}
++
++static const char *
++vpn_secret_first(NMSettingVpn *vpn, const char *const *keys)
++{
++    guint i;
++
++    if (!vpn)
++        return NULL;
++
++    for (i = 0; keys[i]; i++) {
++        const char *value = nm_setting_vpn_get_secret(vpn, keys[i]);
++        if (value && value[0])
++            return value;
++    }
++    return NULL;
++}
++
++static char *
++normalize_auth_mode(const char *value)
++{
++    char *lower;
++    char *normalized;
++    char *p;
++
++    lower = dup_trimmed(value);
++    for (p = lower; *p; p++) {
++        if (*p == '_')
++            *p = '-';
++        else
++            *p = g_ascii_tolower(*p);
++    }
++
++    if (lower[0] == '\0')
 +        normalized = g_strdup(AHEADSCALE_AUTH_SSO);
-@@ -175 +175 @@ normalize_auth_mode(const char *value)
--        normalized = g_strdup(NETBIRD_AUTH_SETUP_KEY);
++    else if (g_strcmp0(lower, "setupkey") == 0 || g_strcmp0(lower, "setup-key") == 0 || g_strcmp0(lower, "key") == 0)
 +        normalized = g_strdup(AHEADSCALE_AUTH_SETUP_KEY);
-@@ -177 +177 @@ normalize_auth_mode(const char *value)
--        normalized = g_strdup(NETBIRD_AUTH_SSO);
++    else if (g_strcmp0(lower, "sso") == 0 || g_strcmp0(lower, "browser") == 0 || g_strcmp0(lower, "interactive") == 0)
 +        normalized = g_strdup(AHEADSCALE_AUTH_SSO);
-@@ -179 +179 @@ normalize_auth_mode(const char *value)
--        normalized = g_strdup(NETBIRD_AUTH_SSO);
++    else if (g_strcmp0(lower, "login") == 0 || g_strcmp0(lower, "force-login") == 0 || g_strcmp0(lower, "reuse") == 0)
 +        normalized = g_strdup(AHEADSCALE_AUTH_SSO);
-@@ -202 +202 @@ void
--netbird_editor_values_load(NetbirdEditorValues *values, NMConnection *connection)
++    else
++        normalized = g_strdup(lower);
++
++    g_free(lower);
++    return normalized;
++}
++
++static void
++replace_string(char **dst, const char *value)
++{
++    g_free(*dst);
++    *dst = dup_trimmed(value);
++}
++
++static void
++replace_secret_string(char **dst, const char *value)
++{
++    g_free(*dst);
++    *dst = value ? g_strdup(value) : g_strdup("");
++}
++
++void
 +aheadscale_editor_values_load(AheadscaleEditorValues *values, NMConnection *connection)
-@@ -214,2 +214,2 @@ netbird_editor_values_load(NetbirdEditorValues *values, NMConnection *connection
--    if (g_strcmp0(auth_mode, NETBIRD_AUTH_SETUP_KEY) == 0 ||
--        g_strcmp0(auth_mode, NETBIRD_AUTH_SSO) == 0)
++{
++    NMSettingVpn *vpn;
++    char *auth_mode;
++    const char *value;
++
++    g_return_if_fail(values != NULL);
++
++    vpn = connection ? nm_connection_get_setting_vpn(connection) : NULL;
++
++    auth_mode = normalize_auth_mode(vpn_data_first(vpn, auth_keys));
++    g_free(values->auth_mode);
 +    if (g_strcmp0(auth_mode, AHEADSCALE_AUTH_SETUP_KEY) == 0 ||
 +        g_strcmp0(auth_mode, AHEADSCALE_AUTH_SSO) == 0)
-@@ -218 +218 @@ netbird_editor_values_load(NetbirdEditorValues *values, NMConnection *connection
--        values->auth_mode = g_strdup(NETBIRD_AUTH_SSO);
++        values->auth_mode = auth_mode;
++    else {
 +        values->auth_mode = g_strdup(AHEADSCALE_AUTH_SSO);
-@@ -240 +240 @@ static gboolean
--set_validation_error(GError **error, NetbirdEditorError code, const char *message)
++        g_free(auth_mode);
++    }
++
++    replace_string(&values->management_url, vpn_data_first(vpn, management_url_keys));
++    replace_string(&values->admin_url, vpn_data_first(vpn, admin_url_keys));
++    replace_string(&values->username, vpn_data_first(vpn, username_keys));
++    replace_string(&values->interface_name, vpn_data_first(vpn, interface_name_keys));
++    replace_string(&values->hostname, vpn_data_first(vpn, hostname_keys));
++
++    value = vpn_secret_first(vpn, setup_key_keys);
++    if (!value)
++        value = vpn_data_first(vpn, setup_key_keys);
++    replace_secret_string(&values->setup_key, value);
++
++    value = vpn_secret_first(vpn, pre_shared_key_keys);
++    if (!value)
++        value = vpn_data_first(vpn, pre_shared_key_keys);
++    replace_secret_string(&values->pre_shared_key, value);
++}
++
++static gboolean
 +set_validation_error(GError **error, AheadscaleEditorError code, const char *message)
-@@ -242 +242 @@ set_validation_error(GError **error, NetbirdEditorError code, const char *messag
--    g_set_error_literal(error, NETBIRD_EDITOR_ERROR, code, message);
++{
 +    g_set_error_literal(error, AHEADSCALE_EDITOR_ERROR, code, message);
-@@ -308 +308 @@ gboolean
--netbird_editor_values_validate(const NetbirdEditorValues *values, GError **error)
++    return FALSE;
++}
++
++static gboolean
++is_http_url(const char *value)
++{
++    char *trimmed;
++    char *scheme;
++    const char *rest;
++    const char *host_end;
++    gboolean ok;
++
++    if (is_blank(value))
++        return TRUE;
++
++    trimmed = dup_trimmed(value);
++    scheme = g_uri_parse_scheme(trimmed);
++    if (!scheme) {
++        g_free(trimmed);
++        return FALSE;
++    }
++
++    rest = trimmed + strlen(scheme) + 1;
++    ok = (g_ascii_strcasecmp(scheme, "http") == 0 || g_ascii_strcasecmp(scheme, "https") == 0) &&
++         g_str_has_prefix(rest, "//");
++    if (ok) {
++        rest += 2;
++        host_end = strpbrk(rest, "/?#");
++        if (!host_end)
++            host_end = rest + strlen(rest);
++        ok = host_end > rest;
++        while (ok && rest < host_end) {
++            if (g_ascii_isspace(*rest))
++                ok = FALSE;
++            rest++;
++        }
++    }
++
++    g_free(scheme);
++    g_free(trimmed);
++    return ok;
++}
++
++static gboolean
++valid_interface_name(const char *value)
++{
++    const char *p;
++
++    if (is_blank(value))
++        return TRUE;
++
++    if (strlen(value) > 15)
++        return FALSE;
++
++    if (g_strcmp0(value, ".") == 0 || g_strcmp0(value, "..") == 0)
++        return FALSE;
++
++    for (p = value; *p; p++) {
++        if (*p == '/' || g_ascii_isspace(*p) || g_ascii_iscntrl(*p))
++            return FALSE;
++    }
++    return TRUE;
++}
++
++gboolean
 +aheadscale_editor_values_validate(const AheadscaleEditorValues *values, GError **error)
-@@ -312,3 +312,3 @@ netbird_editor_values_validate(const NetbirdEditorValues *values, GError **error
--    if (g_strcmp0(values->auth_mode, NETBIRD_AUTH_SETUP_KEY) != 0 &&
--        g_strcmp0(values->auth_mode, NETBIRD_AUTH_SSO) != 0)
--        return set_validation_error(error, NETBIRD_EDITOR_ERROR_INVALID_AUTH, "auth must be setup-key or sso");
++{
++    g_return_val_if_fail(values != NULL, FALSE);
++
 +    if (g_strcmp0(values->auth_mode, AHEADSCALE_AUTH_SETUP_KEY) != 0 &&
 +        g_strcmp0(values->auth_mode, AHEADSCALE_AUTH_SSO) != 0)
 +        return set_validation_error(error, AHEADSCALE_EDITOR_ERROR_INVALID_AUTH, "auth must be setup-key or sso");
-@@ -317 +317 @@ netbird_editor_values_validate(const NetbirdEditorValues *values, GError **error
--        return set_validation_error(error, NETBIRD_EDITOR_ERROR_INVALID_URL, "management-url must be an HTTP or HTTPS URL");
++
++    if (!is_http_url(values->management_url))
 +        return set_validation_error(error, AHEADSCALE_EDITOR_ERROR_INVALID_URL, "management-url must be an HTTP or HTTPS URL");
-@@ -320 +320 @@ netbird_editor_values_validate(const NetbirdEditorValues *values, GError **error
--        return set_validation_error(error, NETBIRD_EDITOR_ERROR_INVALID_URL, "admin-url must be an HTTP or HTTPS URL");
++
++    if (!is_http_url(values->admin_url))
 +        return set_validation_error(error, AHEADSCALE_EDITOR_ERROR_INVALID_URL, "admin-url must be an HTTP or HTTPS URL");
-@@ -324 +324 @@ netbird_editor_values_validate(const NetbirdEditorValues *values, GError **error
--                                    NETBIRD_EDITOR_ERROR_INVALID_INTERFACE,
++
++    if (!valid_interface_name(values->interface_name))
++        return set_validation_error(error,
 +                                    AHEADSCALE_EDITOR_ERROR_INVALID_INTERFACE,
-@@ -400 +400 @@ gboolean
--netbird_editor_values_save(const NetbirdEditorValues *values, NMConnection *connection, GError **error)
++                                    "interface-name must be 15 bytes or less and must not be '.'/'..' or contain '/', whitespace, or control characters");
++
++    return TRUE;
++}
++
++static NMSettingVpn *
++ensure_vpn_setting(NMConnection *connection)
++{
++    NMSettingVpn *vpn;
++
++    vpn = nm_connection_get_setting_vpn(connection);
++    if (vpn)
++        return vpn;
++
++    vpn = NM_SETTING_VPN(nm_setting_vpn_new());
++    nm_connection_add_setting(connection, NM_SETTING(vpn));
++    return vpn;
++}
++
++static void
++ensure_connection_setting(NMConnection *connection)
++{
++    NMSettingConnection *setting;
++
++    setting = nm_connection_get_setting_connection(connection);
++    if (!setting) {
++        setting = NM_SETTING_CONNECTION(nm_setting_connection_new());
++        nm_connection_add_setting(connection, NM_SETTING(setting));
++    }
++
++    g_object_set(setting, NM_SETTING_CONNECTION_TYPE, NM_SETTING_VPN_SETTING_NAME, NULL);
++}
++
++static void
++remove_data_keys(NMSettingVpn *vpn, const char *const *keys)
++{
++    guint i;
++
++    for (i = 0; keys[i]; i++)
++        nm_setting_vpn_remove_data_item(vpn, keys[i]);
++}
++
++static void
++remove_secret_keys(NMSettingVpn *vpn, const char *const *keys)
++{
++    guint i;
++
++    for (i = 0; keys[i]; i++)
++        nm_setting_vpn_remove_secret(vpn, keys[i]);
++}
++
++static void
++set_data_item(NMSettingVpn *vpn, const char *canonical_key, const char *const *keys, const char *value)
++{
++    char *trimmed;
++
++    remove_data_keys(vpn, keys);
++
++    trimmed = dup_trimmed(value);
++    if (trimmed[0])
++        nm_setting_vpn_add_data_item(vpn, canonical_key, trimmed);
++    g_free(trimmed);
++}
++
++static void
++set_secret_item(NMSettingVpn *vpn, const char *canonical_key, const char *const *keys, const char *value)
++{
++    remove_secret_keys(vpn, keys);
++    remove_data_keys(vpn, keys);
++
++    if (!is_blank(value))
++        nm_setting_vpn_add_secret(vpn, canonical_key, value);
++}
++
++gboolean
 +aheadscale_editor_values_save(const AheadscaleEditorValues *values, NMConnection *connection, GError **error)
-@@ -407 +407 @@ netbird_editor_values_save(const NetbirdEditorValues *values, NMConnection *conn
--    if (!netbird_editor_values_validate(values, error))
++{
++    NMSettingVpn *vpn;
++
++    g_return_val_if_fail(values != NULL, FALSE);
++    g_return_val_if_fail(connection != NULL, FALSE);
++
 +    if (!aheadscale_editor_values_validate(values, error))
-@@ -412 +412 @@ netbird_editor_values_save(const NetbirdEditorValues *values, NMConnection *conn
--    g_object_set(vpn, NM_SETTING_VPN_SERVICE_TYPE, NETBIRD_SERVICE_NAME, NULL);
++        return FALSE;
++
++    ensure_connection_setting(connection);
++    vpn = ensure_vpn_setting(connection);
 +    g_object_set(vpn, NM_SETTING_VPN_SERVICE_TYPE, AHEADSCALE_SERVICE_NAME, NULL);
-@@ -415,4 +415,4 @@ netbird_editor_values_save(const NetbirdEditorValues *values, NMConnection *conn
--    if (g_strcmp0(values->auth_mode, NETBIRD_AUTH_SETUP_KEY) == 0)
--        nm_setting_vpn_add_data_item(vpn, NETBIRD_KEY_AUTH, NETBIRD_AUTH_SETUP_KEY);
--    else if (g_strcmp0(values->auth_mode, NETBIRD_AUTH_SSO) == 0)
--        nm_setting_vpn_add_data_item(vpn, NETBIRD_KEY_AUTH, NETBIRD_AUTH_SSO);
++
++    remove_data_keys(vpn, auth_keys);
 +    if (g_strcmp0(values->auth_mode, AHEADSCALE_AUTH_SETUP_KEY) == 0)
 +        nm_setting_vpn_add_data_item(vpn, AHEADSCALE_KEY_AUTH, AHEADSCALE_AUTH_SETUP_KEY);
 +    else if (g_strcmp0(values->auth_mode, AHEADSCALE_AUTH_SSO) == 0)
 +        nm_setting_vpn_add_data_item(vpn, AHEADSCALE_KEY_AUTH, AHEADSCALE_AUTH_SSO);
-@@ -420,2 +420,2 @@ netbird_editor_values_save(const NetbirdEditorValues *values, NMConnection *conn
--    set_data_item(vpn, NETBIRD_KEY_MANAGEMENT_URL, management_url_keys, values->management_url);
--    set_data_item(vpn, NETBIRD_KEY_ADMIN_URL, admin_url_keys, values->admin_url);
++
 +    set_data_item(vpn, AHEADSCALE_KEY_MANAGEMENT_URL, management_url_keys, values->management_url);
 +    set_data_item(vpn, AHEADSCALE_KEY_ADMIN_URL, admin_url_keys, values->admin_url);
-@@ -423,3 +423,3 @@ netbird_editor_values_save(const NetbirdEditorValues *values, NMConnection *conn
--    set_data_item(vpn, NETBIRD_KEY_USERNAME, username_keys, values->username);
--    set_data_item(vpn, NETBIRD_KEY_INTERFACE_NAME, interface_name_keys, values->interface_name);
--    set_data_item(vpn, NETBIRD_KEY_HOSTNAME, hostname_keys, values->hostname);
++    remove_data_keys(vpn, profile_name_keys);
 +    set_data_item(vpn, AHEADSCALE_KEY_USERNAME, username_keys, values->username);
 +    set_data_item(vpn, AHEADSCALE_KEY_INTERFACE_NAME, interface_name_keys, values->interface_name);
 +    set_data_item(vpn, AHEADSCALE_KEY_HOSTNAME, hostname_keys, values->hostname);
-@@ -427,2 +427,2 @@ netbird_editor_values_save(const NetbirdEditorValues *values, NMConnection *conn
--    if (g_strcmp0(values->auth_mode, NETBIRD_AUTH_SETUP_KEY) == 0)
--        set_secret_item(vpn, NETBIRD_KEY_SETUP_KEY, setup_key_keys, values->setup_key);
++
 +    if (g_strcmp0(values->auth_mode, AHEADSCALE_AUTH_SETUP_KEY) == 0)
 +        set_secret_item(vpn, AHEADSCALE_KEY_SETUP_KEY, setup_key_keys, values->setup_key);
-@@ -434 +434 @@ netbird_editor_values_save(const NetbirdEditorValues *values, NMConnection *conn
--    set_secret_item(vpn, NETBIRD_KEY_PRE_SHARED_KEY, pre_shared_key_keys, values->pre_shared_key);
++    else {
++        remove_secret_keys(vpn, setup_key_keys);
++        remove_data_keys(vpn, setup_key_keys);
++    }
++
 +    set_secret_item(vpn, AHEADSCALE_KEY_PRE_SHARED_KEY, pre_shared_key_keys, values->pre_shared_key);
++    return TRUE;
++}
 diff --git a/properties/nm-aheadscale-editor-model.h b/properties/nm-aheadscale-editor-model.h
 new file mode 100644
 index 0000000..9c0ed95
@@ -2641,148 +2958,488 @@ index 0000000..58176a5
 +    g_test_add_func("/aheadscale-editor/coexists-with-upstream", test_plugin_coexists_with_upstream);
 +    return g_test_run();
 +}
-diff --git a/properties/nm-netbird-editor-plugin.c b/properties/nm-aheadscale-editor-plugin.c
-similarity index 77%
-rename from properties/nm-netbird-editor-plugin.c
-rename to properties/nm-aheadscale-editor-plugin.c
-index ebc4029..86f492d 100644
---- a/properties/nm-netbird-editor-plugin.c
+diff --git a/properties/nm-aheadscale-editor-plugin.c b/properties/nm-aheadscale-editor-plugin.c
+new file mode 100644
+index 0000000..86f492d
+--- /dev/null
 +++ b/properties/nm-aheadscale-editor-plugin.c
-@@ -5 +5 @@
--#include "nm-netbird-editor-model.h"
+@@ -0,0 +1,228 @@
++#ifndef _GNU_SOURCE
++#define _GNU_SOURCE
++#endif
++
 +#include "nm-aheadscale-editor-model.h"
-@@ -10 +10 @@
--typedef struct _NetbirdEditorPlugin {
++
++#include <NetworkManager.h>
++#include <dlfcn.h>
++
 +typedef struct _AheadscaleEditorPlugin {
-@@ -12 +12 @@ typedef struct _NetbirdEditorPlugin {
--} NetbirdEditorPlugin;
++    GObject parent;
 +} AheadscaleEditorPlugin;
-@@ -14 +14 @@ typedef struct _NetbirdEditorPlugin {
--typedef struct _NetbirdEditorPluginClass {
++
 +typedef struct _AheadscaleEditorPluginClass {
-@@ -16 +16 @@ typedef struct _NetbirdEditorPluginClass {
--} NetbirdEditorPluginClass;
++    GObjectClass parent;
 +} AheadscaleEditorPluginClass;
-@@ -18 +18 @@ typedef struct _NetbirdEditorPluginClass {
--typedef NMVpnEditor *(*NetbirdEditorFactory)(NMVpnEditorPlugin *editor_plugin,
++
 +typedef NMVpnEditor *(*AheadscaleEditorFactory)(NMVpnEditorPlugin *editor_plugin,
-@@ -22 +22 @@ typedef NMVpnEditor *(*NetbirdEditorFactory)(NMVpnEditorPlugin *editor_plugin,
--static void netbird_editor_plugin_iface_init(NMVpnEditorPluginInterface *iface);
++                                             NMConnection *connection,
++                                             GError **error);
++
 +static void aheadscale_editor_plugin_iface_init(NMVpnEditorPluginInterface *iface);
-@@ -24,2 +24,2 @@ static void netbird_editor_plugin_iface_init(NMVpnEditorPluginInterface *iface);
--#define NETBIRD_TYPE_EDITOR_PLUGIN (netbird_editor_plugin_get_type())
--GType netbird_editor_plugin_get_type(void);
++
 +#define AHEADSCALE_TYPE_EDITOR_PLUGIN (aheadscale_editor_plugin_get_type())
 +GType aheadscale_editor_plugin_get_type(void);
-@@ -28,2 +28,2 @@ NMVpnEditorPlugin *nm_vpn_editor_plugin_factory(GError **error);
--G_DEFINE_TYPE_EXTENDED(NetbirdEditorPlugin,
--                       netbird_editor_plugin,
++NMVpnEditorPlugin *nm_vpn_editor_plugin_factory(GError **error);
++
 +G_DEFINE_TYPE_EXTENDED(AheadscaleEditorPlugin,
 +                       aheadscale_editor_plugin,
-@@ -32 +32 @@ G_DEFINE_TYPE_EXTENDED(NetbirdEditorPlugin,
--                       G_IMPLEMENT_INTERFACE(NM_TYPE_VPN_EDITOR_PLUGIN, netbird_editor_plugin_iface_init))
++                       G_TYPE_OBJECT,
++                       0,
 +                       G_IMPLEMENT_INTERFACE(NM_TYPE_VPN_EDITOR_PLUGIN, aheadscale_editor_plugin_iface_init))
-@@ -46 +46 @@ editor_module_name(void)
--        return "libnm-vpn-plugin-netbird-editor.so";
++
++enum {
++    PROP_0,
++    PROP_NAME,
++    PROP_DESCRIPTION,
++    PROP_SERVICE,
++};
++
++static const char *
++editor_module_name(void)
++{
++    dlerror();
++    if (dlsym(RTLD_DEFAULT, "gtk_container_add"))
 +        return "libnm-vpn-plugin-aheadscale-editor.so";
-@@ -49 +49 @@ editor_module_name(void)
--    return "libnm-gtk4-vpn-plugin-netbird-editor.so";
++    dlerror();
++
 +    return "libnm-gtk4-vpn-plugin-aheadscale-editor.so";
-@@ -118 +118 @@ load_editor_factory(const char *module_name, GError **error)
--    factory = dlsym(module, "nm_vpn_editor_factory_netbird");
++}
++
++static gpointer
++load_editor_factory(const char *module_name, GError **error)
++{
++    static struct {
++        gpointer factory;
++        void *module;
++        char *module_name;
++    } cached = { 0 };
++    Dl_info plugin_info;
++    char *module_dir = NULL;
++    char *module_path = NULL;
++    const char *load_error;
++    gpointer factory;
++    void *module;
++
++    if (cached.factory) {
++        if (g_strcmp0(cached.module_name, module_name) != 0) {
++            g_set_error(error,
++                        NM_VPN_PLUGIN_ERROR,
++                        NM_VPN_PLUGIN_ERROR_FAILED,
++                        "editor module already loaded as %s",
++                        cached.module_name);
++            return NULL;
++        }
++        return cached.factory;
++    }
++
++    if (g_path_is_absolute(module_name)) {
++        module_path = g_strdup(module_name);
++    } else {
++        if (!dladdr(nm_vpn_editor_plugin_factory, &plugin_info)) {
++            load_error = dlerror();
++            g_set_error(error,
++                        NM_VPN_PLUGIN_ERROR,
++                        NM_VPN_PLUGIN_ERROR_FAILED,
++                        "unable to get editor plugin path: %s",
++                        load_error ? load_error : "unknown error");
++            return NULL;
++        }
++
++        module_dir = g_path_get_dirname(plugin_info.dli_fname);
++        module_path = g_build_filename(module_dir, module_name, NULL);
++    }
++
++    module = dlopen(module_path, RTLD_LAZY | RTLD_LOCAL);
++    if (!module) {
++        load_error = dlerror();
++        if (!g_file_test(module_path, G_FILE_TEST_EXISTS)) {
++            g_set_error(error,
++                        G_FILE_ERROR,
++                        G_FILE_ERROR_NOENT,
++                        "missing editor plugin file \"%s\"",
++                        module_path);
++        } else {
++            g_set_error(error,
++                        NM_VPN_PLUGIN_ERROR,
++                        NM_VPN_PLUGIN_ERROR_FAILED,
++                        "cannot load editor plugin: %s",
++                        load_error ? load_error : "unknown error");
++        }
++        g_free(module_dir);
++        g_free(module_path);
++        return NULL;
++    }
++
++    dlerror();
 +    factory = dlsym(module, "nm_vpn_editor_factory_aheadscale");
-@@ -143 +143 @@ static void
--netbird_editor_plugin_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec)
++    load_error = dlerror();
++    if (load_error) {
++        g_set_error(error,
++                    NM_VPN_PLUGIN_ERROR,
++                    NM_VPN_PLUGIN_ERROR_FAILED,
++                    "cannot load editor factory from plugin: %s",
++                    load_error);
++        dlclose(module);
++        g_free(module_dir);
++        g_free(module_path);
++        return NULL;
++    }
++
++    cached.factory = factory;
++    /* Keep the module loaded; editor GTypes cannot be unloaded safely. */
++    cached.module = module;
++    cached.module_name = g_strdup(module_name);
++
++    g_free(module_dir);
++    g_free(module_path);
++    return cached.factory;
++}
++
++static void
 +aheadscale_editor_plugin_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec)
-@@ -149 +149 @@ netbird_editor_plugin_get_property(GObject *object, guint prop_id, GValue *value
--        g_value_set_string(value, "NetBird");
++{
++    (void) object;
++
++    switch (prop_id) {
++    case PROP_NAME:
 +        g_value_set_string(value, "Aheadscale");
-@@ -152 +152 @@ netbird_editor_plugin_get_property(GObject *object, guint prop_id, GValue *value
--        g_value_set_string(value, "NetBird VPN");
++        break;
++    case PROP_DESCRIPTION:
 +        g_value_set_string(value, "Aheadscale VPN");
-@@ -155 +155 @@ netbird_editor_plugin_get_property(GObject *object, guint prop_id, GValue *value
--        g_value_set_string(value, NETBIRD_SERVICE_NAME);
++        break;
++    case PROP_SERVICE:
 +        g_value_set_string(value, AHEADSCALE_SERVICE_NAME);
-@@ -164 +164 @@ static void
--netbird_editor_plugin_class_init(NetbirdEditorPluginClass *klass)
++        break;
++    default:
++        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
++        break;
++    }
++}
++
++static void
 +aheadscale_editor_plugin_class_init(AheadscaleEditorPluginClass *klass)
-@@ -168 +168 @@ netbird_editor_plugin_class_init(NetbirdEditorPluginClass *klass)
--    object_class->get_property = netbird_editor_plugin_get_property;
++{
++    GObjectClass *object_class = G_OBJECT_CLASS(klass);
++
 +    object_class->get_property = aheadscale_editor_plugin_get_property;
-@@ -176 +176 @@ static void
--netbird_editor_plugin_init(NetbirdEditorPlugin *plugin)
++
++    g_object_class_override_property(object_class, PROP_NAME, NM_VPN_EDITOR_PLUGIN_NAME);
++    g_object_class_override_property(object_class, PROP_DESCRIPTION, NM_VPN_EDITOR_PLUGIN_DESCRIPTION);
++    g_object_class_override_property(object_class, PROP_SERVICE, NM_VPN_EDITOR_PLUGIN_SERVICE);
++}
++
++static void
 +aheadscale_editor_plugin_init(AheadscaleEditorPlugin *plugin)
-@@ -184 +184 @@ get_editor(NMVpnEditorPlugin *plugin, NMConnection *connection, GError **error)
--    NetbirdEditorFactory factory;
++{
++    (void) plugin;
++}
++
++static NMVpnEditor *
++get_editor(NMVpnEditorPlugin *plugin, NMConnection *connection, GError **error)
++{
 +    AheadscaleEditorFactory factory;
-@@ -191 +191 @@ get_editor(NMVpnEditorPlugin *plugin, NMConnection *connection, GError **error)
--    factory = (NetbirdEditorFactory) load_editor_factory(editor_module_name(), error);
++    NMVpnEditor *editor;
++
++    g_return_val_if_fail(NM_IS_VPN_EDITOR_PLUGIN(plugin), NULL);
++    g_return_val_if_fail(NM_IS_CONNECTION(connection), NULL);
++    g_return_val_if_fail(!error || !*error, NULL);
++
 +    factory = (AheadscaleEditorFactory) load_editor_factory(editor_module_name(), error);
-@@ -217 +217 @@ static void
--netbird_editor_plugin_iface_init(NMVpnEditorPluginInterface *iface)
++    if (!factory)
++        return NULL;
++
++    editor = factory(plugin, connection, error);
++    if (!editor) {
++        if (error && !*error)
++            g_set_error_literal(error,
++                                NM_VPN_PLUGIN_ERROR,
++                                NM_VPN_PLUGIN_ERROR_FAILED,
++                                "unknown error creating editor instance");
++        return NULL;
++    }
++
++    g_return_val_if_fail(NM_IS_VPN_EDITOR(editor), NULL);
++    return editor;
++}
++
++static NMVpnEditorPluginCapability
++get_capabilities(NMVpnEditorPlugin *plugin)
++{
++    (void) plugin;
++    return NM_VPN_EDITOR_PLUGIN_CAPABILITY_NONE;
++}
++
++static void
 +aheadscale_editor_plugin_iface_init(NMVpnEditorPluginInterface *iface)
-@@ -227 +227 @@ nm_vpn_editor_plugin_factory(GError **error)
--    return NM_VPN_EDITOR_PLUGIN(g_object_new(NETBIRD_TYPE_EDITOR_PLUGIN, NULL));
++{
++    iface->get_editor = get_editor;
++    iface->get_capabilities = get_capabilities;
++}
++
++NMVpnEditorPlugin *
++nm_vpn_editor_plugin_factory(GError **error)
++{
++    (void) error;
 +    return NM_VPN_EDITOR_PLUGIN(g_object_new(AHEADSCALE_TYPE_EDITOR_PLUGIN, NULL));
-diff --git a/properties/nm-netbird-editor.c b/properties/nm-aheadscale-editor.c
-similarity index 70%
-rename from properties/nm-netbird-editor.c
-rename to properties/nm-aheadscale-editor.c
-index 9b5828d..c23a674 100644
---- a/properties/nm-netbird-editor.c
++}
+diff --git a/properties/nm-aheadscale-editor.c b/properties/nm-aheadscale-editor.c
+new file mode 100644
+index 0000000..c23a674
+--- /dev/null
 +++ b/properties/nm-aheadscale-editor.c
-@@ -1 +1 @@
--#include "nm-netbird-editor.h"
+@@ -0,0 +1,424 @@
 +#include "nm-aheadscale-editor.h"
-@@ -3 +3 @@
--#include "nm-netbird-editor-model.h"
++
 +#include "nm-aheadscale-editor-model.h"
-@@ -7 +7 @@
--struct _NetbirdEditor {
++
++#include <nma-vpn-password-dialog.h>
++
 +struct _AheadscaleEditor {
-@@ -23 +23 @@ struct _NetbirdEditor {
--static void netbird_editor_iface_init(NMVpnEditorInterface *iface);
++    GObject parent;
++
++    GtkWidget *widget;
++    GtkWidget *auth_combo;
++    GtkWidget *setup_key_section;
++    GtkWidget *management_url_entry;
++    GtkWidget *admin_url_entry;
++    GtkWidget *username_entry;
++    GtkWidget *setup_key_entry;
++    GtkWidget *interface_name_entry;
++    GtkWidget *hostname_entry;
++    GtkWidget *pre_shared_key_entry;
++    gboolean loading;
++};
++
 +static void aheadscale_editor_iface_init(NMVpnEditorInterface *iface);
-@@ -25,2 +25,2 @@ static void netbird_editor_iface_init(NMVpnEditorInterface *iface);
--G_DEFINE_TYPE_EXTENDED(NetbirdEditor,
--                       netbird_editor,
++
 +G_DEFINE_TYPE_EXTENDED(AheadscaleEditor,
 +                       aheadscale_editor,
-@@ -29 +29 @@ G_DEFINE_TYPE_EXTENDED(NetbirdEditor,
--                       G_IMPLEMENT_INTERFACE(NM_TYPE_VPN_EDITOR, netbird_editor_iface_init))
++                       G_TYPE_OBJECT,
++                       0,
 +                       G_IMPLEMENT_INTERFACE(NM_TYPE_VPN_EDITOR, aheadscale_editor_iface_init))
-@@ -147 +147 @@ static void
--emit_changed(NetbirdEditor *self)
++
++static void
++set_widget_margin(GtkWidget *widget, int margin)
++{
++#if GTK_CHECK_VERSION(4, 0, 0)
++    gtk_widget_set_margin_top(widget, margin);
++    gtk_widget_set_margin_bottom(widget, margin);
++    gtk_widget_set_margin_start(widget, margin);
++    gtk_widget_set_margin_end(widget, margin);
++#else
++    gtk_container_set_border_width(GTK_CONTAINER(widget), margin);
++#endif
++}
++
++static void
++frame_set_child(GtkWidget *frame, GtkWidget *child)
++{
++#if GTK_CHECK_VERSION(4, 0, 0)
++    gtk_frame_set_child(GTK_FRAME(frame), child);
++#else
++    gtk_container_add(GTK_CONTAINER(frame), child);
++#endif
++}
++
++static GtkWidget *
++frame_child(GtkWidget *frame)
++{
++#if GTK_CHECK_VERSION(4, 0, 0)
++    return gtk_frame_get_child(GTK_FRAME(frame));
++#else
++    return gtk_bin_get_child(GTK_BIN(frame));
++#endif
++}
++
++static void
++box_append_child(GtkWidget *box, GtkWidget *child)
++{
++#if GTK_CHECK_VERSION(4, 0, 0)
++    gtk_box_append(GTK_BOX(box), child);
++#else
++    gtk_box_pack_start(GTK_BOX(box), child, FALSE, FALSE, 0);
++#endif
++}
++
++static void
++entry_set_text_value(GtkWidget *entry, const char *value)
++{
++#if GTK_CHECK_VERSION(4, 0, 0)
++    gtk_editable_set_text(GTK_EDITABLE(entry), value);
++#else
++    gtk_entry_set_text(GTK_ENTRY(entry), value);
++#endif
++}
++
++static const char *
++entry_text_value(GtkWidget *entry)
++{
++#if GTK_CHECK_VERSION(4, 0, 0)
++    return gtk_editable_get_text(GTK_EDITABLE(entry));
++#else
++    return gtk_entry_get_text(GTK_ENTRY(entry));
++#endif
++}
++
++static GtkWidget *
++new_section(const char *title)
++{
++    GtkWidget *frame;
++    GtkWidget *grid;
++
++    frame = gtk_frame_new(title);
++    gtk_widget_set_hexpand(frame, TRUE);
++
++    grid = gtk_grid_new();
++    gtk_grid_set_row_spacing(GTK_GRID(grid), 8);
++    gtk_grid_set_column_spacing(GTK_GRID(grid), 12);
++    set_widget_margin(grid, 12);
++    frame_set_child(frame, grid);
++
++    return frame;
++}
++
++static GtkWidget *
++section_grid(GtkWidget *section)
++{
++    return frame_child(section);
++}
++
++static GtkWidget *
++new_label(const char *text)
++{
++    GtkWidget *label;
++
++    label = gtk_label_new(text);
++    gtk_widget_set_halign(label, GTK_ALIGN_START);
++    gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
++    return label;
++}
++
++static GtkWidget *
++new_entry(void)
++{
++    GtkWidget *entry;
++
++    entry = gtk_entry_new();
++    gtk_widget_set_hexpand(entry, TRUE);
++    return entry;
++}
++
++static void
++attach_row(GtkWidget *grid, int row, const char *label, GtkWidget *input)
++{
++    gtk_grid_attach(GTK_GRID(grid), new_label(label), 0, row, 1, 1);
++    gtk_grid_attach(GTK_GRID(grid), input, 1, row, 1, 1);
++}
++
++static void
 +emit_changed(AheadscaleEditor *self)
-@@ -156 +156 @@ static void
--update_visible_sections(NetbirdEditor *self)
++{
++    if (self->loading)
++        return;
++
++    g_signal_emit_by_name(self, "changed");
++}
++
++static void
 +update_visible_sections(AheadscaleEditor *self)
-@@ -161 +161 @@ update_visible_sections(NetbirdEditor *self)
--    gtk_widget_set_visible(self->setup_key_section, g_strcmp0(auth_mode, NETBIRD_AUTH_SETUP_KEY) == 0);
++{
++    const char *auth_mode;
++
++    auth_mode = gtk_combo_box_get_active_id(GTK_COMBO_BOX(self->auth_combo));
 +    gtk_widget_set_visible(self->setup_key_section, g_strcmp0(auth_mode, AHEADSCALE_AUTH_SETUP_KEY) == 0);
-@@ -167 +167 @@ widget_changed_cb(GtkWidget *widget, gpointer user_data)
--    NetbirdEditor *self = NETBIRD_EDITOR(user_data);
++}
++
++static void
++widget_changed_cb(GtkWidget *widget, gpointer user_data)
++{
 +    AheadscaleEditor *self = AHEADSCALE_EDITOR(user_data);
-@@ -175 +175 @@ static void
--connect_changed(NetbirdEditor *self, GtkWidget *widget)
++
++    (void) widget;
++    update_visible_sections(self);
++    emit_changed(self);
++}
++
++static void
 +connect_changed(AheadscaleEditor *self, GtkWidget *widget)
-@@ -203 +203 @@ static void
--fill_values_from_ui(NetbirdEditor *self, NetbirdEditorValues *values)
++{
++    g_signal_connect(widget, "changed", G_CALLBACK(widget_changed_cb), self);
++}
++
++static void
++set_entry_text(GtkWidget *entry, const char *value)
++{
++    entry_set_text_value(entry, value ? value : "");
++}
++
++static char *
++entry_text(GtkWidget *entry)
++{
++    return g_strdup(entry_text_value(entry));
++}
++
++static char *
++trimmed_entry_text(GtkWidget *entry)
++{
++    char *value;
++
++    value = entry_text(entry);
++    g_strstrip(value);
++    return value;
++}
++
++static void
 +fill_values_from_ui(AheadscaleEditor *self, AheadscaleEditorValues *values)
-@@ -207 +207 @@ fill_values_from_ui(NetbirdEditor *self, NetbirdEditorValues *values)
--    netbird_editor_values_init(values);
++{
++    const char *auth_mode;
++
 +    aheadscale_editor_values_init(values);
-@@ -211 +211 @@ fill_values_from_ui(NetbirdEditor *self, NetbirdEditorValues *values)
--    values->auth_mode = g_strdup(auth_mode ? auth_mode : NETBIRD_AUTH_SSO);
++
++    auth_mode = gtk_combo_box_get_active_id(GTK_COMBO_BOX(self->auth_combo));
++    g_free(values->auth_mode);
 +    values->auth_mode = g_strdup(auth_mode ? auth_mode : AHEADSCALE_AUTH_SSO);
-@@ -223 +223 @@ static void
--load_values_into_ui(NetbirdEditor *self, const NetbirdEditorValues *values)
++
++    values->management_url = trimmed_entry_text(self->management_url_entry);
++    values->admin_url = trimmed_entry_text(self->admin_url_entry);
++    values->username = trimmed_entry_text(self->username_entry);
++    values->interface_name = trimmed_entry_text(self->interface_name_entry);
++    values->hostname = trimmed_entry_text(self->hostname_entry);
++    values->setup_key = entry_text(self->setup_key_entry);
++    values->pre_shared_key = entry_text(self->pre_shared_key_entry);
++}
++
++static void
 +load_values_into_ui(AheadscaleEditor *self, const AheadscaleEditorValues *values)
-@@ -228 +228 @@ load_values_into_ui(NetbirdEditor *self, const NetbirdEditorValues *values)
--        gtk_combo_box_set_active_id(GTK_COMBO_BOX(self->auth_combo), NETBIRD_AUTH_SSO);
++{
++    self->loading = TRUE;
++
++    if (!gtk_combo_box_set_active_id(GTK_COMBO_BOX(self->auth_combo), values->auth_mode))
 +        gtk_combo_box_set_active_id(GTK_COMBO_BOX(self->auth_combo), AHEADSCALE_AUTH_SSO);
-@@ -243 +243,10 @@ static void
--build_main_section(NetbirdEditor *self)
++
++    set_entry_text(self->management_url_entry, values->management_url);
++    set_entry_text(self->admin_url_entry, values->admin_url);
++    set_entry_text(self->username_entry, values->username);
++    set_entry_text(self->interface_name_entry, values->interface_name);
++    set_entry_text(self->hostname_entry, values->hostname);
++    set_entry_text(self->setup_key_entry, values->setup_key);
++    set_entry_text(self->pre_shared_key_entry, values->pre_shared_key);
++
++    update_visible_sections(self);
++    self->loading = FALSE;
++}
++
++static void
 +hide_managed_settings(GtkWidget *widget)
 +{
 +#if GTK_MAJOR_VERSION < 4
@@ -2793,25 +3450,24 @@ index 9b5828d..c23a674 100644
 +
 +static void
 +build_main_section(AheadscaleEditor *self)
-@@ -248 +257 @@ build_main_section(NetbirdEditor *self)
--    section = new_section("NetBird");
++{
++    GtkWidget *section;
++    GtkWidget *grid;
++
 +    section = new_section("Aheadscale");
-@@ -252,2 +261,2 @@ build_main_section(NetbirdEditor *self)
--    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(self->auth_combo), NETBIRD_AUTH_SSO, "SSO");
--    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(self->auth_combo), NETBIRD_AUTH_SETUP_KEY, "Setup key");
++    grid = section_grid(section);
++
++    self->auth_combo = gtk_combo_box_text_new();
 +    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(self->auth_combo), AHEADSCALE_AUTH_SSO, "SSO");
 +    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(self->auth_combo), AHEADSCALE_AUTH_SETUP_KEY, "Setup key");
-@@ -257 +266 @@ build_main_section(NetbirdEditor *self)
--    gtk_entry_set_placeholder_text(GTK_ENTRY(self->management_url_entry), "https://api.netbird.io");
++    gtk_widget_set_hexpand(self->auth_combo, TRUE);
++
++    self->management_url_entry = new_entry();
 +    gtk_entry_set_placeholder_text(GTK_ENTRY(self->management_url_entry), "https://aheadscale.ru");
-@@ -259 +268 @@ build_main_section(NetbirdEditor *self)
--    gtk_entry_set_placeholder_text(GTK_ENTRY(self->admin_url_entry), "https://app.netbird.io");
++    self->admin_url_entry = new_entry();
 +    gtk_entry_set_placeholder_text(GTK_ENTRY(self->admin_url_entry), "https://aheadscale.ru");
-@@ -262,4 +271,14 @@ build_main_section(NetbirdEditor *self)
--    attach_row(grid, 0, "Auth mode", self->auth_combo);
--    attach_row(grid, 1, "Management URL", self->management_url_entry);
--    attach_row(grid, 2, "Admin URL", self->admin_url_entry);
--    attach_row(grid, 3, "Username", self->username_entry);
++    self->username_entry = new_entry();
++
 +    /* One installed service profile owns registration and addresses. Hidden
 +     * fields retain loaded values but cannot invite manual server entry. */
 +    gtk_widget_set_sensitive(self->auth_combo, FALSE);
@@ -2826,80 +3482,146 @@ index 9b5828d..c23a674 100644
 +    box_append_child(managed, self->username_entry);
 +    box_append_child(section, managed);
 +    hide_managed_settings(managed);
-@@ -271 +290 @@ static void
--build_setup_key_section(NetbirdEditor *self)
++
++    box_append_child(self->widget, section);
++}
++
++static void
 +build_setup_key_section(AheadscaleEditor *self)
-@@ -287 +306 @@ static void
--build_advanced_section(NetbirdEditor *self)
++{
++    GtkWidget *grid;
++
++    self->setup_key_section = new_section("Setup key");
++    grid = section_grid(self->setup_key_section);
++
++    self->setup_key_entry = new_entry();
++    gtk_entry_set_visibility(GTK_ENTRY(self->setup_key_entry), FALSE);
++    gtk_entry_set_input_purpose(GTK_ENTRY(self->setup_key_entry), GTK_INPUT_PURPOSE_PASSWORD);
++    attach_row(grid, 0, "Setup key", self->setup_key_entry);
++
++    box_append_child(self->widget, self->setup_key_section);
++}
++
++static void
 +build_advanced_section(AheadscaleEditor *self)
-@@ -305 +324,2 @@ build_advanced_section(NetbirdEditor *self)
--
++{
++    GtkWidget *section;
++    GtkWidget *grid;
++
++    section = new_section("Advanced");
++    grid = section_grid(section);
++
++    self->interface_name_entry = new_entry();
++    gtk_entry_set_placeholder_text(GTK_ENTRY(self->interface_name_entry), "wt0");
++    self->hostname_entry = new_entry();
++    self->pre_shared_key_entry = new_entry();
++    gtk_entry_set_visibility(GTK_ENTRY(self->pre_shared_key_entry), FALSE);
++    gtk_entry_set_input_purpose(GTK_ENTRY(self->pre_shared_key_entry), GTK_INPUT_PURPOSE_PASSWORD);
++
++    attach_row(grid, 0, "Interface name", self->interface_name_entry);
++    attach_row(grid, 1, "Hostname", self->hostname_entry);
++    attach_row(grid, 2, "Pre-shared key", self->pre_shared_key_entry);
 +    /* Advanced service settings are managed by the installed package. */
 +    gtk_widget_set_sensitive(section, FALSE);
-@@ -306,0 +327 @@ build_advanced_section(NetbirdEditor *self)
++    box_append_child(self->widget, section);
 +    hide_managed_settings(section);
-@@ -310 +331 @@ static void
--connect_ui_signals(NetbirdEditor *self)
++}
++
++static void
 +connect_ui_signals(AheadscaleEditor *self)
-@@ -323 +344 @@ static void
--netbird_editor_init(NetbirdEditor *self)
++{
++    connect_changed(self, self->auth_combo);
++    connect_changed(self, self->management_url_entry);
++    connect_changed(self, self->admin_url_entry);
++    connect_changed(self, self->username_entry);
++    connect_changed(self, self->setup_key_entry);
++    connect_changed(self, self->interface_name_entry);
++    connect_changed(self, self->hostname_entry);
++    connect_changed(self, self->pre_shared_key_entry);
++}
++
++static void
 +aheadscale_editor_init(AheadscaleEditor *self)
-@@ -336 +357 @@ static void
--netbird_editor_dispose(GObject *object)
++{
++    self->widget = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
++    set_widget_margin(self->widget, 12);
++    g_object_ref_sink(self->widget);
++
++    build_main_section(self);
++    build_setup_key_section(self);
++    build_advanced_section(self);
++    connect_ui_signals(self);
++}
++
++static void
 +aheadscale_editor_dispose(GObject *object)
-@@ -338 +359 @@ netbird_editor_dispose(GObject *object)
--    NetbirdEditor *self = NETBIRD_EDITOR(object);
++{
 +    AheadscaleEditor *self = AHEADSCALE_EDITOR(object);
-@@ -341 +362 @@ netbird_editor_dispose(GObject *object)
--    G_OBJECT_CLASS(netbird_editor_parent_class)->dispose(object);
++
++    g_clear_object(&self->widget);
 +    G_OBJECT_CLASS(aheadscale_editor_parent_class)->dispose(object);
-@@ -345 +366 @@ static void
--netbird_editor_class_init(NetbirdEditorClass *klass)
++}
++
++static void
 +aheadscale_editor_class_init(AheadscaleEditorClass *klass)
-@@ -349 +370 @@ netbird_editor_class_init(NetbirdEditorClass *klass)
--    object_class->dispose = netbird_editor_dispose;
++{
++    GObjectClass *object_class = G_OBJECT_CLASS(klass);
++
 +    object_class->dispose = aheadscale_editor_dispose;
-@@ -355 +376 @@ get_widget(NMVpnEditor *editor)
--    return G_OBJECT(NETBIRD_EDITOR(editor)->widget);
++}
++
++static GObject *
++get_widget(NMVpnEditor *editor)
++{
 +    return G_OBJECT(AHEADSCALE_EDITOR(editor)->widget);
-@@ -361,2 +382,2 @@ update_connection(NMVpnEditor *editor, NMConnection *connection, GError **error)
--    NetbirdEditor *self = NETBIRD_EDITOR(editor);
--    NetbirdEditorValues values;
++}
++
++static gboolean
++update_connection(NMVpnEditor *editor, NMConnection *connection, GError **error)
++{
 +    AheadscaleEditor *self = AHEADSCALE_EDITOR(editor);
 +    AheadscaleEditorValues values;
-@@ -366,2 +387,2 @@ update_connection(NMVpnEditor *editor, NMConnection *connection, GError **error)
--    ok = netbird_editor_values_save(&values, connection, error);
--    netbird_editor_values_clear(&values);
++    gboolean ok;
++
++    fill_values_from_ui(self, &values);
 +    ok = aheadscale_editor_values_save(&values, connection, error);
 +    aheadscale_editor_values_clear(&values);
-@@ -372 +393 @@ static void
--netbird_editor_iface_init(NMVpnEditorInterface *iface)
++    return ok;
++}
++
++static void
 +aheadscale_editor_iface_init(NMVpnEditorInterface *iface)
-@@ -379 +400 @@ NMVpnEditor *
--netbird_editor_new(NMConnection *connection, GError **error)
++{
++    iface->get_widget = get_widget;
++    iface->update_connection = update_connection;
++}
++
++NMVpnEditor *
 +aheadscale_editor_new(NMConnection *connection, GError **error)
-@@ -381,2 +402,2 @@ netbird_editor_new(NMConnection *connection, GError **error)
--    NetbirdEditor *editor;
--    NetbirdEditorValues values;
++{
 +    AheadscaleEditor *editor;
 +    AheadscaleEditorValues values;
-@@ -386 +407 @@ netbird_editor_new(NMConnection *connection, GError **error)
--    editor = g_object_new(NETBIRD_TYPE_EDITOR, NULL);
++
++    (void) error;
++
 +    editor = g_object_new(AHEADSCALE_TYPE_EDITOR, NULL);
-@@ -388,2 +409,2 @@ netbird_editor_new(NMConnection *connection, GError **error)
--    netbird_editor_values_init(&values);
--    netbird_editor_values_load(&values, connection);
++
 +    aheadscale_editor_values_init(&values);
 +    aheadscale_editor_values_load(&values, connection);
-@@ -391 +412 @@ netbird_editor_new(NMConnection *connection, GError **error)
--    netbird_editor_values_clear(&values);
++    load_values_into_ui(editor, &values);
 +    aheadscale_editor_values_clear(&values);
-@@ -397 +418 @@ NMVpnEditor *
--nm_vpn_editor_factory_netbird(NMVpnEditorPlugin *editor_plugin, NMConnection *connection, GError **error)
++
++    return NM_VPN_EDITOR(editor);
++}
++
++NMVpnEditor *
 +nm_vpn_editor_factory_aheadscale(NMVpnEditorPlugin *editor_plugin, NMConnection *connection, GError **error)
-@@ -402 +423 @@ nm_vpn_editor_factory_netbird(NMVpnEditorPlugin *editor_plugin, NMConnection *co
--    return netbird_editor_new(connection, error);
++{
++    (void) editor_plugin;
++
++    g_type_ensure(NMA_VPN_TYPE_PASSWORD_DIALOG);
 +    return aheadscale_editor_new(connection, error);
++}
 diff --git a/properties/nm-aheadscale-editor.h b/properties/nm-aheadscale-editor.h
 new file mode 100644
 index 0000000..7923aa3
@@ -2922,364 +3644,6 @@ index 0000000..7923aa3
 +G_END_DECLS
 +
 +#endif
-diff --git a/properties/nm-netbird-editor-model-test.c b/properties/nm-netbird-editor-model-test.c
-deleted file mode 100644
-index 20b11f0..0000000
---- a/properties/nm-netbird-editor-model-test.c
-+++ /dev/null
-@@ -1,222 +0,0 @@
--#include "nm-netbird-editor-model.h"
--
--#include <string.h>
--
--static NMSettingVpn *
--get_vpn(NMConnection *connection)
--{
--    return nm_connection_get_setting_vpn(connection);
--}
--
--static void
--test_empty_connection_saves_defaults(void)
--{
--    NMConnection *connection = nm_simple_connection_new();
--    NetbirdEditorValues values;
--    GError *error = NULL;
--    NMSettingVpn *vpn;
--    NMSettingConnection *s_con;
--
--    netbird_editor_values_init(&values);
--    g_assert_true(netbird_editor_values_save(&values, connection, &error));
--    g_assert_no_error(error);
--
--    vpn = get_vpn(connection);
--    g_assert_nonnull(vpn);
--    g_assert_cmpstr(nm_setting_vpn_get_service_type(vpn), ==, NETBIRD_SERVICE_NAME);
--    g_assert_cmpstr(nm_setting_vpn_get_data_item(vpn, NETBIRD_KEY_AUTH), ==, NETBIRD_AUTH_SSO);
--
--    s_con = nm_connection_get_setting_connection(connection);
--    g_assert_nonnull(s_con);
--    g_assert_cmpstr(nm_setting_connection_get_connection_type(s_con), ==, NM_SETTING_VPN_SETTING_NAME);
--
--    netbird_editor_values_clear(&values);
--    g_object_unref(connection);
--}
--
--static void
--test_existing_values_load_and_save_canonical_keys(void)
--{
--    NMConnection *connection = nm_simple_connection_new();
--    NMSettingVpn *vpn = NM_SETTING_VPN(nm_setting_vpn_new());
--    NetbirdEditorValues values;
--    GError *error = NULL;
--
--    nm_connection_add_setting(connection, NM_SETTING(vpn));
--    g_object_set(vpn, NM_SETTING_VPN_SERVICE_TYPE, NETBIRD_SERVICE_NAME, NULL);
--    nm_setting_vpn_add_data_item(vpn, "auth-mode", "setupKey");
--    nm_setting_vpn_add_data_item(vpn, "managementUrl", " https://api.example.com ");
--    nm_setting_vpn_add_data_item(vpn, "profile", " prod ");
--    nm_setting_vpn_add_data_item(vpn, "unknown-netbird-key", "keep-me");
--    nm_setting_vpn_add_data_item(vpn, "setupKey", "plain-secret");
--
--    netbird_editor_values_init(&values);
--    netbird_editor_values_load(&values, connection);
--    g_assert_cmpstr(values.auth_mode, ==, NETBIRD_AUTH_SETUP_KEY);
--    g_assert_cmpstr(values.management_url, ==, "https://api.example.com");
--    g_assert_cmpstr(values.setup_key, ==, "plain-secret");
--
--    g_assert_true(netbird_editor_values_save(&values, connection, &error));
--    g_assert_no_error(error);
--
--    g_assert_cmpstr(nm_setting_vpn_get_data_item(vpn, NETBIRD_KEY_AUTH), ==, NETBIRD_AUTH_SETUP_KEY);
--    g_assert_cmpstr(nm_setting_vpn_get_data_item(vpn, NETBIRD_KEY_MANAGEMENT_URL), ==, "https://api.example.com");
--    g_assert_null(nm_setting_vpn_get_data_item(vpn, "profile"));
--    g_assert_cmpstr(nm_setting_vpn_get_data_item(vpn, "unknown-netbird-key"), ==, "keep-me");
--    g_assert_null(nm_setting_vpn_get_data_item(vpn, "auth-mode"));
--    g_assert_null(nm_setting_vpn_get_data_item(vpn, "setupKey"));
--    g_assert_cmpstr(nm_setting_vpn_get_secret(vpn, NETBIRD_KEY_SETUP_KEY), ==, "plain-secret");
--
--    netbird_editor_values_clear(&values);
--    g_object_unref(connection);
--}
--
--static void
--test_legacy_auth_defaults_to_sso(void)
--{
--    NMConnection *connection = nm_simple_connection_new();
--    NMSettingVpn *vpn = NM_SETTING_VPN(nm_setting_vpn_new());
--    NetbirdEditorValues values;
--    GError *error = NULL;
--
--    nm_connection_add_setting(connection, NM_SETTING(vpn));
--    g_object_set(vpn, NM_SETTING_VPN_SERVICE_TYPE, NETBIRD_SERVICE_NAME, NULL);
--    nm_setting_vpn_add_data_item(vpn, NETBIRD_KEY_AUTH, NETBIRD_AUTH_LOGIN);
--
--    netbird_editor_values_init(&values);
--    netbird_editor_values_load(&values, connection);
--    g_assert_cmpstr(values.auth_mode, ==, NETBIRD_AUTH_SSO);
--
--    g_assert_true(netbird_editor_values_save(&values, connection, &error));
--    g_assert_no_error(error);
--    g_assert_cmpstr(nm_setting_vpn_get_data_item(vpn, NETBIRD_KEY_AUTH), ==, NETBIRD_AUTH_SSO);
--
--    netbird_editor_values_clear(&values);
--    g_object_unref(connection);
--}
--
--static void
--test_sso_removes_setup_key(void)
--{
--    NMConnection *connection = nm_simple_connection_new();
--    NetbirdEditorValues values;
--    GError *error = NULL;
--    NMSettingVpn *vpn;
--
--    netbird_editor_values_init(&values);
--    g_free(values.auth_mode);
--    values.auth_mode = g_strdup(NETBIRD_AUTH_SSO);
--    values.setup_key = g_strdup("do-not-save");
--
--    g_assert_true(netbird_editor_values_save(&values, connection, &error));
--    g_assert_no_error(error);
--
--    vpn = get_vpn(connection);
--    g_assert_cmpstr(nm_setting_vpn_get_data_item(vpn, NETBIRD_KEY_AUTH), ==, NETBIRD_AUTH_SSO);
--    g_assert_null(nm_setting_vpn_get_secret(vpn, NETBIRD_KEY_SETUP_KEY));
--    g_assert_null(nm_setting_vpn_get_data_item(vpn, NETBIRD_KEY_SETUP_KEY));
--
--    netbird_editor_values_clear(&values);
--    g_object_unref(connection);
--}
--
--static void
--test_empty_fields_remove_known_keys(void)
--{
--    NMConnection *connection = nm_simple_connection_new();
--    NMSettingVpn *vpn = NM_SETTING_VPN(nm_setting_vpn_new());
--    NetbirdEditorValues values;
--    GError *error = NULL;
--
--    nm_connection_add_setting(connection, NM_SETTING(vpn));
--    g_object_set(vpn, NM_SETTING_VPN_SERVICE_TYPE, NETBIRD_SERVICE_NAME, NULL);
--    nm_setting_vpn_add_data_item(vpn, NETBIRD_KEY_MANAGEMENT_URL, "https://api.example.com");
--    nm_setting_vpn_add_data_item(vpn, NETBIRD_KEY_INTERFACE_NAME, "wt0");
--    nm_setting_vpn_add_secret(vpn, NETBIRD_KEY_PRE_SHARED_KEY, "old-secret");
--
--    netbird_editor_values_init(&values);
--    g_assert_true(netbird_editor_values_save(&values, connection, &error));
--    g_assert_no_error(error);
--
--    g_assert_null(nm_setting_vpn_get_data_item(vpn, NETBIRD_KEY_MANAGEMENT_URL));
--    g_assert_null(nm_setting_vpn_get_data_item(vpn, NETBIRD_KEY_INTERFACE_NAME));
--    g_assert_null(nm_setting_vpn_get_secret(vpn, NETBIRD_KEY_PRE_SHARED_KEY));
--
--    netbird_editor_values_clear(&values);
--    g_object_unref(connection);
--}
--
--static void
--test_validation_rejects_invalid_url_and_interface(void)
--{
--    NetbirdEditorValues values;
--    GError *error = NULL;
--
--    netbird_editor_values_init(&values);
--    values.management_url = g_strdup("ftp://example.com");
--    g_assert_false(netbird_editor_values_validate(&values, &error));
--    g_assert_error(error, NETBIRD_EDITOR_ERROR, NETBIRD_EDITOR_ERROR_INVALID_URL);
--    g_clear_error(&error);
--    g_clear_pointer(&values.management_url, g_free);
--
--    values.interface_name = g_strdup("bad/name");
--    g_assert_false(netbird_editor_values_validate(&values, &error));
--    g_assert_error(error, NETBIRD_EDITOR_ERROR, NETBIRD_EDITOR_ERROR_INVALID_INTERFACE);
--    g_clear_error(&error);
--
--    netbird_editor_values_clear(&values);
--}
--
--static void
--assert_interface_validation(const char *interface_name, gboolean expected_valid)
--{
--    NetbirdEditorValues values;
--    GError *error = NULL;
--
--    netbird_editor_values_init(&values);
--    values.interface_name = g_strdup(interface_name);
--
--    g_assert_cmpint(netbird_editor_values_validate(&values, &error), ==, expected_valid);
--    if (expected_valid)
--        g_assert_no_error(error);
--    else {
--        g_assert_error(error, NETBIRD_EDITOR_ERROR, NETBIRD_EDITOR_ERROR_INVALID_INTERFACE);
--        g_clear_error(&error);
--    }
--
--    netbird_editor_values_clear(&values);
--}
--
--static void
--test_validation_accepts_valid_interface_names(void)
--{
--    assert_interface_validation(NULL, TRUE);
--    assert_interface_validation("", TRUE);
--    assert_interface_validation("wt0", TRUE);
--    assert_interface_validation("nb-abcdef123456", TRUE);
--}
--
--static void
--test_validation_rejects_invalid_interface_names(void)
--{
--    assert_interface_validation("1234567890123456", FALSE);
--    assert_interface_validation("bad\x01" "name", FALSE);
--    assert_interface_validation("bad\x7f" "name", FALSE);
--    assert_interface_validation(".", FALSE);
--    assert_interface_validation("..", FALSE);
--}
--
--int
--main(int argc, char **argv)
--{
--    g_test_init(&argc, &argv, NULL);
--    g_test_add_func("/netbird-editor/empty-defaults", test_empty_connection_saves_defaults);
--    g_test_add_func("/netbird-editor/canonical-save", test_existing_values_load_and_save_canonical_keys);
--    g_test_add_func("/netbird-editor/legacy-auth-defaults-to-sso", test_legacy_auth_defaults_to_sso);
--    g_test_add_func("/netbird-editor/sso-save", test_sso_removes_setup_key);
--    g_test_add_func("/netbird-editor/clear-fields", test_empty_fields_remove_known_keys);
--    g_test_add_func("/netbird-editor/validation", test_validation_rejects_invalid_url_and_interface);
--    g_test_add_func("/netbird-editor/validation-valid-interfaces", test_validation_accepts_valid_interface_names);
--    g_test_add_func("/netbird-editor/validation-invalid-interfaces", test_validation_rejects_invalid_interface_names);
--    return g_test_run();
--}
-diff --git a/properties/nm-netbird-editor-model.h b/properties/nm-netbird-editor-model.h
-deleted file mode 100644
-index 1b49c58..0000000
---- a/properties/nm-netbird-editor-model.h
-+++ /dev/null
-@@ -1,53 +0,0 @@
--#ifndef NM_NETBIRD_EDITOR_MODEL_H
--#define NM_NETBIRD_EDITOR_MODEL_H
--
--#include <NetworkManager.h>
--#include <glib.h>
--
--#define NETBIRD_SERVICE_NAME "org.freedesktop.NetworkManager.netbird"
--
--#define NETBIRD_AUTH_REUSE "reuse"
--#define NETBIRD_AUTH_LOGIN "login"
--#define NETBIRD_AUTH_SETUP_KEY "setup-key"
--#define NETBIRD_AUTH_SSO "sso"
--
--#define NETBIRD_KEY_AUTH "auth"
--#define NETBIRD_KEY_SETUP_KEY "setup-key"
--#define NETBIRD_KEY_MANAGEMENT_URL "management-url"
--#define NETBIRD_KEY_ADMIN_URL "admin-url"
--#define NETBIRD_KEY_USERNAME "username"
--#define NETBIRD_KEY_INTERFACE_NAME "interface-name"
--#define NETBIRD_KEY_HOSTNAME "hostname"
--#define NETBIRD_KEY_PRE_SHARED_KEY "pre-shared-key"
--
--G_BEGIN_DECLS
--
--typedef enum {
--    NETBIRD_EDITOR_ERROR_INVALID_AUTH,
--    NETBIRD_EDITOR_ERROR_INVALID_URL,
--    NETBIRD_EDITOR_ERROR_INVALID_INTERFACE,
--} NetbirdEditorError;
--
--#define NETBIRD_EDITOR_ERROR netbird_editor_error_quark()
--GQuark netbird_editor_error_quark(void);
--
--typedef struct {
--    char *auth_mode;
--    char *management_url;
--    char *admin_url;
--    char *username;
--    char *interface_name;
--    char *hostname;
--    char *setup_key;
--    char *pre_shared_key;
--} NetbirdEditorValues;
--
--void netbird_editor_values_init(NetbirdEditorValues *values);
--void netbird_editor_values_clear(NetbirdEditorValues *values);
--void netbird_editor_values_load(NetbirdEditorValues *values, NMConnection *connection);
--gboolean netbird_editor_values_validate(const NetbirdEditorValues *values, GError **error);
--gboolean netbird_editor_values_save(const NetbirdEditorValues *values, NMConnection *connection, GError **error);
--
--G_END_DECLS
--
--#endif
-diff --git a/properties/nm-netbird-editor-plugin-test.c b/properties/nm-netbird-editor-plugin-test.c
-deleted file mode 100644
-index 07be620..0000000
---- a/properties/nm-netbird-editor-plugin-test.c
-+++ /dev/null
-@@ -1,43 +0,0 @@
--#include "nm-netbird-editor-model.h"
--
--#include <NetworkManager.h>
--
--static void
--test_plugin_loads_from_file(void)
--{
--    const char *path;
--    GError *error = NULL;
--    NMVpnEditorPlugin *plugin;
--    char *name = NULL;
--    char *service = NULL;
--
--    path = g_getenv("NETBIRD_EDITOR_PLUGIN_PATH");
--    g_assert_nonnull(path);
--    g_assert_true(g_path_is_absolute(path));
--
--    plugin = nm_vpn_editor_plugin_load_from_file(path, NETBIRD_SERVICE_NAME, -1, NULL, NULL, &error);
--    g_assert_no_error(error);
--    g_assert_nonnull(plugin);
--
--    g_object_get(plugin,
--                 NM_VPN_EDITOR_PLUGIN_NAME,
--                 &name,
--                 NM_VPN_EDITOR_PLUGIN_SERVICE,
--                 &service,
--                 NULL);
--
--    g_assert_cmpstr(name, ==, "NetBird");
--    g_assert_cmpstr(service, ==, NETBIRD_SERVICE_NAME);
--
--    g_free(name);
--    g_free(service);
--    g_object_unref(plugin);
--}
--
--int
--main(int argc, char **argv)
--{
--    g_test_init(&argc, &argv, NULL);
--    g_test_add_func("/netbird-editor/plugin-load", test_plugin_loads_from_file);
--    return g_test_run();
--}
-diff --git a/properties/nm-netbird-editor.h b/properties/nm-netbird-editor.h
-deleted file mode 100644
-index 5ab928d..0000000
---- a/properties/nm-netbird-editor.h
-+++ /dev/null
-@@ -1,16 +0,0 @@
--#ifndef NM_NETBIRD_EDITOR_H
--#define NM_NETBIRD_EDITOR_H
--
--#include <NetworkManager.h>
--#include <gtk/gtk.h>
--
--G_BEGIN_DECLS
--
--#define NETBIRD_TYPE_EDITOR (netbird_editor_get_type())
--G_DECLARE_FINAL_TYPE(NetbirdEditor, netbird_editor, NETBIRD, EDITOR, GObject)
--
--NMVpnEditor *netbird_editor_new(NMConnection *connection, GError **error);
--
--G_END_DECLS
--
--#endif
 diff --git a/scripts/build-fedora-selinux-policy.sh b/scripts/build-fedora-selinux-policy.sh
 index 714551c..1cefdd4 100755
 --- a/scripts/build-fedora-selinux-policy.sh
