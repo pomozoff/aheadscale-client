@@ -1864,11 +1864,15 @@ new file mode 100644
 index 0000000..1d68f15
 --- /dev/null
 +++ b/plasma/aheadscale_test.cpp
-@@ -0,0 +1,101 @@
+@@ -0,0 +1,158 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +#include "vpnuiplugin.h"
 +#include <QDesktopServices>
 +#include <QLabel>
++#include <QDialog>
++#include <QDialogButtonBox>
++#include <QFormLayout>
++#include <QVBoxLayout>
 +#include <QTest>
 +#include <QUrl>
 +#include <memory>
@@ -1932,6 +1936,59 @@ index 0000000..1d68f15
 +        widget.reset();
 +        QTest::qWait(30);
 +        QCOMPARE(browser.urls.size(), 1);
++        QDesktopServices::unsetUrlHandler("https");
++    }
++    void loginTextIsFullyVisibleInPasswordDialog_data() {
++        QTest::addColumn<int>("width");
++        QTest::addColumn<int>("pointSize");
++        QTest::addColumn<bool>("validLogin");
++        for (const int width : {400, 480}) {
++            for (const int pointSize : {10, 18}) {
++                for (const bool valid : {false, true}) {
++                    const auto name = QStringLiteral("%1px-%2pt-%3").arg(width).arg(pointSize).arg(valid);
++                    QTest::newRow(qPrintable(name)) << width << pointSize << valid;
++                }
++            }
++        }
++    }
++    void loginTextIsFullyVisibleInPasswordDialog() {
++        QFETCH(int, width);
++        QFETCH(int, pointSize);
++        QFETCH(bool, validLogin);
++        auto plugin = load(); QVERIFY(plugin);
++        BrowserCapture browser;
++        QDesktopServices::setUrlHandler("https", &browser, "capture");
++        QDialog dialog;
++        auto font = dialog.font(); font.setPointSize(pointSize); dialog.setFont(font);
++        dialog.setMaximumWidth(640);
++        auto *form = new QFormLayout(&dialog);
++        auto *icon = new QLabel(&dialog); icon->setFixedSize(64, 64);
++        auto *header = new QWidget(&dialog);
++        auto *heading = new QVBoxLayout(header);
++        heading->addWidget(new QLabel("Authenticate Aheadscale", header));
++        auto *caption = new QLabel("Provide the secrets for the VPN connection Aheadscale:", header);
++        caption->setWordWrap(true); heading->addWidget(caption);
++        form->addRow(icon, header);
++        auto *holder = new QWidget(&dialog);
++        auto *holderLayout = new QVBoxLayout(holder);
++        auto *widget = plugin->askUser(vpn(), {
++            "x-aheadscale-activation-id=73", "x-aheadscale-sso=true",
++            QStringLiteral("x-aheadscale-sso-verification-uri-complete=")
++                + (validLogin ? "https://aheadscale.ru/oauth2/device" : "https://foreign.invalid/login")}, holder);
++        holderLayout->addWidget(widget);
++        form->setWidget(2, QFormLayout::FieldRole, holder);
++        form->addRow(new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog));
++        dialog.resize(width, 226);
++        dialog.show();
++        QCoreApplication::processEvents();
++        const auto labels = widget->findChildren<QLabel *>();
++        QCOMPARE(labels.size(), 1);
++        const auto *label = labels.first();
++        const auto bounds = label->fontMetrics().boundingRect(
++            QRect(0, 0, label->contentsRect().width(), 10000), Qt::TextWordWrap, label->text());
++        QVERIFY2(label->contentsRect().height() >= bounds.height(), qPrintable(
++            QStringLiteral("Login instruction clipped: available=%1 required=%2 width=%3")
++                .arg(label->contentsRect().height()).arg(bounds.height()).arg(label->contentsRect().width())));
 +        QDesktopServices::unsetUrlHandler("https");
 +    }
 +    void invalidOrForeignBrowserUrlIsRefused_data() {
