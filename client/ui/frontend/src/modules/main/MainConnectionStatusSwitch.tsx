@@ -102,7 +102,6 @@ export const MainConnectionStatusSwitch = () => {
                 username,
             });
             if (generation !== intentGeneration.current) return;
-            setAction(null);
             await refresh();
         } catch (e) {
             if (generation !== intentGeneration.current) return;
@@ -150,7 +149,7 @@ export const MainConnectionStatusSwitch = () => {
                 driveLogin();
                 return;
             }
-            if (unreachable) {
+            if (daemonState === "Connected" || unreachable) {
                 setAction(null);
                 return;
             }

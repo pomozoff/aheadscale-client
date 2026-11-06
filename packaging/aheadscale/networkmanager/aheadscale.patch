@@ -839,7 +839,7 @@ index c8905d0..5a07836 100644
 -	parts := []string{"NetBird SSO login required."}
 +	parts := []string{"Aheadscale SSO login required."}
 diff --git a/internal/nmplugin/service.go b/internal/nmplugin/service.go
-index fce6c37..2d1193b 100644
+index fce6c37..8616f99 100644
 --- a/internal/nmplugin/service.go
 +++ b/internal/nmplugin/service.go
 @@ -7,0 +8,3 @@ import (
@@ -872,10 +872,10 @@ index fce6c37..2d1193b 100644
 +// SSOComplete is read-only and belongs to the current completed activation.
 +// A cancelled dialog or a previous service owner cannot complete a new attempt.
 +func (s *Service) SSOComplete(activationID uint64) (bool, *dbus.Error) {
-+ s.lifecycleMu.Lock()
-+ defer s.lifecycleMu.Unlock()
-+ return activationID != 0 && activationID == s.activationID &&
-+  !s.activating && s.client != nil && s.State() == ServiceStateStarted, nil
++	s.lifecycleMu.Lock()
++	defer s.lifecycleMu.Unlock()
++	return activationID != 0 && activationID == s.activationID &&
++		!s.activating && s.client != nil && s.State() == ServiceStateStarted, nil
 +}
 +
 @@ -185,0 +213,2 @@ func (s *Service) Disconnect() *dbus.Error {
@@ -1088,7 +1088,7 @@ index fce6c37..2d1193b 100644
 +	s.failActivation(failure, err)
 +}
 diff --git a/internal/nmplugin/service_test.go b/internal/nmplugin/service_test.go
-index d7f1bf0..86cad36 100644
+index d7f1bf0..b6e3456 100644
 --- a/internal/nmplugin/service_test.go
 +++ b/internal/nmplugin/service_test.go
 @@ -23,0 +24 @@ import (
@@ -1396,28 +1396,28 @@ index d7f1bf0..86cad36 100644
 +
 +// Completion is scoped to the live activation, never an old dialog or zero ID.
 +func TestSSOCompletionBelongsToCurrentLiveActivation(t *testing.T) {
-+ obj, _ := newTestingBusObject(t)
-+ check := func(id uint64, want bool) {
-+  t.Helper()
-+  var got bool
-+  require.NoError(t, obj.Call(nmplugin.Interface+".SSOComplete", 0, id).Store(&got))
-+  require.Equal(t, want, got)
-+ }
-+ check(0, false)
-+ check(1, false)
-+ require.NoError(t, obj.Call(nmplugin.Interface+".Connect", 0, setupKeyConnectionSettings()).Store())
-+ waitForState(t, obj, nmplugin.ServiceStateStarted)
-+ check(0, false)
-+ check(1, true)
-+ check(2, false)
-+ require.NoError(t, obj.Call(nmplugin.Interface+".Disconnect", 0).Store())
-+ check(1, false)
-+ require.NoError(t, obj.Call(nmplugin.Interface+".Connect", 0, setupKeyConnectionSettings()).Store())
-+ waitForState(t, obj, nmplugin.ServiceStateStarted)
-+ check(1, false)
-+ check(2, false)
-+ check(3, true)
-+ require.NoError(t, obj.Call(nmplugin.Interface+".Disconnect", 0).Store())
++	obj, _ := newTestingBusObject(t)
++	check := func(id uint64, want bool) {
++		t.Helper()
++		var got bool
++		require.NoError(t, obj.Call(nmplugin.Interface+".SSOComplete", 0, id).Store(&got))
++		require.Equal(t, want, got)
++	}
++	check(0, false)
++	check(1, false)
++	require.NoError(t, obj.Call(nmplugin.Interface+".Connect", 0, setupKeyConnectionSettings()).Store())
++	waitForState(t, obj, nmplugin.ServiceStateStarted)
++	check(0, false)
++	check(1, true)
++	check(2, false)
++	require.NoError(t, obj.Call(nmplugin.Interface+".Disconnect", 0).Store())
++	check(1, false)
++	require.NoError(t, obj.Call(nmplugin.Interface+".Connect", 0, setupKeyConnectionSettings()).Store())
++	waitForState(t, obj, nmplugin.ServiceStateStarted)
++	check(1, false)
++	check(2, false)
++	check(3, true)
++	require.NoError(t, obj.Call(nmplugin.Interface+".Disconnect", 0).Store())
 +}
 diff --git a/internal/nmplugin/settings.go b/internal/nmplugin/settings.go
 index ea0dba9..f315ec0 100644
