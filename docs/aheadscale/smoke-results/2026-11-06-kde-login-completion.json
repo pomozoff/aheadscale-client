@@ -1,7 +1,7 @@
 {
   "date": "2026-11-06",
   "task": "AHEAD-15",
-  "status": "CI_PASS_NATIVE_PACKAGE_PENDING",
+  "status": "BUILD_AND_CLEAN_INSTALL_PASS_OWNER_LOGIN_PENDING",
   "defect": "Первый вход KDE: демон Connected, системная активация ждёт подтверждения, GUI отключает VPN по таймауту 5 минут",
   "red": {
     "plasma": 42251649972,
@@ -30,9 +30,15 @@
   ],
   "review": "Сравнение реально применённых .38 и нового patch: изменения только nmplugin service/introspection/tests и Plasma CMake/widget/tests. GTK и сервер не менялись.",
   "remaining": [
-    "Сборка установщика .39",
-    "Чистая установка и первый вход в настоящей KDE",
+    "Первый вход в настоящей KDE и автоматическое завершение диалога",
     "Проверка сохранения VPN более 5 минут и передачи данных"
   ],
-  "productionChanged": false
+  "productionChanged": false,
+  "package39": {
+    "run": 42254146960,
+    "source": "fd82035",
+    "status": "SUCCESS",
+    "publicDebSha256": "c0471239f8de4c9617aad64155ed928b7e23028cdede94a0df8f0b3224b9ba6f",
+    "nativeInstall": "Чистая Kubuntu26.04.1 x64, apt exit0, Selecting previously unselected package aheadscale, версия .39 и SHA256 KDE-компонента совпадают с producer"
+  }
 }
