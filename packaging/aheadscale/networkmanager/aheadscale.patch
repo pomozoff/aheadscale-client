@@ -1928,10 +1928,10 @@ index 0000000..165a32a
 +#include "aheadscale.moc"
 diff --git a/plasma/aheadscale_test.cpp b/plasma/aheadscale_test.cpp
 new file mode 100644
-index 0000000..b71e0c7
+index 0000000..c615d46
 --- /dev/null
 +++ b/plasma/aheadscale_test.cpp
-@@ -0,0 +1,231 @@
+@@ -0,0 +1,232 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +#include "vpnuiplugin.h"
 +#include <QDesktopServices>
@@ -1989,8 +1989,9 @@ index 0000000..b71e0c7
 +        QTest::addColumn<bool>("stale");
 +        QTest::addColumn<bool>("replaceOwner");
 +        QTest::newRow("current-completes") << false << false << false;
-+        QTest::newRow("old-generation-stays-open") << false << true << false << false;
-+        QTest::newRow("cancel-cannot-revive") << true << false;
++        QTest::newRow("old-generation-stays-open") << false << true << false;
++        QTest::newRow("cancel-cannot-revive") << true << false << false;
++        QTest::newRow("replacement-owner-cannot-complete") << false << false << true;
 +    }
 +    void completion() {
 +        QFETCH(bool, cancel); QFETCH(bool, stale); QFETCH(bool, replaceOwner);
