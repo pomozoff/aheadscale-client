@@ -1725,7 +1725,7 @@ index 0000000..c6a43e5
 +публичный выпуск для всех дистрибутивов.
 diff --git a/plasma/aheadscale.cpp b/plasma/aheadscale.cpp
 new file mode 100644
-index 0000000..1605b9d
+index 0000000..165a32a
 --- /dev/null
 +++ b/plasma/aheadscale.cpp
 @@ -0,0 +1,197 @@
@@ -1838,7 +1838,7 @@ index 0000000..1605b9d
 +        }
 +        activation = values.value(QLatin1String(activationKey));
 +        message->setText(tr("Завершите вход Aheadscale в браузере. "
-+                            "После входа подтвердите подключение; для отмены нажмите «Отмена»."));
++                            "Подключение продолжится автоматически; для отмены нажмите «Отмена»."));
 +        auto *open = new QPushButton(tr("Открыть страницу входа"), this);
 +        layout->addWidget(open);
 +        connect(open, &QPushButton::clicked, this, [this] { openBrowser(); });
@@ -1928,10 +1928,10 @@ index 0000000..1605b9d
 +#include "aheadscale.moc"
 diff --git a/plasma/aheadscale_test.cpp b/plasma/aheadscale_test.cpp
 new file mode 100644
-index 0000000..8f5e7e5
+index 0000000..b71e0c7
 --- /dev/null
 +++ b/plasma/aheadscale_test.cpp
-@@ -0,0 +1,215 @@
+@@ -0,0 +1,231 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +#include "vpnuiplugin.h"
 +#include <QDesktopServices>
@@ -1987,12 +1987,13 @@ index 0000000..8f5e7e5
 +    void completion_data() {
 +        QTest::addColumn<bool>("cancel");
 +        QTest::addColumn<bool>("stale");
-+        QTest::newRow("current-completes") << false << false;
-+        QTest::newRow("old-generation-stays-open") << false << true;
++        QTest::addColumn<bool>("replaceOwner");
++        QTest::newRow("current-completes") << false << false << false;
++        QTest::newRow("old-generation-stays-open") << false << true << false << false;
 +        QTest::newRow("cancel-cannot-revive") << true << false;
 +    }
 +    void completion() {
-+        QFETCH(bool, cancel); QFETCH(bool, stale);
++        QFETCH(bool, cancel); QFETCH(bool, stale); QFETCH(bool, replaceOwner);
 +        auto bus = QDBusConnection::sessionBus();
 +        QVERIFY(bus.registerService(QString::fromLatin1(service)));
 +        CompletionFixture fixture;
@@ -2013,14 +2014,29 @@ index 0000000..8f5e7e5
 +        QCOMPARE(accepted.size(), 0);
 +        if (cancel) { dialog.reject(); delete widget; }
 +        if (stale) fixture.current = 72;
-+        fixture.ready = true;
-+        if (!cancel && !stale) {
++        auto replacement = QDBusConnection::connectToBus(qEnvironmentVariable("DBUS_SESSION_BUS_ADDRESS"), "replacement");
++        CompletionFixture replacementFixture;
++        if (replaceOwner) {
++            bus.unregisterService(QString::fromLatin1(service));
++            QVERIFY(replacement.registerService(QString::fromLatin1(service)));
++            replacementFixture.ready = true;
++            QVERIFY(replacement.registerObject("/org/freedesktop/NetworkManager/VPN/Plugin", &replacementFixture,
++                QDBusConnection::ExportAllSlots));
++        } else {
++            fixture.ready = true;
++        }
++        if (!cancel && !stale && !replaceOwner) {
 +            QTRY_COMPARE_WITH_TIMEOUT(accepted.size(), 1, 4000);
 +        } else {
 +            QTest::qWait(700); QCOMPARE(accepted.size(), 0);
 +        }
 +        if (!cancel) QTRY_VERIFY(fixture.calls > 0);
 +        QDesktopServices::unsetUrlHandler("https");
++        if (replaceOwner) {
++            replacement.unregisterObject("/org/freedesktop/NetworkManager/VPN/Plugin");
++            replacement.unregisterService(QString::fromLatin1(service));
++        }
++        QDBusConnection::disconnectFromBus("replacement");
 +        bus.unregisterObject("/org/freedesktop/NetworkManager/VPN/Plugin");
 +        bus.unregisterService(QString::fromLatin1(service));
 +    }
