@@ -1737,7 +1737,7 @@ new file mode 100644
 index 0000000..5c37bbb
 --- /dev/null
 +++ b/plasma/aheadscale.cpp
-@@ -0,0 +1,121 @@
+@@ -0,0 +1,122 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +#include "vpnuiplugin.h"
 +#include <QDesktopServices>
@@ -1778,6 +1778,7 @@ index 0000000..5c37bbb
 +        message = new QLabel(this);
 +        message->setTextFormat(Qt::PlainText);
 +        message->setWordWrap(true);
++        message->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Minimum);
 +        layout->addWidget(message);
 +        QMap<QString, QString> values;
 +        bool duplicate = false;
