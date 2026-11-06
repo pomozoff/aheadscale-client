@@ -1,7 +1,7 @@
 {
   "date": "2026-11-06",
   "task": "AHEAD-15",
-  "status": "BUILD_AND_CLEAN_INSTALL_PASS_OWNER_LOGIN_PENDING",
+  "status": "NATIVE_KDE_FIRST_LOGIN_STABILITY_NETWORK_PASS",
   "defect": "Первый вход KDE: демон Connected, системная активация ждёт подтверждения, GUI отключает VPN по таймауту 5 минут",
   "red": {
     "plasma": 42251649972,
@@ -29,10 +29,7 @@
     "Прежние проверки origin, геометрии и уничтожения диалога"
   ],
   "review": "Сравнение реально применённых .38 и нового patch: изменения только nmplugin service/introspection/tests и Plasma CMake/widget/tests. GTK и сервер не менялись.",
-  "remaining": [
-    "Первый вход в настоящей KDE и автоматическое завершение диалога",
-    "Проверка сохранения VPN более 5 минут и передачи данных"
-  ],
+  "remaining": [],
   "productionChanged": false,
   "package39": {
     "run": 42254146960,
@@ -40,5 +37,30 @@
     "status": "SUCCESS",
     "publicDebSha256": "c0471239f8de4c9617aad64155ed928b7e23028cdede94a0df8f0b3224b9ba6f",
     "nativeInstall": "Чистая Kubuntu26.04.1 x64, apt exit0, Selecting previously unselected package aheadscale, версия .39 и SHA256 KDE-компонента совпадают с producer"
-  }
+  },
+  "native39": {
+    "os": "Чистая официальная Kubuntu26.04.1 x64, Plasma6.6.6, Wayland",
+    "firstLogin": "Владелец вошёл в браузере без нажатия OK системного VPN-диалога. Диалог закрылся автоматически; GUI Connected, один активный VPN Aheadscale в NM, callback53000 закрыт.",
+    "fqdn": "aheadscale-clean-kde-123-198.aheadscale.internal",
+    "ipv4": "100.88.123.198/16",
+    "stability": {
+      "result": "PASS",
+      "seconds": 333,
+      "samples": 23,
+      "checks": "Management Connected, NM active Aheadscale:vpn, неизменный IPv4 на каждом опросе"
+    },
+    "network": {
+      "peer": "Ubuntu ARM64 .37, ubuntu-ahead.aheadscale.internal, 100.88.19.208",
+      "result": "PASS",
+      "directions": 2,
+      "icmp": "IPv4 и IPv6 по приватным именам: 3/3 на каждом из четырёх направленных проб",
+      "http": "8 HTTP200: оба направления × IPv4/IPv6 × IP/приватное имя; точное содержимое Aheadscale39-test-payload",
+      "cleanup": "Одноразовые HTTP-слушатели завершились, файлы на peer не создавались."
+    }
+  },
+  "limits": [
+    "Результат ограничен чистой Kubuntu26.04.1 x64 .39 и обменом с Ubuntu ARM64 .37.",
+    "Нативная приёмка установщиков ARM64 .39 и полная матрица выпуска остаются отдельными.",
+    "RG45 не закрывается этим сценарием."
+  ]
 }
