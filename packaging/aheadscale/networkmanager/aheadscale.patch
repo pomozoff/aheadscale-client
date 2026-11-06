@@ -1737,11 +1737,13 @@ new file mode 100644
 index 0000000..5c37bbb
 --- /dev/null
 +++ b/plasma/aheadscale.cpp
-@@ -0,0 +1,122 @@
+@@ -0,0 +1,152 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +#include "vpnuiplugin.h"
 +#include <QDesktopServices>
 +#include <QLabel>
++#include <QResizeEvent>
++#include <QEvent>
 +#include <QPushButton>
 +#include <QTimer>
 +#include <QUrl>
@@ -1757,6 +1759,34 @@ index 0000000..5c37bbb
 +    return left.scheme() == right.scheme() && left.host() == right.host()
 +        && left.port(443) == right.port(443);
 +}
++
++// PasswordDialog nests this widget in a QFormLayout. Propagate the real
++// wrapped height explicitly: its outer layout may ignore height-for-width.
++class LoginMessage final : public QLabel {
++public:
++    using QLabel::QLabel;
++    void setText(const QString &text) {
++        QLabel::setText(text);
++        if (isVisible()) updateMinimumHeight();
++    }
++protected:
++    void resizeEvent(QResizeEvent *event) override {
++        QLabel::resizeEvent(event);
++        updateMinimumHeight();
++    }
++    void changeEvent(QEvent *event) override {
++        QLabel::changeEvent(event);
++        if (isVisible() && (event->type() == QEvent::FontChange
++            || event->type() == QEvent::ApplicationFontChange || event->type() == QEvent::StyleChange)) {
++            updateMinimumHeight();
++        }
++    }
++private:
++    void updateMinimumHeight() {
++        const auto required = heightForWidth(width());
++        if (required >= 0 && minimumHeight() != required) setMinimumHeight(required);
++    }
++};
 +
 +class AheadscaleWidget final : public SettingWidget {
 +public:
@@ -1775,7 +1805,7 @@ index 0000000..5c37bbb
 +        : SettingWidget(setting, hints, parent), login(true), valid(false)
 +    {
 +        auto *layout = new QVBoxLayout(this);
-+        message = new QLabel(this);
++        message = new LoginMessage(this);
 +        message->setTextFormat(Qt::PlainText);
 +        message->setWordWrap(true);
 +        message->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Minimum);
@@ -1843,7 +1873,7 @@ index 0000000..5c37bbb
 +    bool valid = true;
 +    QString activation;
 +    QUrl url;
-+    QLabel *message = nullptr;
++    LoginMessage *message = nullptr;
 +};
 +}
 +
