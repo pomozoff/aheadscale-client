@@ -6,7 +6,7 @@
   "adapted_commit": "73db6ab2a28c72ba8b1e683b88ab6424e3b25309",
   "archive_url": "https://github.com/netbirdio/network-manager-vpn-plugin/archive/1c1e87d67e2d1e20e52d40a752bae304a7f1d48a.tar.gz",
   "archive_sha256": "853fcf726137d99dd79b675097a1b88bdd7ec33be976f4324d64bc6f37b9d70e",
-  "patch_sha256": "7b5f2d8853e73ae11968a6772b161bad35cbafd5ef00295b6a9699ef0de303f7",
+  "patch_sha256": "8e935b29e360042110bffb83dcacf1ecc8adc1bbc8e622f3dfcf042fb0dbcbf6",
   "go": "1.26.7",
   "wails": "v3.0.0-beta.3",
   "node": "24.19.0",

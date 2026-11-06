@@ -6,6 +6,12 @@ import { errorDialog, formatErrorMessage } from "@/lib/errors.ts";
 export const EVENT_BROWSER_LOGIN_CANCEL = "browser-login:cancel";
 export const EVENT_TRIGGER_LOGIN = "trigger-login";
 
+// A daemon may be Connected while NetworkManager still awaits its secrets reply.
+// Keep the GUI pending until its own native operation has completed.
+export function waitsForSystemConnection(action: "connect" | "logging-in" | "disconnect" | null): boolean {
+    return action === "connect" || action === "logging-in";
+}
+
 let connectionInFlight = false;
 
 type SsoState = {

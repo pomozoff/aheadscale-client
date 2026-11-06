@@ -9,6 +9,7 @@ import { cn } from "@/lib/cn.ts";
 import { errorDialog, formatErrorMessage } from "@/lib/errors.ts";
 import {
     startConnection,
+    waitsForSystemConnection,
     EVENT_BROWSER_LOGIN_CANCEL,
     EVENT_TRIGGER_LOGIN,
 } from "@/lib/connection.ts";
@@ -73,7 +74,7 @@ export const MainConnectionStatusSwitch = () => {
         if (action === "disconnect" && daemonState === "Connected") {
             return ConnectionState.Disconnecting;
         }
-        if ((action === "connect" || action === "logging-in") && daemonState !== "Connected") {
+        if (waitsForSystemConnection(action)) {
             return ConnectionState.Connecting;
         }
         switch (daemonState) {
@@ -101,6 +102,7 @@ export const MainConnectionStatusSwitch = () => {
                 username,
             });
             if (generation !== intentGeneration.current) return;
+            setAction(null);
             await refresh();
         } catch (e) {
             if (generation !== intentGeneration.current) return;
@@ -148,7 +150,7 @@ export const MainConnectionStatusSwitch = () => {
                 driveLogin();
                 return;
             }
-            if (daemonState === "Connected" || unreachable) {
+            if (unreachable) {
                 setAction(null);
                 return;
             }
