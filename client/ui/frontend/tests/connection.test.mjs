@@ -33,7 +33,7 @@ async function fixture(overrides = {}, windows = {}) {
         }, { context });
     });
     await module.evaluate();
-    return { start: module.namespace.startConnection, login, dialogs, handlers,
+    return { waits: module.namespace.waitsForSystemConnection, start: module.namespace.startConnection, login, dialogs, handlers,
         cancel: () => { for (const handler of handlers) handler(); },
         calls: () => ({ up, wait }), closed: () => closed };
 }
@@ -114,4 +114,13 @@ test("Cancel while browser login opens closes that window without starting SSO",
     assert.deepEqual(f.calls(), { up: 0, wait: 0 });
     assert.deepEqual(f.dialogs, []);
     assert.equal(f.handlers.size, 0);
+});
+
+
+test("GUI keeps Connecting until the native operation completes", async () => {
+    const f = await fixture();
+    assert.equal(f.waits("connect"), true);
+    assert.equal(f.waits("logging-in"), true);
+    assert.equal(f.waits(null), false);
+    assert.equal(f.waits("disconnect"), false);
 });
