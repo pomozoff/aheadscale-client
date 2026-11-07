@@ -1,5 +1,7 @@
 name: Aheadscale CLI service regression
 on:
+  push:
+    branches: ["codex/cli-service-permission-hint"]
   workflow_dispatch:
 permissions:
   contents: read
