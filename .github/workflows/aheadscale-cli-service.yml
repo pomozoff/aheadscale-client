@@ -1,0 +1,36 @@
+name: Aheadscale CLI service regression
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  cli-service:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.7'
+      - name: Проверить регрессию сообщения CLI
+        run: |
+          set -euo pipefail
+          test -z "$(gofmt -l client/cmd/service_control_error*.go client/cmd/service_controller.go)"
+          go test -count=1 ./client/cmd -run '^TestServiceControlError$' -v
+      - name: Собрать CLI для нативной проверки
+        run: |
+          mkdir -p cli-service-artifact
+          CGO_ENABLED=0 go build -trimpath -ldflags '-s -w' -o cli-service-artifact/aheadscale ./client
+          git rev-parse HEAD > cli-service-artifact/source.txt
+          cd cli-service-artifact
+          sha256sum aheadscale source.txt > SHA256SUMS
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: aheadscale-cli-service-linux-amd64
+          path: cli-service-artifact/
+          retention-days: 3
+          if-no-files-found: error
+      - name: Сводка
+        if: always()
+        run: |
+          printf '### AHEAD-64: CLI service\n\nИсходники: `%s`\n\nРезультат job: `%s`. Нативная проверка выполняется отдельно; выпуск пакетов не выполнялся.\n' "$GITHUB_SHA" '${{ job.status }}' >> "$GITHUB_STEP_SUMMARY"

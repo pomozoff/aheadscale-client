@@ -5,6 +5,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 	"runtime"
 	"time"
 
@@ -277,7 +278,7 @@ var startCmd = &cobra.Command{
 		}
 
 		if err := s.Start(); err != nil {
-			return fmt.Errorf("start service: %w", err)
+			return serviceControlError("start", err, runtime.GOOS, os.Geteuid())
 		}
 		cmd.Println("Aheadscale service has been started")
 		return nil
@@ -295,7 +296,7 @@ var stopCmd = &cobra.Command{
 		}
 
 		if err := s.Stop(); err != nil {
-			return fmt.Errorf("stop service: %w", err)
+			return serviceControlError("stop", err, runtime.GOOS, os.Geteuid())
 		}
 		cmd.Println("Aheadscale service has been stopped")
 		return nil
@@ -316,7 +317,7 @@ var restartCmd = &cobra.Command{
 		}
 
 		if err := s.Restart(); err != nil {
-			return fmt.Errorf("restart service: %w", err)
+			return serviceControlError("restart", err, runtime.GOOS, os.Geteuid())
 		}
 		cmd.Println("Aheadscale service has been restarted")
 		return nil
