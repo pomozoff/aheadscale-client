@@ -1,0 +1,41 @@
+{
+  "binarySha256": "9928dd72cbb842a852976eb89f52381009ea1d1a89abca684cb6a59ddb9766d2",
+  "checks": {
+    "nonRootStop": {
+      "exit": 1,
+      "stdout": "",
+      "stderr": "Error: stop service: exit status 1; administrative privileges may be required; retry with sudo aheadscale service stop"
+    },
+    "root-stop": {
+      "exit": 0,
+      "stdout": "Aheadscale service has been stopped",
+      "stderr": ""
+    },
+    "root-start": {
+      "exit": 0,
+      "stdout": "Aheadscale service has been started",
+      "stderr": ""
+    },
+    "root-restart": {
+      "exit": 0,
+      "stdout": "Aheadscale service has been restarted",
+      "stderr": ""
+    }
+  },
+  "identityPreserved": true,
+  "peerPing": "PASS",
+  "result": "PASS",
+  "task": "AHEAD-64",
+  "date": "2026-11-07",
+  "sourceCommit": "1bae7bce88d88b210bd669dc3517c0886e675a49",
+  "redRun": 42373585248,
+  "redResult": "Три ожидаемых отказа linux-user: start/stop/restart; root/Windows/macOS сохраняли прежний текст.",
+  "greenRun": 42373803387,
+  "greenResult": "PASS: форматирование, 12 комбинаций теста, сборка CLI Linux amd64.",
+  "nativeOS": "Ubuntu Server 24.04.5 x86_64",
+  "nativeMethod": "Временный проверенный бинарник; установленный пакет .39 не заменён.",
+  "scope": "Только подсказка после ошибки. Системные операции, права, флаги и коды выхода не менялись.",
+  "review": "Проверен diff: общий helper вызывается только после неудачи Start/Stop/Restart, %w сохранён; условие подсказки linux/euid>0. Работал один агент по указанию владельца.",
+  "cleanup": "Временный бинарник удалён из ВМ; служба active, ключ сохранён, реальный peer ping прошёл. Локальный артефакт удаляется после записи отчёта.",
+  "releaseLimitation": "Публичные установщики .39 содержат прежний текст. Исправление включить в следующий комплект; этот артефакт не предназначен для распространения."
+}
