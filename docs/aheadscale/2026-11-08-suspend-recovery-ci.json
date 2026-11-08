@@ -1,0 +1,21 @@
+{
+  "task": "AHEAD-42",
+  "result": "TARGETED_CI_PASS",
+  "nativeAcceptance": "NOT_RUN_ON_FIXED_PACKAGE",
+  "red": {
+    "run": 42481055475,
+    "source": "4de1737607bdbe1dcb364aca024aa8c1f833af51",
+    "failure": "stopFirst=true/reason=0: NoAction instead of Activate, PendingCancel=true"
+  },
+  "green": {
+    "run": 42481309450,
+    "source": "695a7b88d0191adff3cfb23da68a25faf1ba6cf2",
+    "checks": [
+      "frontend-login-cancel",
+      "native-controller (race)",
+      "plugin-protocol-dbus"
+    ]
+  },
+  "review": "Самостоятельная проверка diff одним агентом по требованию владельца: поправка только PendingCancel после уже снятой ActivationGeneration; сохраняются generation++, проверка root UID, NM owner/path/generation, OFF и NeedsLogin. Независимый reviewer не запускался.",
+  "remaining": "Сборка и настоящий suspend/resume нового пакета; итоговый допуск не изменён."
+}
