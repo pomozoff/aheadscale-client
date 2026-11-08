@@ -21,7 +21,7 @@ jobs:
         with:
           go-version: '1.26.7'
       - name: Форматирование
-        run: gofmt -w client/server/debug.go client/server/debug_concurrency_test.go client/server/server.go
+        run: test -z "$(gofmt -l client/server/debug.go client/server/debug_concurrency_test.go client/server/server.go)"
       - name: Регрессия блокировки и race
         env:
           TEST_SUITE: ${{ inputs.suite || 'regression' }}

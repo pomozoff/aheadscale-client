@@ -88,10 +88,10 @@ func (s *Server) generateDebugBundle(req *proto.DebugBundleRequest, uiOpener deb
 	}
 
 	bundleGenerator := debug.NewBundleGenerator(deps, debug.BundleConfig{
-		Anonymize: req.GetAnonymize(),
-		AnonymizeLevel: anonymize.ParseLevel(req.GetAnonymizeLevel()),
+		Anonymize:         req.GetAnonymize(),
+		AnonymizeLevel:    anonymize.ParseLevel(req.GetAnonymizeLevel()),
 		IncludeSystemInfo: req.GetSystemInfo(),
-		LogFileCount: req.GetLogFileCount(),
+		LogFileCount:      req.GetLogFileCount(),
 	})
 	path, err = bundleGenerator.Generate()
 	if err != nil {
@@ -131,12 +131,12 @@ func (s *Server) snapshotDebugBundle(req *proto.DebugBundleRequest, uiOpener deb
 	deps := debug.GeneratorDependencies{
 		InternalConfig: config,
 		StatusRecorder: s.statusRecorder,
-		SyncResponse: syncResponse,
-		LogPath: s.logFile,
-		UILogPath: s.uiLogPath,
-		UILogOpener: uiOpener,
-		DaemonVersion: version.NetbirdVersion(),
-		CliVersion: req.GetCliVersion(),
+		SyncResponse:   syncResponse,
+		LogPath:        s.logFile,
+		UILogPath:      s.uiLogPath,
+		UILogOpener:    uiOpener,
+		DaemonVersion:  version.NetbirdVersion(),
+		CliVersion:     req.GetCliVersion(),
 	}
 	if s.connectClient != nil {
 		if engine := s.connectClient.Engine(); engine != nil {
