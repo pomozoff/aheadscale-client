@@ -1,7 +1,7 @@
 {
   "task": "AHEAD-42",
   "result": "TARGETED_CI_PASS",
-  "nativeAcceptance": "NOT_RUN_ON_FIXED_PACKAGE",
+  "nativeAcceptance": "KUBUNTU_AMD64_ON_OFF_PASS_ARM_PENDING",
   "red": {
     "run": 42481055475,
     "source": "4de1737607bdbe1dcb364aca024aa8c1f833af51",
@@ -17,5 +17,18 @@
     ]
   },
   "review": "Самостоятельная проверка diff одним агентом по требованию владельца: поправка только PendingCancel после уже снятой ActivationGeneration; сохраняются generation++, проверка root UID, NM owner/path/generation, OFF и NeedsLogin. Независимый reviewer не запускался.",
-  "remaining": "Сборка и настоящий suspend/resume нового пакета; итоговый допуск не изменён."
+  "remaining": "ARM .40 Actions 42483422034 собирается; MacBook offline, native ARM и обновление frozen-комплекта не выполнены.",
+  "native": {
+    "buildRun": 42481512127,
+    "sourceCommit": "c5991215dacc28b31f38fc039e4f59ceddeeaa1c",
+    "packageSha256": "963ccc1e3e44f0eac8150b1bf5656f90565843ec2c4aeb3eb5e1b007eeb673a6",
+    "on": "Настоящий QMP SUSPEND/WAKEUP: восстановилось автоматически, прежний VPN IP, HTTP IP/FQDN/короткое имя до/после — 6×65536 байт, точный payload и VPN-source.",
+    "off": "Настоящий сон при системном OFF: OFF сохранён, обычный HTTPS 200, в конце исходное ON восстановлено.",
+    "evidenceRepository": "headscale",
+    "evidenceCommit": "46c81b4",
+    "evidenceFiles": [
+      "docs/releases/2026-11-08-kde40-suspend-resume.json",
+      "docs/releases/2026-11-08-kde40-off-suspend.json"
+    ]
+  }
 }
