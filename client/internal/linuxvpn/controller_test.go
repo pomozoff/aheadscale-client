@@ -537,29 +537,52 @@ func TestSystemStopAndPluginCancelOrderPreservesRecovery(t *testing.T) {
 		for _, reason := range []uint32{0, 2, 9, 10} {
 			t.Run(fmt.Sprintf("stopFirst=%v/reason=%d", stopFirst, reason), func(t *testing.T) {
 				c, err := NewController(filepath.Join(t.TempDir(), "state"), "boot", true)
-				if err != nil { t.Fatal(err) }
+				if err != nil {
+					t.Fatal(err)
+				}
 				_ = c.Reconcile(Observation{Owner: ":1.1", EngineAvailable: true})
 				active, err := c.Handle(0, Message{Version: 2, Operation: "Begin"})
-				if err != nil { t.Fatal(err) }
-				if err = c.Complete(active.Generation, Connected); err != nil { t.Fatal(err) }
-				stop := func() { if err := c.ObserveNMStop(context.Background(), ":1.1", active.Generation, reason); err != nil { t.Fatal(err) } }
-				cancel := func() error { _, err := c.Handle(0, Message{Version: 2, Operation: "Cancel", Generation: active.Generation}); return err }
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err = c.Complete(active.Generation, Connected); err != nil {
+					t.Fatal(err)
+				}
+				stop := func() {
+					if err := c.ObserveNMStop(context.Background(), ":1.1", active.Generation, reason); err != nil {
+						t.Fatal(err)
+					}
+				}
+				cancel := func() error {
+					_, err := c.Handle(0, Message{Version: 2, Operation: "Cancel", Generation: active.Generation})
+					return err
+				}
 				if stopFirst {
 					stop()
 					err = cancel()
-					if reason != 2 && err != nil { t.Fatal(err) }
+					if reason != 2 && err != nil {
+						t.Fatal(err)
+					}
 				} else {
-					if err = cancel(); err != nil { t.Fatal(err) }
+					if err = cancel(); err != nil {
+						t.Fatal(err)
+					}
 					stop()
 				}
 				expected := NoAction
-				if reason == 0 { expected = Activate }
+				if reason == 0 {
+					expected = Activate
+				}
 				if got := c.Reconcile(Observation{Owner: ":1.1", EngineAvailable: true}); got != expected {
 					t.Fatalf("after classified NM stop: action=%v want=%v; pending=%v intent=%+v", got, expected, c.saved.PendingCancel, c.Intent())
 				}
-				if reason == 2 && c.Intent().Connected { t.Fatal("explicit OFF became ON") }
+				if reason == 2 && c.Intent().Connected {
+					t.Fatal("explicit OFF became ON")
+				}
 				if reason == 9 || reason == 10 {
-					if c.State().Phase != NeedsLogin { t.Fatal("authentication stop lost NeedsLogin") }
+					if c.State().Phase != NeedsLogin {
+						t.Fatal("authentication stop lost NeedsLogin")
+					}
 				}
 			})
 		}

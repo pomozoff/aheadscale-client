@@ -77,8 +77,9 @@ func (c *Controller) Handle(peerUID uint32, message Message) (State, error) {
 		}
 		next := c.saved
 		// Disconnect() also runs while NetworkManager itself shuts down.
-		// Invalidate the attempt, but only a verified NM user event changes intent.
-		next.PendingCancel = true
+		// Wait only while its stop event is still unclassified. A late plugin
+		// reply must not re-arm cancellation after that verified event.
+		next.PendingCancel = next.ActivationGeneration != 0
 		next.Intent.Generation++
 		if err := saveIntent(c.path, next); err != nil {
 			return State{}, err
