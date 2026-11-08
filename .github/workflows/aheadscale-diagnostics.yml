@@ -21,7 +21,7 @@ jobs:
         with:
           go-version: '1.26.7'
       - name: Форматирование
-        run: gofmt -w client/server/debug_concurrency_test.go
+        run: gofmt -w client/server/debug.go client/server/debug_concurrency_test.go client/server/server.go
       - name: Регрессия блокировки и race
         env:
           TEST_SUITE: ${{ inputs.suite || 'regression' }}
@@ -40,5 +40,8 @@ jobs:
         if: always()
         with:
           name: diagnostic-formatted-test
-          path: client/server/debug_concurrency_test.go
+          path: |
+            client/server/debug.go
+            client/server/debug_concurrency_test.go
+            client/server/server.go
           retention-days: 3

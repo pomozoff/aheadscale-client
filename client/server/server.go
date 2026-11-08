@@ -119,6 +119,9 @@ type Server struct {
 	persistSyncResponse bool
 	isSessionActive     atomic.Bool
 
+	// debugBundleMutex serializes archive profiling without blocking control RPCs.
+	debugBundleMutex sync.Mutex
+
 	cpuProfileBuf *bytes.Buffer
 	cpuProfiling  bool
 

@@ -24,12 +24,16 @@ func TestDebugBundleDoesNotBlockControlRPCs(t *testing.T) {
 			ctx := internal.CtxInitState(context.Background())
 			configPath := filepath.Join(t.TempDir(), "config.json")
 			config, err := profilemanager.UpdateOrCreateConfig(profilemanager.ConfigInput{
-				ConfigPath: configPath,
+				ConfigPath:    configPath,
 				ManagementURL: "https://management.example.invalid",
 			})
-			if err != nil { t.Fatal(err) }
+			if err != nil {
+				t.Fatal(err)
+			}
 			logPath := filepath.Join(t.TempDir(), "client.log")
-			if err := os.WriteFile(logPath, []byte("synthetic daemon log\n"), 0600); err != nil { t.Fatal(err) }
+			if err := os.WriteFile(logPath, []byte("synthetic daemon log\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
 			s := New(ctx, logPath, configPath, false, false, false, false)
 			s.config = config
 			s.uiLogPath = filepath.Join(t.TempDir(), "gui-client.log")

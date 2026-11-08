@@ -5,6 +5,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -20,6 +21,7 @@ import (
 	"github.com/netbirdio/netbird/client/anonymize"
 	"github.com/netbirdio/netbird/client/internal/debug"
 	"github.com/netbirdio/netbird/client/internal/ipcauth"
+	"github.com/netbirdio/netbird/client/internal/profilemanager"
 	"github.com/netbirdio/netbird/client/proto"
 	mgmProto "github.com/netbirdio/netbird/shared/management/proto"
 	"github.com/netbirdio/netbird/version"
@@ -71,85 +73,89 @@ func (s *Server) DebugBundle(callerCtx context.Context, req *proto.DebugBundleRe
 	return &proto.DebugBundleResponse{Path: path, UploadedKey: key}, nil
 }
 
-// generateDebugBundle builds the bundle under s.mutex and returns its path plus
-// the management URL captured under the lock, so the caller can run the upload
-// without holding the lock.
+// generateDebugBundle owns its snapshot and capture while archive I/O runs outside
+// s.mutex. Only other bundle requests wait on debugBundleMutex.
 func (s *Server) generateDebugBundle(req *proto.DebugBundleRequest, uiOpener debug.LogOpener) (path string, managementURL string, err error) {
+	s.debugBundleMutex.Lock()
+	defer s.debugBundleMutex.Unlock()
+
+	deps, capture, err := s.snapshotDebugBundle(req, uiOpener)
+	if err != nil {
+		return "", "", err
+	}
+	if capture != nil {
+		defer capture.cleanup()
+	}
+
+	bundleGenerator := debug.NewBundleGenerator(deps, debug.BundleConfig{
+		Anonymize: req.GetAnonymize(),
+		AnonymizeLevel: anonymize.ParseLevel(req.GetAnonymizeLevel()),
+		IncludeSystemInfo: req.GetSystemInfo(),
+		LogFileCount: req.GetLogFileCount(),
+	})
+	path, err = bundleGenerator.Generate()
+	if err != nil {
+		return "", "", fmt.Errorf("generate debug bundle: %w", err)
+	}
+	if deps.InternalConfig != nil && deps.InternalConfig.ManagementURL != nil {
+		managementURL = deps.InternalConfig.ManagementURL.String()
+	}
+	return path, managementURL, nil
+}
+
+// snapshotDebugBundle transfers completed capture/profile data to this archive.
+// The recorder and metrics exporter synchronize their own reads; configuration
+// slices, URLs and optional values must not alias the live server configuration.
+func (s *Server) snapshotDebugBundle(req *proto.DebugBundleRequest, uiOpener debug.LogOpener) (debug.GeneratorDependencies, *bundleCapture, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
+	var config *profilemanager.Config
+	if s.config != nil {
+		data, err := json.Marshal(s.config)
+		if err != nil {
+			return debug.GeneratorDependencies{}, nil, fmt.Errorf("snapshot debug config: %w", err)
+		}
+		config = &profilemanager.Config{}
+		if err := json.Unmarshal(data, config); err != nil {
+			return debug.GeneratorDependencies{}, nil, fmt.Errorf("copy debug config: %w", err)
+		}
+		// LazyConnection is runtime-only but is included in diagnostic config.
+		config.LazyConnection = s.config.LazyConnection
+	}
 
 	syncResponse, err := s.getLatestSyncResponse()
 	if err != nil {
 		log.Warnf("failed to get latest sync response: %v", err)
 	}
-
-	var clientMetrics debug.MetricsExporter
+	deps := debug.GeneratorDependencies{
+		InternalConfig: config,
+		StatusRecorder: s.statusRecorder,
+		SyncResponse: syncResponse,
+		LogPath: s.logFile,
+		UILogPath: s.uiLogPath,
+		UILogOpener: uiOpener,
+		DaemonVersion: version.NetbirdVersion(),
+		CliVersion: req.GetCliVersion(),
+	}
 	if s.connectClient != nil {
 		if engine := s.connectClient.Engine(); engine != nil {
-			if cm := engine.GetClientMetrics(); cm != nil {
-				clientMetrics = cm
-			}
+			deps.ClientMetrics = engine.GetClientMetrics()
 		}
 	}
-
-	var cpuProfileData []byte
+	// Use the recorder's current snapshot rather than probing a captured engine:
+	// Disconnect may retire that engine while archive generation is in progress.
 	if s.cpuProfileBuf != nil && !s.cpuProfiling {
-		cpuProfileData = s.cpuProfileBuf.Bytes()
-		defer func() {
-			s.cpuProfileBuf = nil
-		}()
+		deps.CPUProfile = bytes.Clone(s.cpuProfileBuf.Bytes())
+		s.cpuProfileBuf = nil
 	}
-
-	capturePath := s.bundleCapturePath()
-	defer s.cleanupBundleCapture()
-
-	var refreshStatus func()
-	if s.connectClient != nil {
-		engine := s.connectClient.Engine()
-		if engine != nil {
-			refreshStatus = func() {
-				log.Debug("refreshing system health status for debug bundle")
-				// Background ctx: the bundle wants a full, fresh probe regardless
-				// of the DebugBundle RPC client's lifetime. The engine's own ctx
-				// still aborts it on shutdown.
-				engine.RunHealthProbes(context.Background(), true)
-			}
-		}
+	capture := s.bundleCapture
+	if capture != nil {
+		s.stopBundleCaptureLocked()
+		deps.CapturePath = capture.path()
+		s.bundleCapture = nil
 	}
-
-	bundleGenerator := debug.NewBundleGenerator(
-		debug.GeneratorDependencies{
-			InternalConfig: s.config,
-			StatusRecorder: s.statusRecorder,
-			SyncResponse:   syncResponse,
-			LogPath:        s.logFile,
-			UILogPath:      s.uiLogPath,
-			UILogOpener:    uiOpener,
-			CPUProfile:     cpuProfileData,
-			CapturePath:    capturePath,
-			RefreshStatus:  refreshStatus,
-			ClientMetrics:  clientMetrics,
-			DaemonVersion:  version.NetbirdVersion(),
-			CliVersion:     req.CliVersion,
-		},
-		debug.BundleConfig{
-			Anonymize:         req.GetAnonymize(),
-			AnonymizeLevel:    anonymize.ParseLevel(req.GetAnonymizeLevel()),
-			IncludeSystemInfo: req.GetSystemInfo(),
-			LogFileCount:      req.GetLogFileCount(),
-		},
-	)
-
-	path, err = bundleGenerator.Generate()
-	if err != nil {
-		return "", "", fmt.Errorf("generate debug bundle: %w", err)
-	}
-
-	if s.config != nil && s.config.ManagementURL != nil {
-		managementURL = s.config.ManagementURL.String()
-	}
-
-	return path, managementURL, nil
+	return deps, capture, nil
 }
 
 // GetLogLevel gets the current logging level for the server.
