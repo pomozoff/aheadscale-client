@@ -4,6 +4,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"sync"
@@ -21,8 +22,16 @@ func TestDebugBundleDoesNotBlockControlRPCs(t *testing.T) {
 	for _, operation := range []string{"status", "disconnect"} {
 		t.Run(operation, func(t *testing.T) {
 			ctx := internal.CtxInitState(context.Background())
-			s := New(ctx, filepath.Join(t.TempDir(), "absent.log"), "", false, false, false, false)
-			s.config = &profilemanager.Config{}
+			configPath := filepath.Join(t.TempDir(), "config.json")
+			config, err := profilemanager.UpdateOrCreateConfig(profilemanager.ConfigInput{
+				ConfigPath: configPath,
+				ManagementURL: "https://management.example.invalid",
+			})
+			if err != nil { t.Fatal(err) }
+			logPath := filepath.Join(t.TempDir(), "client.log")
+			if err := os.WriteFile(logPath, []byte("synthetic daemon log\n"), 0600); err != nil { t.Fatal(err) }
+			s := New(ctx, logPath, configPath, false, false, false, false)
+			s.config = config
 			s.uiLogPath = filepath.Join(t.TempDir(), "gui-client.log")
 			if err := os.WriteFile(s.uiLogPath, []byte("synthetic UI log\n"), 0600); err != nil {
 				t.Fatal(err)
@@ -70,7 +79,7 @@ func TestDebugBundleDoesNotBlockControlRPCs(t *testing.T) {
 			}()
 			select {
 			case err := <-replied:
-				if err != nil && operation == "status" {
+				if err != nil && !(operation == "disconnect" && errors.Is(err, ErrServiceNotUp)) {
 					t.Fatalf("Status: %v", err)
 				}
 			case <-time.After(time.Second):
