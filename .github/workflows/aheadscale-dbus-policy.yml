@@ -1,0 +1,27 @@
+name: Aheadscale D-Bus policy regression
+on:
+  push:
+    branches: ["codex/sso-completion-policy"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  dbus-policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - name: Подготовить зависимости отдельной шины
+        run: sudo apt-get update -qq && sudo apt-get install -y dbus python3-dbus python3-gi
+      - name: Проверить поставляемую policy с разными UID
+        run: |
+          set -euo pipefail
+          work=$(mktemp -d)
+          trap 'rm -rf "$work"' EXIT
+          python3 packaging/aheadscale/networkmanager/prepare-source.py "$PWD" "$work"
+          git -C "$work/source" apply --unidiff-zero "$PWD/packaging/aheadscale/networkmanager/aheadscale.patch"
+          sudo /usr/bin/python3 -B testing/aheadscale/dbus_policy.py "$work/source/packaging/dbus-1/system.d/nm-aheadscale-service.conf"
+      - name: Сводка
+        if: always()
+        run: |
+          printf '### AHEAD-67: системная D-Bus policy\n\nИсходники: `%s`\n\nРезультат: `%s`. Проверка отдельной шины: SSOComplete для обычного UID, запрет управления и владения, сохранение root. Свежий вход KDE проверяется отдельно.\n' "$GITHUB_SHA" '${{ job.status }}' >> "$GITHUB_STEP_SUMMARY"
