@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Проверка поставляемой policy на отдельной шине, без изменения системной шины."""
 import os
+import shlex
 from pathlib import Path
 import subprocess
 import sys
@@ -87,12 +88,21 @@ def main(policy):
                 def call(member, *args, interface=IFACE, user='nobody', destination=DEST, object_path=OBJECT):
                     return subprocess.run(['runuser', '-u', user, '--', 'busctl', '--address=' + address, '--timeout=3', 'call', destination, object_path, interface, member, *args], capture_output=True, text=True, timeout=5)
 
+                owner_reply = call('GetNameOwner', 's', DEST, destination='org.freedesktop.DBus', object_path='/org/freedesktop/DBus', interface='org.freedesktop.DBus')
+                assert owner_reply.returncode == 0, owner_reply.stderr
+                owner = shlex.split(owner_reply.stdout)[1]
+                assert owner.startswith(':'), owner
+                # KDE закрепляет уникального владельца: policy должна работать и для него.
+                reply = call('SSOComplete', 't', '1', destination=owner)
+                assert reply.returncode == 0 and reply.stdout.strip() == 'b true', reply.stderr
+                reply = call('Disconnect', destination=owner)
+                assert reply.returncode != 0 and 'Access denied' in reply.stderr, reply.stderr
                 # Проверяем и успешное завершение, и чужую/старую попытку.
                 for activation, expected in [('1', 'b true'), ('2', 'b false')]:
                     reply = call('SSOComplete', 't', activation)
                     assert reply.returncode == 0 and reply.stdout.strip() == expected, (activation, reply.stderr)
                 # Запрет должен действовать для всех управляющих методов, включая будущие.
-                for member in ['Connect', 'Disconnect', 'NewSecrets', 'NeedSecrets', 'SetConfig', 'SetIp4Config', 'SetIp6Config', 'FutureMutation']:
+                for member in ['Connect', 'ConnectInteractive', 'Disconnect', 'NewSecrets', 'NeedSecrets', 'SetConfig', 'SetIp4Config', 'SetIp6Config', 'FutureMutation']:
                     reply = call(member)
                     assert reply.returncode != 0 and 'Access denied' in reply.stderr, (member, reply.stdout, reply.stderr)
                 for interface, member in [('org.example.Other', 'SSOComplete'), ('org.freedesktop.DBus.Properties', 'GetAll')]:
