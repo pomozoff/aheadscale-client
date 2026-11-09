@@ -42,7 +42,7 @@
 
 **Interfaces:** provider bundle из Task 1; containing app с тем же Team ID и install entitlement.
 
-- [ ] Подготовить отдельный app-контейнер активации с OSSystemExtensionRequest и тестами обработки отказа/ожидания согласия.
+- [x] Подготовить отдельный app-контейнер активации с OSSystemExtensionRequest и тестами обработки отказа/ожидания согласия.
 - [ ] Получить App IDs и Developer ID provisioning profiles; согласовать место подписи без экспорта ключей в CI.
 - [ ] Подписать вложенный SYSX и контейнер; проверить entitlements, profiles, Team ID.
 - [ ] Активировать на macOS-ВМ штатно; подтвердить запуск provider, предсказуемый отказ VPN без моста и деактивацию.
