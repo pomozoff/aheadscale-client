@@ -27,3 +27,34 @@ Application подписывает приложение и исполняемы�
 ## Следующая проверка
 
 Проверить подпись бинарных файлов и приложения, подготовить подписанный PKG, отправить на нотариализацию и приложить ticket; затем проверить Gatekeeper и чистую установку. До этого ARM64-пакет из preview Actions остаётся тестовым, с ad-hoc подписью.
+
+
+## App ID и профили для системного VPN
+
+Владелец подтвердил локальную подпись на MacBook без экспорта приватных ключей.
+Наличие сертификатов проверено для команды `Y24464MUL3`; профили пока надо создать.
+
+В [Identifiers](https://developer.apple.com/account/resources/identifiers/list)
+создай два App ID типа App с Explicit Bundle ID:
+
+| Description | Bundle ID | Capabilities |
+| --- | --- | --- |
+| Aheadscale | ru.aheadscale.client | Network Extensions, System Extension |
+| Aheadscale Tunnel | ru.aheadscale.client.tunnel | Network Extensions |
+
+Потом Profiles → «+» → Distribution → Developer ID. Создай отдельный профиль
+для каждого App ID с сертификатом Developer ID Application: ANTON POMOZOV
+(Y24464MUL3), скачай на MacBook. Например, названия профилей:
+`Aheadscale Developer ID`, `Aheadscale Tunnel Developer ID`.
+Если пункт недоступен, передай снимок шага: другой тип распространения не выбирать.
+
+Приложение и provider подписываются одной командой. В готовом профиле проверяем
+не только Bundle ID, но и Team ID, срок действия, привязанный сертификат и
+`packet-tunnel-provider-systemextension`. Разрешения нельзя получить простым
+добавлением строки в entitlements.
+
+[Apple: регистрация App ID](https://developer.apple.com/help/account/identifiers/register-an-app-id/).
+[Apple: настройка Network Extensions](https://developer.apple.com/documentation/xcode/configuring-network-extensions).
+
+Профили не являются приватными ключами, но их не включаем в общедоступный Git.
+Для следующего шага достаточно сообщить пути скачанных файлов на MacBook.

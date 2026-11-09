@@ -36,11 +36,20 @@ jobs:
           lipo "$bundle/Contents/MacOS/AheadscaleTunnelExtension" -verify_arch arm64
           codesign --force --sign - --entitlements packaging/aheadscale/macos-network-extension/provider.entitlements "$bundle"
           codesign --verify --strict --verbose=2 "$bundle"
+          app="$RUNNER_TEMP/ne-prototype/Aheadscale Extension Setup.app"
+          mkdir -p "$app/Contents/MacOS" "$app/Contents/Library/SystemExtensions"
+          cp "$executable_dir/AheadscaleExtensionSetup" "$app/Contents/MacOS/"
+          cp packaging/aheadscale/macos-network-extension/app-Info.plist "$app/Contents/Info.plist"
+          ditto "$bundle" "$app/Contents/Library/SystemExtensions/ru.aheadscale.client.tunnel.systemextension"
+          plutil -lint "$app/Contents/Info.plist"
+          codesign --force --sign - --entitlements packaging/aheadscale/macos-network-extension/app.entitlements "$app"
+          codesign --verify --deep --strict --verbose=2 "$app"
           mkdir -p ne-artifact
+          ditto -c -k --keepParent "$app" ne-artifact/AheadscaleExtensionSetup-UNSIGNED-PROTOTYPE.zip
           ditto -c -k --keepParent "$bundle" ne-artifact/AheadscaleTunnel-UNSIGNED-PROTOTYPE.zip
           cp packaging/aheadscale/macos-network-extension/README.md ne-artifact/
           git rev-parse HEAD > ne-artifact/source.txt
-          (cd ne-artifact && shasum -a 256 AheadscaleTunnel-UNSIGNED-PROTOTYPE.zip source.txt > SHA256SUMS)
+          (cd ne-artifact && shasum -a 256 *-UNSIGNED-PROTOTYPE.zip source.txt > SHA256SUMS)
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: aheadscale-macos-arm64-ne-UNSIGNED-PROTOTYPE
