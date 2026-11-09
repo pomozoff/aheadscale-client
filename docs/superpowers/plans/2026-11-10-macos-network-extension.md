@@ -31,12 +31,12 @@
 
 **Files:** native/macos/Package.swift, Sources/AheadscaleTunnel/PacketTunnelProvider.swift, Sources/TunnelExtension/main.swift, Tests/AheadscaleTunnelTests/PacketTunnelProviderTests.swift; packaging/aheadscale/macos-network-extension/; .github/workflows/aheadscale-macos-network-extension.yml.
 
-- [ ] Создать тесты отказа startTunnel без моста и завершения stopTunnel; запустить только их в Actions и сохранить RED.
-- [ ] Реализовать минимальный NEPacketTunnelProvider: понятная ошибка bridgeUnavailable, stop completion ровно один раз; без сетевых настроек и фиктивной передачи пакетов.
-- [ ] Добавить entry point NEProvider.startSystemExtensionMode(), dispatchMain(), сборку SYSX, entitlements и checksums отдельного UNSIGNED-PROTOTYPE артефакта.
-- [ ] Запустить целевой Actions: swift test и swift build; проверить metadata и codesign --verify ad-hoc bundle.
+- [x] Создать тесты отказа startTunnel без моста и завершения stopTunnel; запустить только их в Actions и сохранить RED.
+- [x] Реализовать минимальный NEPacketTunnelProvider: понятная ошибка bridgeUnavailable, stop completion ровно один раз; без сетевых настроек и фиктивной передачи пакетов.
+- [x] Добавить entry point NEProvider.startSystemExtensionMode(), dispatchMain(), сборку SYSX, entitlements и checksums отдельного UNSIGNED-PROTOTYPE артефакта.
+- [x] Запустить целевой Actions: swift test и swift build; проверить metadata и codesign --verify ad-hoc bundle.
   Expected: PASS; это подтверждение сборки, не разрешение macOS загрузить расширение.
-- [ ] Зафиксировать источники, результаты и оставшиеся gates в AHEAD-18.
+- [x] Зафиксировать источники, результаты и оставшиеся gates в AHEAD-18.
 
 ### Task 2: Подписанная активация
 
