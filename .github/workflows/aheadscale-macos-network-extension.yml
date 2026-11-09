@@ -13,6 +13,8 @@ jobs:
   provider:
     runs-on: macos-26
     timeout-minutes: 10
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
       - name: Проверить provider без сетевых изменений
@@ -31,7 +33,7 @@ jobs:
           plutil -lint "$bundle/Contents/Info.plist"
           test "$(/usr/libexec/PlistBuddy -c 'Print CFBundlePackageType' "$bundle/Contents/Info.plist")" = SYSX
           test "$(/usr/libexec/PlistBuddy -c 'Print NetworkExtension:NEProviderClasses:com.apple.networkextension.packet-tunnel' "$bundle/Contents/Info.plist")" = AheadscaleTunnel.PacketTunnelProvider
-          lipo -verify_arch arm64 "$bundle/Contents/MacOS/AheadscaleTunnelExtension"
+          lipo "$bundle/Contents/MacOS/AheadscaleTunnelExtension" -verify_arch arm64
           codesign --force --sign - --entitlements packaging/aheadscale/macos-network-extension/provider.entitlements "$bundle"
           codesign --verify --strict --verbose=2 "$bundle"
           mkdir -p ne-artifact
