@@ -1500,7 +1500,7 @@ new file mode 100644
 index 0000000..e1c2deb
 --- /dev/null
 +++ b/packaging/dbus-1/system.d/nm-aheadscale-service.conf
-@@ -0,0 +1,12 @@
+@@ -0,0 +1,15 @@
 +<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-Bus Bus Configuration 1.0//EN"
 + "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
 +<busconfig>
@@ -1511,6 +1511,9 @@ index 0000000..e1c2deb
 +  <policy context="default">
 +    <deny own="org.freedesktop.NetworkManager.aheadscale"/>
 +    <deny send_destination="org.freedesktop.NetworkManager.aheadscale"/>
++    <allow send_destination="org.freedesktop.NetworkManager.aheadscale"
++           send_interface="org.freedesktop.NetworkManager.VPN.Plugin"
++           send_member="SSOComplete"/>
 +  </policy>
 +</busconfig>
 diff --git a/packaging/selinux/Makefile b/packaging/selinux/Makefile

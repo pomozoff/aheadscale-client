@@ -18,6 +18,8 @@ def main():
         subprocess.run([sys.executable, str(ROOT / "packaging/aheadscale/networkmanager/prepare-source.py"), str(ROOT), str(work)], check=True)
         source = work / "source"
         subprocess.run(["git", "apply", "--unidiff-zero", str(ROOT / "packaging/aheadscale/networkmanager/aheadscale.patch")], cwd=source, check=True)
+        subprocess.run(["sudo", "-n", "/usr/bin/python3", "-B", str(ROOT / "testing/aheadscale/dbus_policy.py"),
+                        str(source / "packaging/dbus-1/system.d/nm-aheadscale-service.conf")], check=True)
         binary = work / "daemon-fixture"
         subprocess.run(["go", "build", "-buildvcs=false", "-o", str(binary), "./testing/aheadscale/nm-fixture"], cwd=ROOT, check=True)
         socket = work / "daemon.sock"
