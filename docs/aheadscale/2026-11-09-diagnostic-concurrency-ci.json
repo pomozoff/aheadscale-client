@@ -1,0 +1,60 @@
+{
+  "task": "AHEAD-66",
+  "date": "2026-11-09",
+  "status": "FIX_IMPLEMENTED_CI_AND_FOUR_NATIVE_MODES_PASS",
+  "version": "0.80.0-aheadscale.41",
+  "producerSourceCommit": "6cccdc56b3fe37e802f83eddd9a53d4796dc46e2",
+  "finalCodeCommit": "0d82e19979908d12d93e468485fffaae6302ad45",
+  "ci": {
+    "red": {
+      "run": 42536621694,
+      "result": "EXPECTED_BLOCKING_FAILURE"
+    },
+    "green": {
+      "run": 42536856191,
+      "result": "SUCCESS"
+    },
+    "packageRace": {
+      "run": 42536906280,
+      "result": "SUCCESS"
+    },
+    "finalCodePackageRace": {
+      "run": 42537400055,
+      "result": "SUCCESS"
+    },
+    "amd64Build": {
+      "run": 42537120098,
+      "result": "SUCCESS"
+    },
+    "arm64Build": {
+      "run": 42537229331,
+      "result": "SUCCESS"
+    }
+  },
+  "nativeSummary": {
+    "duringAndAfterHttpRequests": 409,
+    "httpFailures": 0,
+    "statusFailures": 0,
+    "maximumStatusSeconds": 0.352,
+    "archivesCheckedAndRemoved": 8,
+    "deviceKeysPreserved": true
+  },
+  "concurrentDisconnect": {
+    "bundleRunningBeforeDown": true,
+    "downSeconds": 0.031,
+    "downExit": 0,
+    "downReturnedBeforeBundle": true,
+    "offObserved": true,
+    "bundleExit": 0,
+    "archiveRemoved": true,
+    "restoreUpExit": 0,
+    "originalVpnRestored": true,
+    "result": "PASS"
+  },
+  "detailedEvidence": {
+    "repository": "headscale",
+    "path": "docs/releases/2026-11-09-diagnostic-vpn-fix.json",
+    "sha256": "e76e16560173615dd3aaed113d41e98ac5b877cd441b1a1c680e26310c3304e3"
+  },
+  "publicReleaseReady": false
+}
