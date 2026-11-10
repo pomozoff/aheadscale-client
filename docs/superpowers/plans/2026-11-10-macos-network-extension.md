@@ -138,3 +138,35 @@ no shared resources/credentials. Собственная очистка чере�
 - [ ] Проверить реальный peer HTTP и приватный DNS, вход, reboot, переустановку и удаление без лишнего VPN.
   Expected: статусы согласованы с трафиком; ключ и устройство сохраняются.
 - [ ] Передать конечный комплект в AHEAD-17/39 для notarization/Gatekeeper и полной приёмки; не закрывать их по сборке прототипа.
+
+
+### Следующий native gate: sandboxed provider → root Mach service
+
+PacketFlowPump использует реальный NEPacketTunnelFlow через небольшой интерфейс
+только для замены OS boundary в тестах; PacketSocket настоящий. Один read worker,
+один write worker, один ожидающий readPackets/пакетный batch; блокирующие IO не
+держат lock состояния. Пустой idle wait не разрывает VPN; чтение начавшегося
+кадра и запись ограничены deadline. Cancel закрывает канал, поздний callback
+не отправляет пакет. Пока root/Go не готовы, pump в startTunnel не запускается.
+
+Native prerequisite проверяется явным флагом только собственного тестового
+профиля: aheadscale.bridge-proof=true при marker session-v1. Provider с точной
+подписью подключается к system Mach service через privileged NSXPC lookup,
+проверяет подпись broker, передаёт descriptor и сверяет два synthetic IP echo.
+Успех этой проверки всё равно завершает startTunnel ошибкой «движок не подключён»,
+без сетевых настроек и ложного Connected. Deadline proof5s, root helper180s.
+
+Группа macOS `Y24464MUL3.ru.aheadscale.client`, сервис `.bridgeprobe`;
+используется штатный Team-prefixed App Group, не sandbox temporary exception.
+По [Apple App Groups](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.security.application-groups)
+для такого формата отдельная регистрация группы не нужна. Фактическая загрузка
+новых entitlements всё равно проверяется в native gate после подписи.
+
+Echo-helper подписывается исключительно `ru.aheadscale.probe.rootbroker`,
+не production bridge ID. Он принимает только `ru.aheadscale.client.tunnel`
+TeamY24464MUL3 и выполняется временным root job в изолированной ВМ.
+Перед запуском проверить signatures/Gatekeeper, root-owned helper path,
+отсутствие чужого job; после прогона bootout и удалить только собственный helper.
+Никакой установки в /Library/LaunchDaemons или изменения службы рабочего клиента.
+После доказательства sandbox boundary остаются authoritative generation,
+конфигурация движка/системных настроек и интеграция настоящего Go tun.Device.

@@ -136,3 +136,53 @@ echo-программе. Предоставлен комплект локаль�
 Это заменяет прежний статус ожидания подписи/native-прогона выше.
 Граница реального Network Extension и root daemon ещё не испытана; Go-движок
 не подключён, рабочий клиент и его VPN не изменялись. AHEAD-18 остаётся открытой.
+
+
+## Packet flow и следующий sandbox/root gate
+
+PacketFlowPump RED42803294456 → GREEN42803653081 (35 тестов и ARM64 release).
+Проверяются настоящая socketpair, duplex IPv4/IPv6, idle без потери кадра,
+Cancel/поздний readPackets callback и несоответствие IP family. Реальная
+NEPacketTunnelFlow соответствует PacketFlowIO; в CI подменяется только граница
+OS flow, не сокет или framing. Обе стороны IO ограничены по времени; отсутствие
+первого байта не считается разрывом VPN. Один OS batch находится в обработке,
+следующий readPackets запрашивается после отправки текущего.
+
+Следующий gate подготовлен в source `fa31d9e6490741b4fb7bcc6abb467decb6bdb82e`:
+[Actions42806333039](https://github.com/pomozoff/aheadscale-client/actions/runs/42806333039)
+— PASS, 40 тестов, ARM64 bundle/metadata/signature checks. Новый provider
+умеет явно проверить системный Mach service через штатный Team-prefixed App Group
+`Y24464MUL3.ru.aheadscale.client`. Требования обеих подписей точные. Эхо-helper
+имеет только тестовый ID `ru.aheadscale.probe.rootbroker`, root lifetime180s;
+проверка provider5s и два synthetic IP packets. Успех proof ВСЕГДА возвращает
+ошибку startTunnel «движок не подключён»: нет маршрутов, DNS или Connected.
+Root helper не запускается workflow и пока не установлен в ВМ.
+
+### Исправление тестового падения
+
+Actions42804873352/42805324067 — XCTest SIGSEGV на stop без активной сессии.
+Обычный crash report на runner не создавался; LLDB в Actions42805654584
+подтвердил: `NEProvider creation failed, caller does not have ... networkextension
+entitlement`, затем EXC_BAD_ACCESS address0x48 при обращении к proofLock.
+Старые тесты вызывали методы на фактически не созданном объекте Apple; отсутствие
+обращений к полям делало прежний PASS недостаточным доказательством.
+
+Нельзя обходить entitlement на CI. Lifecycle вынесен в обычный Swift-объект;
+тонкая NE-оболочка проверяется только native подписанным приложением.
+Закреплены отсутствие ложного Connected даже после успешного proof, одна
+операция, отмена во время фабрики и exactly-once completion. Финальная suite
+PASS. Соответствие Sendable callback NEPacketTunnelFlow также исправлено;
+состояние pump защищено lock, IO разделены на два последовательных worker.
+
+Самопроверка выполнена одним агентом по требованию владельца: lock ordering,
+отмена, владение FD, exact signing requirements, explicit prototype marker,
+отсутствие сетевых настроек и невозможность nil start completion просмотрены.
+Независимого review не было. Источник и скрипты проверены, но новая подпись,
+notarization и sandbox/root native gate ЕЩЁ НЕ ВЫПОЛНЕНЫ.
+
+Комплект для локальной подписи без экспорта ключей:
+`/tmp/aheadscale-macos-rootbridge-signing/signing-input.tar.gz`.
+Подписываются новый provider, echo-helper и контейнер; после Accepted helper
+прикрепляет билет и возвращает STAPLED.zip. При TLS-ошибке staple не надо повторять
+notary submit: использовать подготовленный staple-and-return-on-macbook.sh.
+Это промежуточный gate: Go-движок и authoritative session settings ещё не связаны.
