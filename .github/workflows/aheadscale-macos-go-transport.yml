@@ -27,7 +27,9 @@ jobs:
           retention-days: 1
       - name: Проверить Go-адаптер канала без изменения сети
         id: transport
-        run: go test -race -count=1 -v ./client/internal/macosvpn | tee "$RUNNER_TEMP/go-transport.log"
+        run: |
+          set -euo pipefail
+          go test -race -count=1 -v ./client/internal/macosvpn 2>&1 | tee "$RUNNER_TEMP/go-transport.log"
       - name: Итог целевой проверки
         if: always()
         env:
