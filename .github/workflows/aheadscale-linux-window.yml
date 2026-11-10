@@ -1,0 +1,50 @@
+name: Aheadscale Linux window reopen
+on:
+  push:
+    branches: ["codex/linux-window-reopen"]
+    paths:
+      - "client/ui/signal*.go"
+      - "client/ui/window_reopen_linux_test.go"
+      - ".github/workflows/aheadscale-linux-window.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  window:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.7'
+      - name: Установить только SDK Linux UI и изолированный дисплей
+        run: |
+          sudo apt-get -o Acquire::Retries=2 update -qq
+          sudo apt-get -o Acquire::Retries=2 install -y libgtk-4-dev libwebkitgtk-6.0-dev libsoup-3.0-dev xvfb dbus-x11
+      - name: Подготовить assets только для конфигурационных unit-тестов
+        run: |
+          mkdir -p client/ui/frontend/dist
+          printf '<!doctype html><title>Unit fixture</title>' > client/ui/frontend/dist/index.html
+          gofmt -w client/ui/window_reopen_linux_test.go
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: linux-window-formatted
+          path: client/ui/window_reopen_linux_test.go
+          retention-days: 1
+      - name: Проверить Linux signal policy и штатный callback
+        id: tests
+        env:
+          GDK_BACKEND: x11
+        run: |
+          set -euo pipefail
+          CGO_ENABLED=1 dbus-run-session -- xvfb-run -a go test -count=1 -v ./client/ui -run '^(TestLinuxWindowReopenDoesNotClaimWebKitSignal|TestSecondInstanceUsesExistingWindowCallback|TestApplicationErrorsReachClientLog)$' 2>&1 | tee "$RUNNER_TEMP/window-tests.log"
+      - name: Сводка
+        if: always()
+        run: |
+          {
+            echo '## AHEAD-68: Linux window reopen'
+            echo 'Result: ${{ steps.tests.outcome }}'
+            tail -15 "$RUNNER_TEMP/window-tests.log" 2>/dev/null || true
+            echo 'Unit fixture не поставляется пользователям. Реальное открытие окна проверяется на установленной сборке отдельно.'
+          } >> "$GITHUB_STEP_SUMMARY"
