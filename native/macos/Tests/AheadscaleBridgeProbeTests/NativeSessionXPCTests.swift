@@ -61,3 +61,35 @@ final class NativeSessionXPCTests: XCTestCase {
         wait(for:[refused,forbidden],timeout:5)
     }
 }
+
+@available(macOS 13.0, *)
+private final class UnverifiedNativeServer: NSObject, NSXPCListenerDelegate, NativeSessionProtocol {
+    var onOffer:()->Void = {}
+    var connections:[NSXPCConnection]=[]
+    func listener(_ listener:NSXPCListener,shouldAcceptNewConnection connection:NSXPCConnection)->Bool {
+        connection.exportedInterface=NSXPCInterface(with:NativeSessionProtocol.self)
+        connection.exportedObject=self;connections.append(connection);connection.resume();return true
+    }
+    func hello(_ nonce:String,reply:@escaping(String)->Void){reply(nonce)}
+    func configuration(_ reply:@escaping(Data)->Void){reply(Data())}
+    func offer(_ handle:FileHandle,generation:String,reply:@escaping(Bool)->Void){onOffer();try? handle.close();reply(true)}
+    func settings(_ generation:String,interface:String,reply:@escaping(Bool)->Void){reply(false)}
+    func ready(_ generation:String,reply:@escaping(Bool)->Void){reply(false)}
+}
+final class NativeSessionPreauthenticationTests:XCTestCase {
+    func testDirectOfferCannotSendDescriptorBeforeServerAuthentication() throws {
+        guard #available(macOS 13.0, *) else{throw XCTSkip("macOS 13")}
+        let listener=NSXPCListener.anonymous();let server=UnverifiedNativeServer()
+        let forbidden=expectation(description:"no FD reaches foreign server");forbidden.isInverted=true
+        server.onOffer={forbidden.fulfill()};listener.delegate=server;listener.resume()
+        defer{listener.invalidate();server.connections.forEach{$0.invalidate()}}
+        let client=NativeSessionClient(endpoint:listener.endpoint,peerRequirement:NativeBridgeIdentity.brokerRequirement)
+        defer{client.invalidate()}
+        var fds:[Int32]=[-1,-1];XCTAssertEqual(socketpair(AF_UNIX,SOCK_STREAM,0,&fds),0)
+        let a=FileHandle(fileDescriptor:fds[0],closeOnDealloc:true),b=FileHandle(fileDescriptor:fds[1],closeOnDealloc:true)
+        defer{try? a.close();try? b.close()}
+        let refused=expectation(description:"not authenticated")
+        client.offer(a,generation:UUID().uuidString.lowercased()){accepted in XCTAssertFalse(accepted);refused.fulfill()}
+        wait(for:[refused,forbidden],timeout:2)
+    }
+}
