@@ -14,6 +14,16 @@ public final class PacketSocket {
         descriptor = try Self.prepareDescriptor(source)
     }
 
+    // Waiting for the first byte is separate from the bounded frame read.
+    public func waitForReadable(timeoutMilliseconds: Int) throws -> Bool {
+        do {
+            try waitFor(Int16(POLLIN), until: deadline(after: timeoutMilliseconds))
+            return true
+        } catch PacketSocketError.timeout {
+            return false
+        }
+    }
+
     public func readFrame(mtu: Int, timeoutMilliseconds: Int) throws -> Data {
         let deadline = try deadline(after: timeoutMilliseconds)
         return try PacketFraming.read(mtu: mtu) { try self.readChunk($0, until: deadline) }

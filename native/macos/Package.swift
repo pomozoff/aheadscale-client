@@ -10,7 +10,7 @@ let package = Package(
         .executable(name: "AheadscaleBridgeProbeRunner", targets: ["BridgeProbeRunner"])
     ],
     targets: [
-        .target(name: "AheadscaleTunnel"),
+        .target(name: "AheadscaleTunnel", dependencies: ["AheadscaleBridgeProbe"]),
         .target(name: "AheadscaleActivation"),
         .target(name: "AheadscaleBridgeProbe"),
         .executableTarget(name: "BridgeProbeRunner", dependencies: ["AheadscaleBridgeProbe"]),
