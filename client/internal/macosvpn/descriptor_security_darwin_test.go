@@ -54,6 +54,8 @@ func(c *execProbeContext)Err()error{if c.calls.Add(1)==2{c.probe()};return c.Con
 func TestReceivedPacketDescriptorCannotEscapeIntoExecChild(t *testing.T){
  receiver,sender:=inheritedPair(t);a,b:=socketFiles(t,unix.SOCK_STREAM)
  unix.CloseOnExec(int(a.Fd()));unix.CloseOnExec(int(b.Fd()))
+ // Mark only our packet socket; macOS may create unrelated sockets in a child.
+ if err:=unix.SetsockoptInt(int(a.Fd()),unix.SOL_SOCKET,unix.SO_RCVLOWAT,37);err!=nil{t.Fatal(err)}
  sendDescriptor(t,sender,handoffGeneration,a)
  var childError error;var output []byte
  probe:=func(){
@@ -78,7 +80,11 @@ func TestHandoffExecChild(t *testing.T){
  if os.Getenv("AHEADSCALE_FD_EXEC_PROBE")!="1"{return}
  for fd:=3;fd<1024;fd++{
   var stat unix.Stat_t
-  if unix.Fstat(fd,&stat)==nil && stat.Mode&unix.S_IFMT==unix.S_IFSOCK{t.Fatalf("inherited private packet socket FD %d",fd)}
+  if unix.Fstat(fd,&stat)==nil && stat.Mode&unix.S_IFMT==unix.S_IFSOCK{
+   kind,_:=unix.GetsockoptInt(fd,unix.SOL_SOCKET,unix.SO_TYPE)
+   marker,_:=unix.GetsockoptInt(fd,unix.SOL_SOCKET,unix.SO_RCVLOWAT)
+   if kind==unix.SOCK_STREAM && marker==37{t.Fatalf("inherited private packet socket FD %d",fd)}
+  }
  }
 }
 
