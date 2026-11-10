@@ -1,0 +1,29 @@
+name: Aheadscale macOS Go transport
+on:
+  push:
+    branches: ["codex/macos-developer-id"]
+    paths:
+      - "client/internal/macosvpn/**"
+      - ".github/workflows/aheadscale-macos-go-transport.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  go-transport:
+    runs-on: macos-26
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.7'
+          cache: false
+      - name: Форматировать Go-исходники адаптера
+        run: gofmt -w client/internal/macosvpn/*.go
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: macos-go-transport-formatted
+          path: client/internal/macosvpn/*.go
+          retention-days: 1
+      - name: Проверить Go-адаптер канала без изменения сети
+        run: go test -race -count=1 ./client/internal/macosvpn

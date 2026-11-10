@@ -25,8 +25,8 @@ func frame(p []byte) []byte {
  b:=make([]byte,4+len(p)); binary.LittleEndian.PutUint32(b,uint32(len(p))); copy(b[4:],p); return b
 }
 func TestConnTunDuplexAndOffsets(t *testing.T) {
- for _,version:=range []byte{0x45,0x60} {
-  t.Run(string([]byte{version}),func(t *testing.T){
+ for name,version:=range map[string]byte{"IPv4":0x45,"IPv6":0x60} {
+  t.Run(name,func(t *testing.T){
    d,p:=newPair(t)
    packet:=bytes.Repeat([]byte{version},64)
    done:=make(chan error,1)
@@ -72,4 +72,20 @@ func TestConnTunValidatesConstructor(t *testing.T){
  for _,mtu:=range []int{0,-1,65536}{if _,err:=NewConnTun(a,"Aheadscale",mtu);err==nil{t.Fatalf("accepted MTU %d",mtu)}}
  if _,err:=NewConnTun(nil,"Aheadscale",1280);err==nil{t.Fatal("accepted nil connection")}
  if _,err:=NewConnTun(a,"",1280);err==nil{t.Fatal("accepted empty name")}
+}
+
+func TestConnTunIdleDoesNotExpireSession(t *testing.T){
+ d,p:=newPair(t)
+ done:=make(chan error,1)
+ go func(){_,err:=d.Read([][]byte{make([]byte,1280)},make([]int,1),0);done<-err}()
+ select{case err:=<-done:t.Fatalf("idle closed session: %v",err);case <-time.After(2200*time.Millisecond):}
+ if _,err:=p.Write(frame(make([]byte,20)));err!=nil{t.Fatal(err)}
+ if err:=<-done;err!=nil{t.Fatal(err)}
+}
+func TestConnTunPartialFrameTimesOut(t *testing.T){
+ d,p:=newPair(t)
+ done:=make(chan error,1)
+ go func(){_,err:=d.Read([][]byte{make([]byte,1280)},make([]int,1),0);done<-err}()
+ if _,err:=p.Write([]byte{20});err!=nil{t.Fatal(err)}
+ select{case err:=<-done:if timeout,ok:=err.(net.Error);!ok || !timeout.Timeout(){t.Fatalf("expected frame timeout, got %v",err)};case <-time.After(3*time.Second):t.Fatal("partial frame blocked forever")}
 }
