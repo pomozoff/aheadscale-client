@@ -6,13 +6,13 @@ import AheadscaleBridgeProbe
 
 final class TestPacketFlow: PacketFlowIO {
     private let lock = NSLock()
-    private var pending: (([Data], [NSNumber]) -> Void)?
+    private var pending: (@Sendable ([Data], [NSNumber]) -> Void)?
     var requested: XCTestExpectation?
     var received: XCTestExpectation?
     private(set) var packets: [Data] = []
     private(set) var families: [NSNumber] = []
 
-    func readPackets(completionHandler: @escaping ([Data], [NSNumber]) -> Void) {
+    func readPackets(completionHandler: @escaping @Sendable ([Data], [NSNumber]) -> Void) {
         lock.lock()
         pending = completionHandler
         let requested = self.requested

@@ -5,7 +5,7 @@ import AheadscaleBridgeProbe
 
 // The OS boundary is substituted in tests; the descriptor transport is real.
 protocol PacketFlowIO: AnyObject {
-    func readPackets(completionHandler: @escaping ([Data], [NSNumber]) -> Void)
+    func readPackets(completionHandler: @escaping @Sendable ([Data], [NSNumber]) -> Void)
     func writePackets(_ packets: [Data], withProtocols protocols: [NSNumber]) -> Bool
 }
 extension NEPacketTunnelFlow: PacketFlowIO {}
@@ -17,7 +17,9 @@ enum PacketFlowPumpError: Error {
 // One read worker and one write worker, with only one outstanding OS read/batch.
 // No network settings or authentication are performed here. The caller supplies
 // an authenticated channel and starts this only after applying session settings.
-final class PacketFlowPump {
+// Mutable state is locked; each IO direction has exactly one worker. The flow
+// implementation must support one reader and one writer, as NEPacketTunnelFlow does.
+final class PacketFlowPump: @unchecked Sendable {
     private enum State { case idle, running, finished }
     private let lock = NSLock()
     // Serializes synchronous OS delivery with stop; recursive for re-entrant stop.
