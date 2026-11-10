@@ -186,3 +186,44 @@ notarization и sandbox/root native gate ЕЩЁ НЕ ВЫПОЛНЕНЫ.
 прикрепляет билет и возвращает STAPLED.zip. При TLS-ошибке staple не надо повторять
 notary submit: использовать подготовленный staple-and-return-on-macbook.sh.
 Это промежуточный gate: Go-движок и authoritative session settings ещё не связаны.
+
+
+## Подписанный System Extension → root: native PASS
+
+10.11.2026 после согласия пользователя проверен новый комплект v2 на macOS
+27.0.1 ARM64. Exact Developer ID обоих компонентов, hardened runtime,
+notarization, прикреплённый билет Apple и Gatekeeper — PASS.
+
+Временный root helper получил дескриптор от настоящего sandboxed provider;
+provider отправил synthetic IPv4 и IPv6 и сравнил оба ответа побайтно.
+Положительный native fixture завершился с exit 0 и result=pass.
+SHA256 helper: `29ca00fa3f4d7e61b2b856bc27593f73bcc01590d57ba8eec454463d39865292`.
+Исходное evidence в ВМ:
+`~/.local/share/aheadscale-rootbridge-evidence-6ii8f5es/result.json`.
+
+Журнал helper подтверждает authenticated descriptor received / two packets
+ echoed. Проверка provider подтверждается публичным scutil LastDisconnectError:
+домен `ru.aheadscale.client.tunnel`, код 2, описание «Aheadscale: защищённый канал
+к root-службе проверен; VPN-движок ещё не подключён.» Это ожидаемый отказ
+startTunnel, а не успешное VPN-подключение. Connected не выставлялся.
+
+Первый вариант fixture ошибочно требовал NSLog provider в unified log, где
+его не оказалось: это было ложное FAIL проверяющего скрипта. Проверка заменена
+на чтение фактического результата provider из публичного scutil; plist
+разбирается без выполнения NSKeyedUnarchiver. Журнал root проверяется отдельно.
+
+После удаления helper отдельная проверка завершилась с exit 0:
+
+- Без root broker: ожидаемый отказ «проверка защищённого канала не завершена;
+  VPN не запущен», Disconnected, ConnectedCount=0.
+- Connect → Cancel: окончательное состояние Disconnected, ConnectedCount=0.
+- Тестовый VPN-профиль удалён.
+- Временный root LaunchDaemon и его исполняемый файл отсутствуют.
+
+Evidence отрицательных проверок:
+`~/.local/share/aheadscale-rootbridge-negative-result.json`.
+Рабочий Aheadscale.app не заменялся. Это закрывает только проверку защищённого
+канала реального расширения к root; Go-движок, сетевые настройки, DNS и обмен
+с настоящими соседями ещё не подключены. Следующий шаг AHEAD-18 — связать
+канал с Go tun.Device и согласованным жизненным циклом сессии; затем провести
+проверку настоящего трафика. AHEAD-18 остаётся In Progress.
