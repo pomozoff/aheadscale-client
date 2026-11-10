@@ -93,3 +93,26 @@ final class NativeSessionPreauthenticationTests:XCTestCase {
         wait(for:[refused,forbidden],timeout:2)
     }
 }
+
+extension NativeSessionXPCTests {
+    func testReplacementCannotStartBeforePreviousSessionStops() throws {
+        guard #available(macOS 13.0, *) else{throw XCTSkip("macOS 13")}
+        let stopped=expectation(description:"old session stopping")
+        let release=DispatchSemaphore(value:0)
+        let config=try JSONSerialization.data(withJSONObject:["generation":UUID().uuidString.lowercased()])
+        let listener=NativeSessionListener(peerRequirement:try requirement(),handlers:.init(
+            prepare:{$0(config)},offer:{_,_ in},settings:{_,_,r in r(false)},ready:{_,r in r(false)},
+            stop:{stopped.fulfill();_ = release.wait(timeout:.now()+10)}))
+        defer{release.signal();listener.invalidate()}
+        let first=NativeSessionClient(endpoint:listener.endpoint,peerRequirement:try requirement())
+        let prepared=expectation(description:"first prepared")
+        first.configuration{data in XCTAssertFalse(data.isEmpty);prepared.fulfill()}
+        wait(for:[prepared],timeout:2);first.invalidate();wait(for:[stopped],timeout:2)
+        let next=NativeSessionClient(endpoint:listener.endpoint,peerRequirement:try requirement())
+        defer{next.invalidate()}
+        let refused=expectation(description:"replacement waits for cleanup")
+        next.configuration{data in XCTAssertTrue(data.isEmpty,"A new session must not overtake the old stop");refused.fulfill()}
+        wait(for:[refused],timeout:2)
+        release.signal()
+    }
+}
