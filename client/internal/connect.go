@@ -491,7 +491,7 @@ func (c *ConnectClient) run(mobileDependency MobileDependency, runningChan chan 
 		if err != nil {
 			log.Warnf("watch NetworkManager disconnect: %v", err)
 		}
-		if native := engine.wgInterface.NativeDisconnected(); native != nil { systemDisconnect = native }
+		if native, ok := engine.wgInterface.(interface{ NativeDisconnected() <-chan struct{} }); ok { systemDisconnect = native.NativeDisconnected() }
 		systemDisconnected := c.waitForEngine(engineCtx, systemDisconnect)
 
 		c.engineMutex.Lock()

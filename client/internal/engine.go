@@ -745,7 +745,8 @@ func (e *Engine) Start(netbirdConfig *mgmProto.NetbirdConfig, mgmtURL *url.URL) 
 		}
 	}()
 
-	return e.wgInterface.NativeReady()
+	if native, ok := e.wgInterface.(interface{ NativeReady() error }); ok { return native.NativeReady() }
+	return nil
 }
 
 func (e *Engine) createFirewall() error {
