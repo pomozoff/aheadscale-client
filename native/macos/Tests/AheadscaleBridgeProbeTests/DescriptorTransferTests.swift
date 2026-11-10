@@ -30,6 +30,7 @@ final class DescriptorTransferTests: XCTestCase {
         guard #available(macOS 13.0, *) else { throw XCTSkip("XPC signature enforcement requires macOS 13") }
         let requirement = try ownRequirement()
         let listener = DescriptorListener(peerRequirement: requirement) { handle, _ in
+            XCTAssertEqual(handle.readData(ofLength: 4), Data("ping".utf8))
             handle.write(Data("pong".utf8))
         }
         defer { listener.invalidate() }
@@ -37,7 +38,9 @@ final class DescriptorTransferTests: XCTestCase {
         defer { client.invalidate() }
         let (local, remote) = try sockets()
         defer { try? local.close(); try? remote.close() }
+        local.write(Data("ping".utf8))
         let offered = expectation(description: "descriptor accepted")
+        offered.assertForOverFulfill = true
         client.offer(remote, generation: UUID().uuidString) { accepted in
             XCTAssertTrue(accepted, "Verified peers must accept the descriptor")
             offered.fulfill()
@@ -47,6 +50,12 @@ final class DescriptorTransferTests: XCTestCase {
         XCTAssertEqual(poll(&item, 1, 2000), 1, "Transferred descriptor must deliver bytes")
         if item.revents & Int16(POLLIN) != 0 {
             XCTAssertEqual(local.readData(ofLength: 4), Data("pong".utf8))
+        }
+        client.invalidate()
+        var closed = pollfd(fd: local.fileDescriptor, events: Int16(POLLIN), revents: 0)
+        XCTAssertEqual(poll(&closed, 1, 2000), 1, "Invalidation must unblock the packet socket")
+        if closed.revents & Int16(POLLIN | POLLHUP) != 0 {
+            XCTAssertTrue(local.readData(ofLength: 1).isEmpty, "Closed peer must deliver EOF")
         }
     }
 
