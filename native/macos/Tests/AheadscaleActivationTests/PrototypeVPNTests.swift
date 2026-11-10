@@ -110,3 +110,15 @@ final class PrototypeVPNTests: XCTestCase {
         guard case .failed = controller.state else { return XCTFail("No engine: must not report Connected") }
     }
 }
+
+@MainActor
+final class NativeProfileTests: XCTestCase {
+    func testEngineProfileSelectsLiveProviderWithoutProofFallback() {
+        let manager=PrototypeVPNController.makeProfile(nativeEngine:true)
+        let config=manager.protocolConfiguration as? NETunnelProviderProtocol
+        XCTAssertEqual(config?.providerConfiguration?["aheadscale.native-engine"] as? Bool,true)
+        XCTAssertNil(config?.providerConfiguration?["aheadscale.bridge-proof"])
+        XCTAssertFalse(config?.includeAllNetworks ?? true)
+        XCTAssertFalse(manager.isOnDemandEnabled)
+    }
+}
