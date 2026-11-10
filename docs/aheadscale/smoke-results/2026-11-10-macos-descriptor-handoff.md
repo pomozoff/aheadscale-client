@@ -71,3 +71,5 @@ ifconfig/route/DNS native-режима и проверить настоящий 
 дескрипторами, очистка ошибок, контроль поколения, bounds, неблокирующий sender,
 context cancellation, close-on-exec и отсутствие нового внешнего listener.
 Независимого review не было. SDK и сборки на Mac mini не устанавливались.
+
+Финальный Go-прогон после gofmt: [42825003241](https://github.com/pomozoff/aheadscale-client/actions/runs/42825003241) — success на 18c5c415905d5c4726da251cd9191fbd61fcf721.
