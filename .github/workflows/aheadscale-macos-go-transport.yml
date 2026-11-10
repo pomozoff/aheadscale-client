@@ -38,7 +38,7 @@ jobs:
         run: go test -tags macosvpnprototype -run '^TestDisconnectSignalPreservesSystemIntegration$' ./client/internal
       - name: Форматировать интеграцию движка
         run: |
-          gofmt -w client/iface/iface.go client/iface/iface_new_darwin.go client/iface/iface_new_native_darwin.go client/iface/device/device_native_darwin.go client/internal/engine.go client/internal/connect.go client/internal/native_macos_*.go client/internal/wg_iface_lifecycle_standard.go client/internal/wg_iface_lifecycle_native_darwin.go client/internal/routemanager/systemops/native_vpn_other.go client/internal/routemanager/systemops/native_vpn_darwin.go client/internal/routemanager/systemops/systemops_darwin.go client/internal/stdnet/native_vpn_other.go client/internal/stdnet/native_vpn_darwin.go client/server/startup_standard.go client/server/startup_native_darwin.go
+          gofmt -w client/internal/connect_native_disconnect_test.go client/iface/iface.go client/iface/iface_new_darwin.go client/iface/iface_new_native_darwin.go client/iface/device/device_native_darwin.go client/internal/engine.go client/internal/connect.go client/internal/native_macos_*.go client/internal/wg_iface_lifecycle_standard.go client/internal/wg_iface_lifecycle_native_darwin.go client/internal/routemanager/systemops/native_vpn_other.go client/internal/routemanager/systemops/native_vpn_darwin.go client/internal/routemanager/systemops/systemops_darwin.go client/internal/stdnet/native_vpn_other.go client/internal/stdnet/native_vpn_darwin.go client/server/startup_standard.go client/server/startup_native_darwin.go
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: macos-native-engine-formatted
@@ -49,6 +49,7 @@ jobs:
             client/iface/device/device_native_darwin.go
             client/internal/engine.go
             client/internal/connect.go
+            client/internal/connect_native_disconnect_test.go
             client/internal/native_macos_*.go
             client/internal/wg_iface_lifecycle_standard.go
             client/internal/wg_iface_lifecycle_native_darwin.go

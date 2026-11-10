@@ -846,7 +846,7 @@ func closeConnWithLog(conn *net.UDPConn) {
 // device supplies a real native-disconnect event channel.
 func selectDisconnectSignal(candidate any, fallback <-chan struct{}) <-chan struct{} {
  if native, ok := candidate.(interface{ NativeDisconnected() <-chan struct{} }); ok {
-  return native.NativeDisconnected()
+  if signal := native.NativeDisconnected(); signal != nil { return signal }
  }
  return fallback
 }

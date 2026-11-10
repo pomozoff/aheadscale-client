@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
- "syscall"
+	"syscall"
 	"time"
 )
 
@@ -80,7 +80,11 @@ func (s *EngineSession) Open(ctx context.Context) (channel net.Conn, err error) 
 	// must end the stream even if settings or engine startup fails later.
 	channel = &sessionConn{Conn: channel, onClose: func() { s.once.Do(func() { close(s.done) }) }}
 	s.mu.Lock()
-	if s.closed { s.mu.Unlock(); channel.Close(); return nil, errors.New("native session cancelled") }
+	if s.closed {
+		s.mu.Unlock()
+		channel.Close()
+		return nil, errors.New("native session cancelled")
+	}
 	s.packet = channel
 	s.mu.Unlock()
 	// ReceivePacketChannel restores its read deadline. Reapply the session budget.
@@ -176,18 +180,18 @@ type sessionConn struct {
 	net.Conn
 	onClose func()
 	once    sync.Once
- err error
+	err     error
 }
 
 func (c *sessionConn) Close() error {
- c.once.Do(func() {
-  if socket, ok := c.Conn.(syscall.Conn); ok {
-   if raw, err := socket.SyscallConn(); err == nil {
-    _ = raw.Control(func(fd uintptr) { _ = unix.Shutdown(int(fd), unix.SHUT_RDWR) })
-   }
-  }
-  c.err = c.Conn.Close()
-  c.onClose()
- })
- return c.err
+	c.once.Do(func() {
+		if socket, ok := c.Conn.(syscall.Conn); ok {
+			if raw, err := socket.SyscallConn(); err == nil {
+				_ = raw.Control(func(fd uintptr) { _ = unix.Shutdown(int(fd), unix.SHUT_RDWR) })
+			}
+		}
+		c.err = c.Conn.Close()
+		c.onClose()
+	})
+	return c.err
 }

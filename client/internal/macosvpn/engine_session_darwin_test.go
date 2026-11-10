@@ -3,8 +3,8 @@ package macosvpn
 import (
 	"context"
 	"encoding/json"
- "io"
 	"golang.org/x/sys/unix"
+	"io"
 	"net"
 	"testing"
 	"time"
@@ -122,23 +122,39 @@ func TestEngineSessionRejectsStaleOrNonUtunSettings(t *testing.T) {
 }
 
 func TestEngineSessionCloseSignalsProviderDespiteRetainedDescriptorCopies(t *testing.T) {
- root,supervisor:=inheritedPair(t)
- supervisor.SetDeadline(time.Now().Add(2*time.Second))
- session,err:=NewEngineSession(root,engineConfig());if err!=nil{t.Fatal(err)}
- defer session.Close()
- result:=make(chan error,1)
- go func(){_,err:=session.Open(context.Background());result<-err}()
- b:=make([]byte,4097);if _,err=supervisor.Read(b);err!=nil{t.Fatal(err)}
- // Deliberately retain the original sent FD, as NSXPCConnection does until
- // invalidation. Closing only Go's duplicate must not leave the provider alive.
- offered,peerFile:=socketFiles(t,unix.SOCK_STREAM)
- sendDescriptor(t,supervisor,handoffGeneration,offered)
- ack,_:=json.Marshal(map[string]string{"kind":"settings","generation":handoffGeneration,"interface":"utun42"})
- supervisor.Write(ack)
- if err=<-result;err!=nil{t.Fatal(err)}
- peer,err:=net.FileConn(peerFile);if err!=nil{t.Fatal(err)};defer peer.Close()
- peer.SetReadDeadline(time.Now().Add(time.Second))
- if err=session.Close();err!=nil{t.Fatal(err)}
- var one [1]byte
- if _,err=peer.Read(one[:]);err!=io.EOF{t.Fatalf("provider must receive EOF despite retained copies, got %v",err)}
+	root, supervisor := inheritedPair(t)
+	supervisor.SetDeadline(time.Now().Add(2 * time.Second))
+	session, err := NewEngineSession(root, engineConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer session.Close()
+	result := make(chan error, 1)
+	go func() { _, err := session.Open(context.Background()); result <- err }()
+	b := make([]byte, 4097)
+	if _, err = supervisor.Read(b); err != nil {
+		t.Fatal(err)
+	}
+	// Deliberately retain the original sent FD, as NSXPCConnection does until
+	// invalidation. Closing only Go's duplicate must not leave the provider alive.
+	offered, peerFile := socketFiles(t, unix.SOCK_STREAM)
+	sendDescriptor(t, supervisor, handoffGeneration, offered)
+	ack, _ := json.Marshal(map[string]string{"kind": "settings", "generation": handoffGeneration, "interface": "utun42"})
+	supervisor.Write(ack)
+	if err = <-result; err != nil {
+		t.Fatal(err)
+	}
+	peer, err := net.FileConn(peerFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer peer.Close()
+	peer.SetReadDeadline(time.Now().Add(time.Second))
+	if err = session.Close(); err != nil {
+		t.Fatal(err)
+	}
+	var one [1]byte
+	if _, err = peer.Read(one[:]); err != io.EOF {
+		t.Fatalf("provider must receive EOF despite retained copies, got %v", err)
+	}
 }
