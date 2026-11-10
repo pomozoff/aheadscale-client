@@ -145,7 +145,7 @@ def main():
         raise RuntimeError("Не совпала исходная CI-проба без Developer ID")
     for role in ("server", "client", "wrong"):
         requirement = 'anchor apple generic and certificate leaf[subject.OU] = "{}" and identifier "ru.aheadscale.probe.{}"'.format(TEAM, role)
-        command(["codesign", "--verify", "--strict", "-R", requirement, str(binaries / ("probe-" + role))])
+        command(["codesign", "--verify", "--strict", "-R", "=" + requirement, str(binaries / ("probe-" + role))])
     command(["sudo", "-n", "true"])
     fixture = Fixture(binaries)
     report = {"source": args.expected_source, "result": "fail", "cases": {}}
