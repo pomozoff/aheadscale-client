@@ -26,4 +26,19 @@ jobs:
           path: client/internal/macosvpn/*.go
           retention-days: 1
       - name: Проверить Go-адаптер канала без изменения сети
-        run: go test -race -count=1 ./client/internal/macosvpn
+        id: transport
+        run: go test -race -count=1 -v ./client/internal/macosvpn | tee "$RUNNER_TEMP/go-transport.log"
+      - name: Итог целевой проверки
+        if: always()
+        env:
+          RESULT: ${{ steps.transport.outcome }}
+        run: |
+          {
+            echo "## macOS: Go packet transport"
+            echo "Результат: $RESULT"
+            echo '```text'
+            tail -25 "$RUNNER_TEMP/go-transport.log" 2>/dev/null || true
+            echo '```'
+            echo "Проверяются адаптер, настоящий WireGuard duplex, MTU, Close, idle и timeout."
+            echo "Установленное Network Extension и рабочий daemon этим job не запускаются."
+          } >> "$GITHUB_STEP_SUMMARY"
