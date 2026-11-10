@@ -41,6 +41,7 @@ final class NativeEngineSession: @unchecked Sendable {
     }}
     private func configure(_ config:NativeSessionConfiguration)throws{
         let generation=UUID(uuidString:config.generation)!
+        let localIPv4 = try config.localIPv4Bytes()
         gate=NativeReadinessGate(generation:generation,onReady:{[weak self] in self?.queue.async{self?.connected()}},onStop:{[weak self] error in self?.queue.async{self?.fail(error)}})
         var fds:[Int32]=[-1,-1]
         guard socketpair(AF_UNIX,SOCK_STREAM,0,&fds)==0 else{throw Self.error("Не удалось создать канал VPN.")}
@@ -61,7 +62,7 @@ final class NativeEngineSession: @unchecked Sendable {
                     guard !self.stopped else{return}
                     guard accepted else{self.fail(Self.error("Служба не подтвердила системные настройки."));return}
                     self.gate?.mark(.settings,generation:generation)
-                    let pump=PacketFlowPump(flow:self.flow,socket:local,mtu:config.mtu){[weak self] error in
+                    let pump=PacketFlowPump(flow:self.flow,socket:local,mtu:config.mtu,localIPv4:localIPv4){[weak self] error in
                         guard let error else{return};self?.queue.async{self?.fail(error)}
                     }
                     self.pump=pump;pump.start()

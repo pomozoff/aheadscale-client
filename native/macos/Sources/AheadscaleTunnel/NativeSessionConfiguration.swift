@@ -25,6 +25,12 @@ struct NativeSessionConfiguration: Decodable {
         return config
     }
 
+    func localIPv4Bytes() throws -> Data {
+        let (ip, _) = try validatedAddress()
+        return Data([UInt8(ip >> 24), UInt8(truncatingIfNeeded: ip >> 16),
+                     UInt8(truncatingIfNeeded: ip >> 8), UInt8(truncatingIfNeeded: ip)])
+    }
+
     func networkSettings() throws -> NEPacketTunnelNetworkSettings {
         let (ip, prefix) = try validatedAddress()
         let mask = UInt32.max << (32 - prefix)

@@ -117,4 +117,49 @@ final class PacketFlowPumpTests: XCTestCase {
         wait(for: [failed], timeout: 2)
         XCTAssertThrowsError(try peer.readFrame(mtu: 1280, timeoutMilliseconds: 200))
     }
+    func testOnlyOwnIPv4SourceAndDestinationAreLocallyDelivered() throws {
+        for addresses: [UInt8] in [[100,88,1,3,100,88,1,2],
+                                    [100,88,1,2,100,88,1,3],
+                                    [100,88,1,3,100,88,1,3]] {
+            let (local, peer) = try pair()
+            defer { peer.shutdown() }
+            let flow = TestPacketFlow()
+            let requested = expectation(description: "read requested")
+            flow.requested = requested
+            let pump = PacketFlowPump(flow: flow, socket: local, mtu: 1280,
+                localIPv4: Data([100,88,1,2])) { _ in }
+            defer { pump.stop() }
+            pump.start(); wait(for: [requested], timeout: 2)
+            var packet = ProbeScenario.packet(sequence: 2)
+            packet.replaceSubrange(12..<20, with: addresses)
+            flow.deliver([packet], families: [NSNumber(value: AF_INET)])
+            XCTAssertEqual(try peer.readFrame(mtu: 1280, timeoutMilliseconds: 1000), packet)
+            XCTAssertTrue(flow.packets.isEmpty)
+        }
+    }
+
+    func testCancelIgnoresLateSelfPacketAndMalformedSelfPacketFails() throws {
+        for cancel in [true, false] {
+            let (local, peer) = try pair()
+            defer { peer.shutdown() }
+            let flow = TestPacketFlow()
+            let requested = expectation(description: "read requested")
+            let stopped = expectation(description: "stopped once")
+            stopped.assertForOverFulfill = true
+            flow.requested = requested
+            let pump = PacketFlowPump(flow: flow, socket: local, mtu: 1280,
+                localIPv4: Data([100,88,1,2])) { error in
+                    XCTAssertEqual(error == nil, cancel); stopped.fulfill()
+                }
+            pump.start(); wait(for: [requested], timeout: 2)
+            var packet = ProbeScenario.packet(sequence: 2)
+            packet.replaceSubrange(12..<20, with: [100,88,1,2,100,88,1,2])
+            if cancel { pump.stop() } else { packet[0] = 0x4f }
+            flow.deliver([packet], families: [NSNumber(value: AF_INET)])
+            wait(for: [stopped], timeout: 2)
+            XCTAssertTrue(flow.packets.isEmpty)
+            XCTAssertThrowsError(try peer.readFrame(mtu: 1280, timeoutMilliseconds: 100))
+        }
+    }
+
 }
