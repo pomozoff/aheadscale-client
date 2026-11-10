@@ -88,9 +88,10 @@ final class DescriptorListener: NSObject, NSXPCListenerDelegate {
         connection.exportedObject = session
         connection.invalidationHandler = { [weak self] in
             session.close()
-            self?.lock.lock()
-            self?.connections.removeValue(forKey: key)
-            self?.lock.unlock()
+            guard let self else { return }
+            self.lock.lock()
+            self.connections.removeValue(forKey: key)
+            self.lock.unlock()
         }
         lock.lock()
         connections[key] = connection

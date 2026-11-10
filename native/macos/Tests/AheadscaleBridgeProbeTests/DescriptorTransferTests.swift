@@ -8,8 +8,10 @@ final class DescriptorTransferTests: XCTestCase {
     private func ownRequirement() throws -> String {
         var code: SecCode?
         XCTAssertEqual(SecCodeCopySelf([], &code), errSecSuccess)
+        var staticCode: SecStaticCode?
+        XCTAssertEqual(SecCodeCopyStaticCode(try XCTUnwrap(code), [], &staticCode), errSecSuccess)
         var requirement: SecRequirement?
-        XCTAssertEqual(SecCodeCopyDesignatedRequirement(try XCTUnwrap(code), [], &requirement), errSecSuccess)
+        XCTAssertEqual(SecCodeCopyDesignatedRequirement(try XCTUnwrap(staticCode), [], &requirement), errSecSuccess)
         var text: CFString?
         XCTAssertEqual(SecRequirementCopyString(try XCTUnwrap(requirement), [], &text), errSecSuccess)
         return try XCTUnwrap(text) as String
