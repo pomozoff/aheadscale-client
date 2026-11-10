@@ -24,5 +24,7 @@
 			<string>AheadscaleTunnel.PacketTunnelProvider</string>
 		</dict>
 	</dict>
+	<key>NSSystemExtensionUsageDescription</key>
+	<string>Aheadscale создаёт защищённую частную сеть между вашими устройствами.</string>
 </dict>
 </plist>

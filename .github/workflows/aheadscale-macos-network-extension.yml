@@ -33,6 +33,7 @@ jobs:
           plutil -lint "$bundle/Contents/Info.plist"
           test "$(/usr/libexec/PlistBuddy -c 'Print CFBundlePackageType' "$bundle/Contents/Info.plist")" = SYSX
           test "$(/usr/libexec/PlistBuddy -c 'Print NetworkExtension:NEProviderClasses:com.apple.networkextension.packet-tunnel' "$bundle/Contents/Info.plist")" = AheadscaleTunnel.PacketTunnelProvider
+          test -n "$(/usr/libexec/PlistBuddy -c 'Print NSSystemExtensionUsageDescription' "$bundle/Contents/Info.plist")"
           lipo "$bundle/Contents/MacOS/AheadscaleTunnelExtension" -verify_arch arm64
           codesign --force --sign - --entitlements packaging/aheadscale/macos-network-extension/provider.entitlements "$bundle"
           codesign --verify --strict --verbose=2 "$bundle"
@@ -42,6 +43,7 @@ jobs:
           cp packaging/aheadscale/macos-network-extension/app-Info.plist "$app/Contents/Info.plist"
           ditto "$bundle" "$app/Contents/Library/SystemExtensions/ru.aheadscale.client.tunnel.systemextension"
           plutil -lint "$app/Contents/Info.plist"
+          test -n "$(/usr/libexec/PlistBuddy -c 'Print NSSystemExtensionUsageDescription' "$app/Contents/Info.plist")"
           codesign --force --sign - --entitlements packaging/aheadscale/macos-network-extension/app.entitlements "$app"
           codesign --verify --deep --strict --verbose=2 "$app"
           mkdir -p ne-artifact
