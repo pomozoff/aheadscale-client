@@ -52,6 +52,21 @@ jobs:
           cp packaging/aheadscale/macos-network-extension/README.md ne-artifact/
           git rev-parse HEAD > ne-artifact/source.txt
           (cd ne-artifact && shasum -a 256 *-UNSIGNED-PROTOTYPE.zip source.txt > SHA256SUMS)
+      - name: Подготовить отдельный bridge probe без запуска сервиса
+        run: |
+          set -euo pipefail
+          executable_dir=$(swift build --package-path native/macos -c release --arch arm64 --show-bin-path)
+          mkdir -p bridge-probe-artifact
+          cp "$executable_dir/AheadscaleBridgeProbeRunner" bridge-probe-artifact/
+          bridge-probe-artifact/AheadscaleBridgeProbeRunner --self-check > bridge-probe-artifact/self-check.json
+          git rev-parse HEAD > bridge-probe-artifact/source.txt
+          (cd bridge-probe-artifact && shasum -a 256 AheadscaleBridgeProbeRunner source.txt self-check.json > SHA256SUMS)
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: aheadscale-macos-arm64-bridge-probe-UNSIGNED
+          path: bridge-probe-artifact/
+          retention-days: 3
+          if-no-files-found: error
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: aheadscale-macos-arm64-ne-UNSIGNED-PROTOTYPE

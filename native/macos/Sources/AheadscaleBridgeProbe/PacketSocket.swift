@@ -1,30 +1,30 @@
 import Foundation
 import Darwin
 
-enum PacketSocketError: Error, Equatable {
+public enum PacketSocketError: Error, Equatable {
     case timeout, invalidTimeout, unsupportedSocket
     case system(Int32)
 }
 
 // One worker reads and one worker writes; cancellation uses shutdown, never close.
-final class PacketSocket {
+public final class PacketSocket {
     private let descriptor: Int32
 
-    init(duplicating source: Int32) throws {
+    public init(duplicating source: Int32) throws {
         descriptor = try Self.prepareDescriptor(source)
     }
 
-    func readFrame(mtu: Int, timeoutMilliseconds: Int) throws -> Data {
+    public func readFrame(mtu: Int, timeoutMilliseconds: Int) throws -> Data {
         let deadline = try deadline(after: timeoutMilliseconds)
         return try PacketFraming.read(mtu: mtu) { try self.readChunk($0, until: deadline) }
     }
 
-    func writeFrame(_ packet: Data, mtu: Int, timeoutMilliseconds: Int) throws {
+    public func writeFrame(_ packet: Data, mtu: Int, timeoutMilliseconds: Int) throws {
         let deadline = try deadline(after: timeoutMilliseconds)
         try PacketFraming.write(packet, mtu: mtu) { try self.writeChunk($0, until: deadline) }
     }
 
-    func shutdown() {
+    public func shutdown() {
         if Darwin.shutdown(descriptor, SHUT_RDWR) != 0, errno != ENOTCONN, errno != EINVAL {
             NSLog("Aheadscale probe socket shutdown failed: %d", errno)
         }

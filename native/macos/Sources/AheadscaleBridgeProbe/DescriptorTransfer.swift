@@ -17,9 +17,9 @@ private final class DescriptorSession: NSObject, DescriptorProtocol {
     private var greeted = false
     private var closed = false
     private var handle: FileHandle?
-    private let onOffer: (FileHandle, String) -> Void
+    private let onOffer: (FileHandle, String) throws -> Void
 
-    init(onOffer: @escaping (FileHandle, String) -> Void) { self.onOffer = onOffer }
+    init(onOffer: @escaping (FileHandle, String) throws -> Void) { self.onOffer = onOffer }
 
     func hello(_ nonce: String, reply: @escaping (String) -> Void) {
         guard UUID(uuidString: nonce) != nil else { reply(""); return }
@@ -47,8 +47,21 @@ private final class DescriptorSession: NSObject, DescriptorProtocol {
             return
         }
         handle = file
+        do {
+            // Keep the borrowed descriptor alive until setup has duplicated it.
+            // The callback must schedule IO elsewhere rather than block this lock.
+            try onOffer(file, generation)
+        } catch {
+            handle = nil
+            greeted = false
+            closed = true
+            lock.unlock()
+            shutdown(file.fileDescriptor, SHUT_RDWR)
+            try? file.close()
+            reply(false)
+            return
+        }
         lock.unlock()
-        onOffer(file, generation)
         reply(true)
     }
 
@@ -67,16 +80,28 @@ private final class DescriptorSession: NSObject, DescriptorProtocol {
 }
 
 @available(macOS 13.0, *)
-final class DescriptorListener: NSObject, NSXPCListenerDelegate {
-    private let listener = NSXPCListener.anonymous()
+public final class DescriptorListener: NSObject, NSXPCListenerDelegate {
+    private let listener: NSXPCListener
     private let requirement: String
-    private let handler: (FileHandle, String) -> Void
+    private let handler: (FileHandle, String) throws -> Void
     private let lock = NSLock()
     private var connections: [ObjectIdentifier: NSXPCConnection] = [:]
     private var closed = false
-    var endpoint: NSXPCListenerEndpoint { listener.endpoint }
+    public var endpoint: NSXPCListenerEndpoint { listener.endpoint }
 
-    init(peerRequirement: String, onOffer: @escaping (FileHandle, String) -> Void) {
+    public convenience init(peerRequirement: String, onOffer: @escaping (FileHandle, String) throws -> Void) {
+        self.init(listener: .anonymous(), peerRequirement: peerRequirement, onOffer: onOffer)
+    }
+
+    public convenience init(machServiceName: String, peerRequirement: String,
+                            onOffer: @escaping (FileHandle, String) throws -> Void) {
+        self.init(listener: NSXPCListener(machServiceName: machServiceName),
+                  peerRequirement: peerRequirement, onOffer: onOffer)
+    }
+
+    private init(listener: NSXPCListener, peerRequirement: String,
+                 onOffer: @escaping (FileHandle, String) throws -> Void) {
+        self.listener = listener
         requirement = peerRequirement
         handler = onOffer
         super.init()
@@ -84,7 +109,7 @@ final class DescriptorListener: NSObject, NSXPCListenerDelegate {
         listener.resume()
     }
 
-    func listener(_ listener: NSXPCListener, shouldAcceptNewConnection connection: NSXPCConnection) -> Bool {
+    public func listener(_ listener: NSXPCListener, shouldAcceptNewConnection connection: NSXPCConnection) -> Bool {
         lock.lock()
         defer { lock.unlock() }
         guard !closed else { return false }
@@ -105,7 +130,7 @@ final class DescriptorListener: NSObject, NSXPCListenerDelegate {
         return true
     }
 
-    func invalidate() {
+    public func invalidate() {
         lock.lock()
         closed = true
         let current = Array(connections.values)
@@ -132,16 +157,25 @@ private final class OfferCompletion {
 }
 
 @available(macOS 13.0, *)
-final class DescriptorClient {
+public final class DescriptorClient {
     private let connection: NSXPCConnection
-    init(endpoint: NSXPCListenerEndpoint, peerRequirement: String) {
-        connection = NSXPCConnection(listenerEndpoint: endpoint)
+    public convenience init(endpoint: NSXPCListenerEndpoint, peerRequirement: String) {
+        self.init(connection: NSXPCConnection(listenerEndpoint: endpoint), peerRequirement: peerRequirement)
+    }
+
+    public convenience init(machServiceName: String, peerRequirement: String) {
+        self.init(connection: NSXPCConnection(machServiceName: machServiceName, options: []),
+                  peerRequirement: peerRequirement)
+    }
+
+    private init(connection: NSXPCConnection, peerRequirement: String) {
+        self.connection = connection
         connection.remoteObjectInterface = NSXPCInterface(with: DescriptorProtocol.self)
         connection.setCodeSigningRequirement(peerRequirement)
         connection.resume()
     }
 
-    func offer(_ handle: FileHandle, generation: String, reply: @escaping (Bool) -> Void) {
+    public func offer(_ handle: FileHandle, generation: String, reply: @escaping (Bool) -> Void) {
         let completion = OfferCompletion(reply)
         guard let proxy = connection.remoteObjectProxyWithErrorHandler({ _ in
             completion.finish(false)
@@ -154,6 +188,6 @@ final class DescriptorClient {
         }
     }
 
-    func invalidate() { connection.invalidate() }
+    public func invalidate() { connection.invalidate() }
     deinit { invalidate() }
 }
