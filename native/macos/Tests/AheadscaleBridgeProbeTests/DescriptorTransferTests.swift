@@ -59,6 +59,19 @@ final class DescriptorTransferTests: XCTestCase {
         }
     }
 
+    func testLateConnectionCannotReopenInvalidatedListener() throws {
+        guard #available(macOS 13.0, *) else { throw XCTSkip("macOS 13 required") }
+        let listener = DescriptorListener(peerRequirement: try ownRequirement()) { _, _ in
+            XCTFail("Invalidated listener must not deliver descriptors")
+        }
+        let endpoint = listener.endpoint
+        listener.invalidate()
+        let lateConnection = NSXPCConnection(listenerEndpoint: endpoint)
+        defer { lateConnection.invalidate() }
+        XCTAssertFalse(listener.listener(NSXPCListener.anonymous(), shouldAcceptNewConnection: lateConnection),
+                       "A queued OS callback must not reopen a closed listener")
+    }
+
     func testForeignClientCannotDeliverDescriptor() throws {
         guard #available(macOS 13.0, *) else { throw XCTSkip("macOS 13 required") }
         try refusal(listenerRequirement: BridgeIdentity.broker, serverRequirement: ownRequirement())
