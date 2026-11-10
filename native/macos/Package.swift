@@ -16,7 +16,7 @@ let package = Package(
         .executableTarget(name: "BridgeProbeRunner", dependencies: ["AheadscaleBridgeProbe"]),
         .executableTarget(name: "ActivationApp", dependencies: ["AheadscaleActivation"]),
         .executableTarget(name: "TunnelExtension", dependencies: ["AheadscaleTunnel"]),
-        .testTarget(name: "AheadscaleTunnelTests", dependencies: ["AheadscaleTunnel"]),
+        .testTarget(name: "AheadscaleTunnelTests", dependencies: ["AheadscaleTunnel", "AheadscaleBridgeProbe"]),
         .testTarget(name: "AheadscaleActivationTests", dependencies: ["AheadscaleActivation"]),
         .testTarget(name: "AheadscaleBridgeProbeTests", dependencies: ["AheadscaleBridgeProbe"])
     ],
