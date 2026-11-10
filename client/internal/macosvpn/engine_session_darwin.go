@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+ "syscall"
 	"time"
 )
 
@@ -75,6 +76,13 @@ func (s *EngineSession) Open(ctx context.Context) (channel net.Conn, err error) 
 	if err != nil {
 		return nil, err
 	}
+	// The broker/XPC retains its own descriptor copy. Shutdown, not close alone,
+	// must end the stream even if settings or engine startup fails later.
+	channel = &sessionConn{Conn: channel, onClose: func() { s.once.Do(func() { close(s.done) }) }}
+	s.mu.Lock()
+	if s.closed { s.mu.Unlock(); channel.Close(); return nil, errors.New("native session cancelled") }
+	s.packet = channel
+	s.mu.Unlock()
 	// ReceivePacketChannel restores its read deadline. Reapply the session budget.
 	if err = s.control.SetReadDeadline(deadline); err != nil {
 		channel.Close()
@@ -122,8 +130,7 @@ func (s *EngineSession) Open(ctx context.Context) (channel net.Conn, err error) 
 	}
 	s.name = ack.Interface
 	s.opened = true
-	s.packet = &sessionConn{Conn: channel, onClose: func() { s.once.Do(func() { close(s.done) }) }}
-	return s.packet, nil
+	return channel, nil
 }
 func validUTunName(name string) bool {
 	if !strings.HasPrefix(name, "utun") || len(name) > 20 {
@@ -169,6 +176,18 @@ type sessionConn struct {
 	net.Conn
 	onClose func()
 	once    sync.Once
+ err error
 }
 
-func (c *sessionConn) Close() error { err := c.Conn.Close(); c.once.Do(c.onClose); return err }
+func (c *sessionConn) Close() error {
+ c.once.Do(func() {
+  if socket, ok := c.Conn.(syscall.Conn); ok {
+   if raw, err := socket.SyscallConn(); err == nil {
+    _ = raw.Control(func(fd uintptr) { _ = unix.Shutdown(int(fd), unix.SHUT_RDWR) })
+   }
+  }
+  c.err = c.Conn.Close()
+  c.onClose()
+ })
+ return c.err
+}
