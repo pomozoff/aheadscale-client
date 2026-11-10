@@ -31,7 +31,7 @@ package main
 // with the AppIndicator extension (see the bindTrayClick comment in tray.go).
 //
 // ShowWindow() is the same dispatcher the explicit "Open Aheadscale" menu entry
-// and SIGUSR1 use: it brings the install-progress / browser-login window
+// and launcher use: it brings the install-progress / browser-login window
 // forward when one of those flows is active, otherwise routes through
 // WindowManager.ShowMain so the window re-centers on minimal WMs / the XEmbed
 // path instead of landing in the top-left corner.

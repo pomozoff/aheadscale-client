@@ -3,6 +3,9 @@
 package main
 
 import (
+ "context"
+ "os/exec"
+ "time"
  "go/ast"
  "go/build"
  "go/parser"
@@ -28,6 +31,16 @@ func TestLinuxWindowReopenDoesNotClaimWebKitSignal(t *testing.T) {
  }
 }
 func TestSecondInstanceUsesExistingWindowCallback(t *testing.T){
+ // Wails has a process-wide application singleton. Isolate this constructor
+ // from TestApplicationErrorsReachClientLog instead of changing production.
+ if os.Getenv("AHEADSCALE_WINDOW_CALLBACK_CHILD") != "1" {
+  ctx,cancel:=context.WithTimeout(context.Background(),15*time.Second);defer cancel()
+  command:=exec.CommandContext(ctx,os.Args[0],"-test.run=^TestSecondInstanceUsesExistingWindowCallback$","-test.v")
+  command.Env=append(os.Environ(),"AHEADSCALE_WINDOW_CALLBACK_CHILD=1")
+  if output,err:=command.CombinedOutput();err!=nil{t.Fatalf("isolated Wails callback: %v\n%s",err,output)}
+  return
+ }
+
  calls:=0;app:=newApplication(func(){calls++})
  options:=app.Config().SingleInstance
  if options==nil || options.UniqueID!="ru.aheadscale.ui" || options.OnSecondInstanceLaunch==nil{t.Fatal("missing stable SingleInstance controller")}

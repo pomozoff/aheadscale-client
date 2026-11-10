@@ -1,4 +1,4 @@
-//go:build !windows && !android && !ios && !freebsd && !js
+//go:build !linux && !windows && !android && !ios && !freebsd && !js
 
 package main
 
@@ -11,7 +11,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// listenForShowSignal lets external tools surface the running UI by signalling its pid (SIGUSR1).
+// listenForShowSignal retains the non-Linux Unix wake-up interface.
+// Linux leaves this signal to WebKit and uses SingleInstance/tray instead.
 func listenForShowSignal(ctx context.Context, tray *Tray) {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGUSR1)

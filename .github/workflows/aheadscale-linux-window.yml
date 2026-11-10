@@ -7,6 +7,11 @@ on:
       - "client/ui/window_reopen_linux_test.go"
       - ".github/workflows/aheadscale-linux-window.yml"
   workflow_dispatch:
+    inputs:
+      build_ui:
+        type: boolean
+        default: false
+        description: Собрать настоящий Linux UI для нативной проверки
 permissions:
   contents: read
 jobs:
@@ -39,6 +44,31 @@ jobs:
         run: |
           set -euo pipefail
           CGO_ENABLED=1 dbus-run-session -- xvfb-run -a go test -count=1 -v ./client/ui -run '^(TestLinuxWindowReopenDoesNotClaimWebKitSignal|TestSecondInstanceUsesExistingWindowCallback|TestApplicationErrorsReachClientLog)$' 2>&1 | tee "$RUNNER_TEMP/window-tests.log"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        if: github.event_name == 'workflow_dispatch' && inputs.build_ui
+        with:
+          node-version: '24.19.0'
+      - name: Собрать реальный frontend и Linux UI
+        if: github.event_name == 'workflow_dispatch' && inputs.build_ui
+        run: |
+          set -euo pipefail
+          npm install --global pnpm@11.4.0
+          CC=cc CXX=c++ go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.3
+          export VITE_AHEADSCALE_MANAGEMENT_URL=https://aheadscale.ru:443
+          (cd client/ui && wails3 generate bindings -clean=true -ts)
+          pnpm --dir client/ui/frontend install --frozen-lockfile
+          pnpm --dir client/ui/frontend build
+          mkdir -p ui-artifact
+          flags='-s -w -X github.com/netbirdio/netbird/version.version=0.80.0-aheadscale.42-window.1 -X github.com/netbirdio/netbird/client/internal/profilemanager.DefaultManagementURL=https://aheadscale.ru:443 -X github.com/netbirdio/netbird/client/internal/profilemanager.DefaultAdminURL=https://aheadscale.ru:443 -X github.com/netbirdio/netbird/client/internal/profilemanager.LockedServerOrigin=https://aheadscale.ru:443'
+          CGO_ENABLED=1 go build -trimpath -tags production -ldflags "$flags" -o ui-artifact/aheadscale-ui ./client/ui
+          git rev-parse HEAD > ui-artifact/source.txt
+          (cd ui-artifact && sha256sum aheadscale-ui source.txt > SHA256SUMS)
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: github.event_name == 'workflow_dispatch' && inputs.build_ui
+        with:
+          name: aheadscale-linux-amd64-window-reopen
+          path: ui-artifact/
+          retention-days: 3
       - name: Сводка
         if: always()
         run: |

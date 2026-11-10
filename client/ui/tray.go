@@ -225,7 +225,7 @@ func NewTray(app *application.App, window *application.WebviewWindow, svc TraySe
 	return t
 }
 
-// ShowWindow brings the main window forward — used by SIGUSR1 / Windows event.
+// ShowWindow brings the main window forward — used by launcher/tray and platform wake-up events.
 // Show() alone is not enough on macOS (makeKeyAndOrderFront skips activation,
 // so the window pops up behind the active app); Focus() additionally calls
 // activateIgnoringOtherApps:YES on macOS and SetForegroundWindow on Windows.

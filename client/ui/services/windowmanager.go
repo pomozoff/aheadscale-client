@@ -577,7 +577,7 @@ func (s *WindowManager) OpenMain() {
 }
 
 // ShowMain brings the main window forward (re-centering on minimal WMs). The single entry
-// point every surface (tray, SIGUSR1, welcome) should use so centering applies uniformly.
+// point every surface (tray, launcher, platform wake-up, welcome) should use so centering applies uniformly.
 func (s *WindowManager) ShowMain() {
 	s.ensureMain("/", func(w *application.WebviewWindow, _ bool) {
 		s.showWhenReady(w)
