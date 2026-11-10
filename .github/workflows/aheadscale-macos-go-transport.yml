@@ -4,6 +4,8 @@ on:
     branches: ["codex/macos-developer-id"]
     paths:
       - "client/internal/macosvpn/**"
+      - "client/iface/*native*darwin.go"
+      - "client/iface/device/*native*darwin.go"
       - ".github/workflows/aheadscale-macos-go-transport.yml"
   workflow_dispatch:
 permissions:
@@ -11,7 +13,7 @@ permissions:
 jobs:
   go-transport:
     runs-on: macos-26
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
@@ -32,6 +34,19 @@ jobs:
         run: |
           set -euo pipefail
           go test -race -count=1 -v ./client/internal/macosvpn 2>&1 | tee "$RUNNER_TEMP/go-transport.log"
+      - name: Собрать настоящий daemon с нативным адаптером
+        run: |
+          set -euo pipefail
+          mkdir -p native-engine-artifact
+          go build -tags macosvpnprototype -o native-engine-artifact/aheadscale-native ./client
+          go build -o "$RUNNER_TEMP/aheadscale-legacy" ./client
+          git rev-parse HEAD > native-engine-artifact/source.txt
+          shasum -a 256 native-engine-artifact/aheadscale-native > native-engine-artifact/SHA256SUMS
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: macos-native-engine
+          path: native-engine-artifact/
+          retention-days: 3
       - name: Итог целевой проверки
         if: always()
         env:
