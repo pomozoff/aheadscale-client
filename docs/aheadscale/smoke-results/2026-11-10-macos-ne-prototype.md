@@ -66,3 +66,21 @@ provisioning profiles для проверки. Приватные ключи н�
 Владельцу передан блок локальных команд: вложенный SYSX, затем контейнер,
 hardened runtime и secure timestamp, codesign verify. До получения результата
 подписанный комплект не считается проверенным. Нотариализация ещё не выполнена.
+
+
+## Developer ID подпись проверена в ВМ
+
+Владелец выполнил локальную подпись на MacBook и вернул подписанный архив.
+SHA256 `AheadscaleExtensionSetup-SIGNED.zip`: `0534300944b71bb1a738161d95ddd5d0b1b5fee755b7c10286be2598e018afd1`.
+Вложенные provisioning profiles побайтно совпали с проверенными исходными.
+
+В macOS 27.0.1 выполнен `codesign --verify --deep --strict --verbose=2`:
+`valid on disk`, `satisfies its Designated Requirement`.
+У контейнера и SYSX подтверждены правильные identifier, Team `Y24464MUL3`,
+`Developer ID Application: ANTON POMOZOV`, цепочка Developer ID CA → Apple Root CA,
+secure timestamp и флаг `0x10000(runtime)`.
+
+Компоненты распакованы для проверки в `/tmp/aheadscale-ne-verify` внутри ВМ;
+не установлены в Applications и не активированы. Владелец получил команды
+сохранения notarytool credentials в своём Keychain и однократной отправки архива
+на нотариализацию. Результат нотариализации ещё ожидается.
