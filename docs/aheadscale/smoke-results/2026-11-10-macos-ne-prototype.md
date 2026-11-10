@@ -119,3 +119,33 @@ stapler staple/validate и spctl: PASS, `source=Notarized Developer ID`.
 состояние `[activated waiting for user]`. Контейнер показывает ожидание разрешения.
 Запрошено штатное согласие владельца в Network Extensions macOS-ВМ.
 Это не Connected VPN и не проверка передачи пакетов.
+
+
+## Подтверждённый цикл системной активации
+
+После согласия владельца: `ru.aheadscale.client.tunnel`, Team `Y24464MUL3`,
+`[activated enabled]`; контейнер показал «Расширение активировано».
+Процесс packet provider пока не запускался: VPN-профиль и движок не подключены.
+
+При деактивации macOS открыла системный запрос пароля. В это время AX не видел
+окно контейнера, но процесс продолжал работать. Владелец подтвердил наличие
+запроса и ввёл пароль в ВМ; падение контейнера не подтверждено.
+После подтверждения система показала `[terminated waiting to uninstall on reboot]`,
+оба флага enabled/active сняты; контейнер — «Расширение деактивировано».
+
+Повторная активация потребовала нового согласия владельца. После него подтверждены
+`[activated enabled]` и согласованное состояние контейнера. В системном реестре
+две строки: одна активная и одна остановленная, ожидающая уборки при reboot;
+это не две активные копии. Полная уборка при reboot ещё не проверена.
+
+Пройдено: право подписи, нотариализация, штатное разрешение, деактивация,
+повторная активация. Остаются запуск VPN-сессии/предсказуемый отказ без моста,
+защищённый канал, фактический трафик и итоговая приёмка; AHEAD-18 не завершена.
+
+Для следующего этапа прочитаны SDK headers в ВМ: публичный
+`NSXPCConnection.setCodeSigningRequirement` доступен с macOS 13.0,
+`xpc_connection_set_peer_code_signing_requirement` — с macOS 12.0.
+До выбора транспорта/реализации учитывать эти ограничения; прежний deployment
+minimum 11.0 этим исследованием не менялся.
+Источники: [NSXPCConnection](https://developer.apple.com/documentation/foundation/nsxpcconnection/setcodesigningrequirement(_:)),
+[XPC requirement](https://developer.apple.com/documentation/xpc/xpc_connection_set_peer_code_signing_requirement(_:_:)).
