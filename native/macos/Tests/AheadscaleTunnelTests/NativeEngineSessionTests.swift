@@ -47,4 +47,33 @@ final class NativeEngineSessionTests: XCTestCase {
         XCTAssertFalse(session.isReady)
         XCTAssertFalse(remote.settingsAcknowledged)
     }
+    func testSelfIPv4ReturnsToOSWithoutEnteringWireGuard() throws {
+        for proto: UInt8 in [1, 6] {
+            let remote = try SessionRemote()
+            let flow = TestPacketFlow()
+            let read = expectation(description: "OS read")
+            let reflected = expectation(description: "self packet returned to OS")
+            let ready = expectation(description: "engine requested")
+            flow.requested = read
+            flow.received = reflected
+            remote.onReadyRequest = { ready.fulfill() }
+            let session = NativeEngineSession(flow: flow, remote: remote,
+                applySettings: { _, reply in reply("utun42", nil) },
+                completion: { _ in }, onFailure: { _ in XCTFail("unexpected failure") })
+            session.start()
+            wait(for: [read, ready], timeout: 2)
+            remote.engineReply?(true)
+            var packet = ProbeScenario.packet(sequence: 2)
+            packet[9] = proto
+            packet.replaceSubrange(12..<20, with: [100,88,1,2,100,88,1,2])
+            flow.deliver([packet], families: [NSNumber(value: AF_INET)])
+            wait(for: [reflected], timeout: 2)
+            XCTAssertEqual(flow.packets, [packet])
+            XCTAssertFalse(try XCTUnwrap(remote.peer).waitForReadable(timeoutMilliseconds: 50))
+            let stopped = expectation(description: "stopped")
+            session.stop { stopped.fulfill() }
+            wait(for: [stopped], timeout: 2)
+        }
+    }
+
 }
