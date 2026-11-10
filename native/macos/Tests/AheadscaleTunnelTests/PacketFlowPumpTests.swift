@@ -154,7 +154,7 @@ final class PacketFlowPumpTests: XCTestCase {
             pump.start(); wait(for: [requested], timeout: 2)
             var packet = ProbeScenario.packet(sequence: 2)
             packet.replaceSubrange(12..<20, with: [100,88,1,2,100,88,1,2])
-            if cancel { pump.stop() } else { packet[0] = 0x4f }
+            if cancel { pump.stop() } else { packet[0] = 0x44 }
             flow.deliver([packet], families: [NSNumber(value: AF_INET)])
             wait(for: [stopped], timeout: 2)
             XCTAssertTrue(flow.packets.isEmpty)
