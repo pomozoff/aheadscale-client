@@ -149,3 +149,32 @@ stapler staple/validate и spctl: PASS, `source=Notarized Developer ID`.
 minimum 11.0 этим исследованием не менялся.
 Источники: [NSXPCConnection](https://developer.apple.com/documentation/foundation/nsxpcconnection/setcodesigningrequirement(_:)),
 [XPC requirement](https://developer.apple.com/documentation/xpc/xpc_connection_set_peer_code_signing_requirement(_:_:)).
+
+
+## Управление реальным VPN-сеансом: сборка готова, native gate ожидается
+
+Source `c38957bcc3c6164c4463e71c7311dac9e2e02ce9`,
+[Actions42782853078](https://github.com/pomozoff/aheadscale-client/actions/runs/42782853078)
+— все шаги PASS: Swift-suite, ARM64 release, bundle metadata и ad-hoc integrity.
+Шесть новых тестов контроллера входят в Swift-suite из 31 теста.
+RED42781846461 — отсутствие контроллера; RED42782530081 — ровно одна ошибка
+позднего статуса после Cancel (starting вместо disconnected).
+
+Контейнер позволяет явно создать/повторно использовать маркированный тестовый
+NETunnelProviderManager, сохранить/перечитать preferences и запустить настоящий
+provider. Запуск приложения сам по себе ничего не активирует. Автоподключение
+выключено, чужие/непомеченные профили не меняются, неоднозначный выбор запрещён.
+Проверяются ошибки preferences, повторный Connect, Cancel во время await,
+поздние статусы и остановка неожиданного Connected без движка.
+
+Самопроверка кода выполнена одним агентом по ограничению владельца:
+все состояния контроллера на MainActor, проверка generation после каждого await;
+из observer передаётся identity, не Sendable-небезопасный объект manager;
+OFF хранится отдельно от наблюдаемого NEVPNStatus. Это не независимый review.
+
+Подготовлен комплект локальной подписи:
+`/tmp/aheadscale-macos-ne-session-signing/signing-input.tar.gz`.
+Подпись Developer ID и нотариализация новой сборки ещё НЕ выполнены;
+нативный запуск этого контроллера и ожидаемый отказ provider ещё НЕ проверены.
+Рабочее приложение и установленное расширение не заменялись. Go-движок не
+подключён: новый контейнер закрывает prerequisite Task2, а не весь AHEAD-18.
