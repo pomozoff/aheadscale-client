@@ -1,0 +1,40 @@
+name: Aheadscale macOS Swift-Go handoff
+on:
+  push:
+    branches: ["codex/macos-developer-id"]
+    paths:
+      - "native/macos/Sources/CDescriptorHandoff/**"
+      - "native/macos/Sources/AheadscaleBridgeProbe/NativeDescriptorHandoff.swift"
+      - "native/macos/Tests/AheadscaleBridgeProbeTests/NativeDescriptorHandoffTests.swift"
+      - "client/internal/macosvpn/descriptor_darwin.go"
+      - "client/internal/macosvpn/handoffcheck/**"
+      - ".github/workflows/aheadscale-macos-handoff.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  handoff:
+    runs-on: macos-26
+    timeout-minutes: 10
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.7'
+          cache: false
+      - name: Реальный межпроцессный Swift → FD → Go tun.Device → Swift
+        id: handoff
+        run: |
+          set -euo pipefail
+          go build -o "$RUNNER_TEMP/handoffcheck" ./client/internal/macosvpn/handoffcheck
+          export AHEADSCALE_HANDOFF_CHECK="$RUNNER_TEMP/handoffcheck"
+          swift test --package-path native/macos --filter NativeDescriptorHandoffTests
+      - name: Итог
+        if: always()
+        env:
+          RESULT: ${{ steps.handoff.outcome }}
+        run: |
+          echo "## Swift → Go descriptor handoff: $RESULT" >> "$GITHUB_STEP_SUMMARY"
+          echo "Отдельный Go-процесс получает реальный UNIX stream FD через унаследованный datagram и возвращает IPv4/IPv6 через tun.Device. Сертификаты, установленные VPN и маршруты не меняются." >> "$GITHUB_STEP_SUMMARY"

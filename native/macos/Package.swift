@@ -13,7 +13,8 @@ let package = Package(
     targets: [
         .target(name: "AheadscaleTunnel", dependencies: ["AheadscaleBridgeProbe"]),
         .target(name: "AheadscaleActivation"),
-        .target(name: "AheadscaleBridgeProbe"),
+        .target(name: "CDescriptorHandoff"),
+        .target(name: "AheadscaleBridgeProbe", dependencies: ["CDescriptorHandoff"]),
         .executableTarget(name: "BridgeProbeRunner", dependencies: ["AheadscaleBridgeProbe"]),
         .executableTarget(name: "ActivationApp", dependencies: ["AheadscaleActivation"]),
         .executableTarget(name: "RootBridgePrototype", dependencies: ["AheadscaleBridgeProbe"]),
