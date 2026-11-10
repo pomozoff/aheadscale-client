@@ -7,6 +7,7 @@ let package = Package(
     products: [
         .executable(name: "AheadscaleTunnelExtension", targets: ["TunnelExtension"]),
         .executable(name: "AheadscaleExtensionSetup", targets: ["ActivationApp"]),
+        .executable(name: "AheadscaleRootBridgePrototype", targets: ["RootBridgePrototype"]),
         .executable(name: "AheadscaleBridgeProbeRunner", targets: ["BridgeProbeRunner"])
     ],
     targets: [
@@ -15,6 +16,7 @@ let package = Package(
         .target(name: "AheadscaleBridgeProbe"),
         .executableTarget(name: "BridgeProbeRunner", dependencies: ["AheadscaleBridgeProbe"]),
         .executableTarget(name: "ActivationApp", dependencies: ["AheadscaleActivation"]),
+        .executableTarget(name: "RootBridgePrototype", dependencies: ["AheadscaleBridgeProbe"]),
         .executableTarget(name: "TunnelExtension", dependencies: ["AheadscaleTunnel"]),
         .testTarget(name: "AheadscaleTunnelTests", dependencies: ["AheadscaleTunnel", "AheadscaleBridgeProbe"]),
         .testTarget(name: "AheadscaleActivationTests", dependencies: ["AheadscaleActivation"]),

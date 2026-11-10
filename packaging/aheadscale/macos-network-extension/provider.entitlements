@@ -12,5 +12,9 @@
 	<true/>
 	<key>com.apple.security.network.server</key>
 	<true/>
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>Y24464MUL3.ru.aheadscale.client</string>
+	</array>
 </dict>
 </plist>

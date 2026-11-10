@@ -1,6 +1,7 @@
 import XCTest
 @testable import AheadscaleTunnel
 
+@available(macOS 13.0, *)
 final class ProviderBridgeProofTests: XCTestCase {
     func testMissingRootBrokerCannotReportReady() {
         let finished = expectation(description: "missing broker fails")

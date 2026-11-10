@@ -93,7 +93,7 @@ public final class PrototypeVPNController {
         let manager = NETunnelProviderManager()
         let configuration = NETunnelProviderProtocol()
         configuration.providerBundleIdentifier = ActivationController.identifier
-        configuration.providerConfiguration = ["aheadscale.prototype": "session-v1"]
+        configuration.providerConfiguration = ["aheadscale.prototype": "session-v1", "aheadscale.bridge-proof": true]
         configuration.serverAddress = "aheadscale.ru"
         configuration.includeAllNetworks = false
         manager.protocolConfiguration = configuration

@@ -168,6 +168,11 @@ public final class DescriptorClient {
                   peerRequirement: peerRequirement)
     }
 
+    public convenience init(systemMachServiceName: String, peerRequirement: String) {
+        self.init(connection: NSXPCConnection(machServiceName: systemMachServiceName, options: .privileged),
+                  peerRequirement: peerRequirement)
+    }
+
     private init(connection: NSXPCConnection, peerRequirement: String) {
         self.connection = connection
         connection.remoteObjectInterface = NSXPCInterface(with: DescriptorProtocol.self)
