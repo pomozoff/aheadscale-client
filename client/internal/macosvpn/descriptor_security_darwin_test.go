@@ -15,13 +15,13 @@ import (
 func TestRejectedDescriptorMessagesDoNotLeakFDs(t *testing.T){
  receiver,sender:=inheritedPair(t)
  a,b:=socketFiles(t,unix.SOCK_STREAM)
- before,err:=os.ReadDir("/dev/fd");if err!=nil{t.Fatal(err)}
+ before:=openDescriptorCount(t)
  for i:=0;i<100;i++{
   sendDescriptor(t,sender,handoffGeneration,a,b)
   if c,err:=ReceivePacketChannel(context.Background(),receiver,handoffGeneration);err==nil{c.Close();t.Fatal("extra descriptors accepted")}
  }
- after,err:=os.ReadDir("/dev/fd");if err!=nil{t.Fatal(err)}
- if len(after)>len(before){t.Fatalf("rejected handoffs leaked descriptors: %d -> %d",len(before),len(after))}
+ after:=openDescriptorCount(t)
+ if after>before{t.Fatalf("rejected handoffs leaked descriptors: %d -> %d",before,after)}
  // Rejecting a received duplicate must not close the sender's original.
  if _,err:=a.Stat();err!=nil{t.Fatal(err)}
 }
@@ -56,6 +56,14 @@ func TestReceivedPacketDescriptorCannotEscapeIntoExecChild(t *testing.T){
  unix.CloseOnExec(int(a.Fd()));unix.CloseOnExec(int(b.Fd()))
  sendDescriptor(t,sender,handoffGeneration,a)
  var childError error;var output []byte
+ probe:=func(){
+  childCtx,cancel:=context.WithTimeout(context.Background(),5*time.Second);defer cancel()
+  cmd:=exec.CommandContext(childCtx,os.Args[0],"-test.run=^TestHandoffExecChild$")
+  cmd.Env=append(os.Environ(),"AHEADSCALE_FD_EXEC_PROBE=1")
+  output,childError=cmd.CombinedOutput()
+ }
+ probe()
+ if childError!=nil{t.Fatalf("baseline fixture already inherits a socket before receive: %v: %s",childError,output)}
  ctx:=&execProbeContext{Context:context.Background(),probe:func(){
   childCtx,cancel:=context.WithTimeout(context.Background(),5*time.Second);defer cancel()
   cmd:=exec.CommandContext(childCtx,os.Args[0],"-test.run=^TestHandoffExecChild$")
@@ -72,4 +80,13 @@ func TestHandoffExecChild(t *testing.T){
   var stat unix.Stat_t
   if unix.Fstat(fd,&stat)==nil && stat.Mode&unix.S_IFMT==unix.S_IFSOCK{t.Fatalf("inherited private packet socket FD %d",fd)}
  }
+}
+
+func openDescriptorCount(t *testing.T)int{
+ t.Helper();var limit unix.Rlimit
+ if err:=unix.Getrlimit(unix.RLIMIT_NOFILE,&limit);err!=nil{t.Fatal(err)}
+ bound:=limit.Cur;if bound>65536{bound=65536}
+ count:=0
+ for fd:=uint64(0);fd<bound;fd++{if _,err:=unix.FcntlInt(uintptr(fd),unix.F_GETFD,0);err==nil{count++}}
+ return count
 }
