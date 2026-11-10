@@ -15,6 +15,7 @@ enum BridgeIdentity {
 private final class DescriptorSession: NSObject, DescriptorProtocol {
     private let lock = NSLock()
     private var greeted = false
+    private var closed = false
     private var handle: FileHandle?
     private let onOffer: (FileHandle, String) -> Void
 
@@ -23,6 +24,7 @@ private final class DescriptorSession: NSObject, DescriptorProtocol {
     func hello(_ nonce: String, reply: @escaping (String) -> Void) {
         guard UUID(uuidString: nonce) != nil else { reply(""); return }
         lock.lock()
+        guard !closed else { lock.unlock(); reply(""); return }
         greeted = true
         lock.unlock()
         reply(nonce)
@@ -38,7 +40,7 @@ private final class DescriptorSession: NSObject, DescriptorProtocol {
             return
         }
         lock.lock()
-        guard greeted, handle == nil else {
+        guard !closed, greeted, handle == nil else {
             lock.unlock()
             try? file.close()
             reply(false)
@@ -53,6 +55,7 @@ private final class DescriptorSession: NSObject, DescriptorProtocol {
     func close() {
         lock.lock()
         let file = handle
+        closed = true
         handle = nil
         greeted = false
         lock.unlock()
@@ -70,6 +73,7 @@ final class DescriptorListener: NSObject, NSXPCListenerDelegate {
     private let handler: (FileHandle, String) -> Void
     private let lock = NSLock()
     private var connections: [ObjectIdentifier: NSXPCConnection] = [:]
+    private var closed = false
     var endpoint: NSXPCListenerEndpoint { listener.endpoint }
 
     init(peerRequirement: String, onOffer: @escaping (FileHandle, String) -> Void) {
@@ -81,6 +85,9 @@ final class DescriptorListener: NSObject, NSXPCListenerDelegate {
     }
 
     func listener(_ listener: NSXPCListener, shouldAcceptNewConnection connection: NSXPCConnection) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !closed else { return false }
         let session = DescriptorSession(onOffer: handler)
         let key = ObjectIdentifier(connection)
         connection.setCodeSigningRequirement(requirement)
@@ -93,19 +100,18 @@ final class DescriptorListener: NSObject, NSXPCListenerDelegate {
             self.connections.removeValue(forKey: key)
             self.lock.unlock()
         }
-        lock.lock()
         connections[key] = connection
-        lock.unlock()
         connection.resume()
         return true
     }
 
     func invalidate() {
-        listener.invalidate()
         lock.lock()
+        closed = true
         let current = Array(connections.values)
         connections.removeAll()
         lock.unlock()
+        listener.invalidate()
         current.forEach { $0.invalidate() }
     }
 
