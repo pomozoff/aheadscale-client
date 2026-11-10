@@ -50,6 +50,28 @@
 
 ### Task 3: Изолированный защищённый мост
 
+Первый инкремент: отдельный модуль `native/macos/Sources/AheadscaleBridgeProbe`
+и `Tests/AheadscaleBridgeProbeTests`, без включения в provider/установщик.
+Публичный NSXPCConnection.setCodeSigningRequirement (macOS 13+) до resume на обеих
+сторонах; macOS 11 minimum прежних targets не меняется, новый модуль защищён
+availability. Анонимный listener для начального CI-прототипа; имя Mach service
+и lifecycle подписанных процессов проверяются следующим инкрементом.
+
+Контракт: hello(nonce, reply) без дескрипторов → проверенный ответ с nonce →
+offer(FileHandle, generation UUID, reply Bool). FileHandle передаёт dup socketpair
+публичным NSSecureCoding XPC. Сервер принимает один socket на соединение, отвергает
+невалидную generation/повторный offer, закрывает принятый socket при invalidation.
+Production requirement: anchor apple generic, точный Team Y24464MUL3 и identifier
+ru.aheadscale.client.bridge / ru.aheadscale.client.tunnel. Тестовый designated
+requirement реального тестового процесса применяется только в CI probe, а не
+подменяет обязательную native проверку подписанных owner-компонентов.
+
+- [ ] RED → GREEN в Actions: фактическая передача байтов через переданный FD;
+  отказ чужому клиенту; отказ чужому серверу до передачи FD; отказ неверной generation.
+  Expected: события передачи дескриптора отсутствуют при отказе любой подписи;
+  положительный путь доставляет байты и закрывается без зависания.
+
+
 **Interfaces:** provider ↔ XPC broker ↔ daemon; описать точный публичный механизм передачи descriptor до его реализации.
 
 - [ ] Тестами доказать отказ чужому Team/identifier и неподписанному процессу до передачи канала.

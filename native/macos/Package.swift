@@ -11,10 +11,12 @@ let package = Package(
     targets: [
         .target(name: "AheadscaleTunnel"),
         .target(name: "AheadscaleActivation"),
+        .target(name: "AheadscaleBridgeProbe"),
         .executableTarget(name: "ActivationApp", dependencies: ["AheadscaleActivation"]),
         .executableTarget(name: "TunnelExtension", dependencies: ["AheadscaleTunnel"]),
         .testTarget(name: "AheadscaleTunnelTests", dependencies: ["AheadscaleTunnel"]),
-        .testTarget(name: "AheadscaleActivationTests", dependencies: ["AheadscaleActivation"])
+        .testTarget(name: "AheadscaleActivationTests", dependencies: ["AheadscaleActivation"]),
+        .testTarget(name: "AheadscaleBridgeProbeTests", dependencies: ["AheadscaleBridgeProbe"])
     ],
     swiftLanguageModes: [.v5]
 )
