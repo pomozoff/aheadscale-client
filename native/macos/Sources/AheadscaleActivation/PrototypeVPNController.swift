@@ -2,7 +2,7 @@ import Foundation
 import NetworkExtension
 
 public enum PrototypeVPNState: Equatable {
-    case disconnected, preparing, starting, stopping
+    case disconnected, preparing, starting, stopping, connected
     case failed(String)
 }
 
@@ -63,14 +63,15 @@ public final class PrototypeVPNController {
     }
     public var onChange: ((PrototypeVPNState) -> Void)?
     private let operations: Operations
+    private let nativeEngine: Bool
     private var manager: NETunnelProviderManager?
     private var observer: NSObjectProtocol?
     private var operation: UUID?
     private var generation = UUID()
     private var wantsConnection = false
 
-    public convenience init() { self.init(operations: .system) }
-    init(operations: Operations) { self.operations = operations }
+    public convenience init(nativeEngine: Bool = false) { self.init(operations: .system, nativeEngine: nativeEngine) }
+    init(operations: Operations, nativeEngine: Bool = false) { self.operations = operations; self.nativeEngine = nativeEngine }
 
     deinit {
         if let observer { NotificationCenter.default.removeObserver(observer) }
@@ -89,11 +90,13 @@ public final class PrototypeVPNController {
         return owned.first
     }
 
-    static func makeProfile() -> NETunnelProviderManager {
+    static func makeProfile(nativeEngine: Bool = false) -> NETunnelProviderManager {
         let manager = NETunnelProviderManager()
         let configuration = NETunnelProviderProtocol()
         configuration.providerBundleIdentifier = ActivationController.identifier
-        configuration.providerConfiguration = ["aheadscale.prototype": "session-v1", "aheadscale.bridge-proof": true]
+        configuration.providerConfiguration = nativeEngine
+            ? ["aheadscale.prototype": "session-v1", "aheadscale.native-engine": true]
+            : ["aheadscale.prototype": "session-v1", "aheadscale.bridge-proof": true]
         configuration.serverAddress = "aheadscale.ru"
         configuration.includeAllNetworks = false
         manager.protocolConfiguration = configuration
@@ -104,7 +107,7 @@ public final class PrototypeVPNController {
     }
 
     public func connect() {
-        guard operation == nil, state != .starting, state != .stopping else { return }
+        guard operation == nil, state != .starting, state != .stopping, state != .connected else { return }
         let token = UUID()
         generation = token
         operation = token
@@ -115,7 +118,12 @@ public final class PrototypeVPNController {
             do {
                 let profiles = try await operations.load()
                 guard generation == token else { return }
-                let selected = try Self.select(profiles) ?? Self.makeProfile()
+                let selected = try Self.select(profiles) ?? Self.makeProfile(nativeEngine: nativeEngine)
+                if let configuration = selected.protocolConfiguration as? NETunnelProviderProtocol {
+                    configuration.providerConfiguration = nativeEngine
+                        ? ["aheadscale.prototype": "session-v1", "aheadscale.native-engine": true]
+                        : ["aheadscale.prototype": "session-v1", "aheadscale.bridge-proof": true]
+                }
                 manager = selected
                 selected.isEnabled = true
                 selected.isOnDemandEnabled = false
@@ -198,6 +206,10 @@ public final class PrototypeVPNController {
             return
         }
         switch status {
+        case .connected where nativeEngine:
+            state = .connected
+        case .reasserting where nativeEngine:
+            state = .starting
         case .connected, .reasserting:
             // Until the authenticated engine is attached, Connected is a failure.
             wantsConnection = false

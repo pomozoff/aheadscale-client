@@ -5,10 +5,10 @@ import AheadscaleActivation
 @MainActor
 final class SetupApp: NSObject, NSApplicationDelegate {
     private let controller = ActivationController()
-    private let vpn = PrototypeVPNController()
-    private let vpnStatus = NSTextField(wrappingLabelWithString: "Тестовый VPN выключен; движок не подключён.")
+    private let vpn = PrototypeVPNController(nativeEngine: true)
+    private let vpnStatus = NSTextField(wrappingLabelWithString: "Системный VPN выключен.")
     private let status = NSTextField(wrappingLabelWithString:
-        "Прототип системного расширения. VPN-движок ещё не подключён.")
+        "Проверка системного VPN с рабочим движком Aheadscale.")
     private var window: NSWindow!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -44,7 +44,8 @@ final class SetupApp: NSObject, NSApplicationDelegate {
             switch state {
             case .disconnected: self?.vpnStatus.stringValue = "Тестовый VPN выключен."
             case .preparing: self?.vpnStatus.stringValue = "Подготовка тестового профиля; macOS может запросить разрешение."
-            case .starting: self?.vpnStatus.stringValue = "Запускается реальный provider macOS; без движка ожидается отказ."
+            case .connected: self?.vpnStatus.stringValue = "Системный VPN подключён; движок подтвердил готовность."
+            case .starting: self?.vpnStatus.stringValue = "Подключение системного VPN к движку Aheadscale…"
             case .stopping: self?.vpnStatus.stringValue = "Остановка тестового VPN…"
             case .failed(let message): self?.vpnStatus.stringValue = message
             }
@@ -70,7 +71,7 @@ final class SetupApp: NSObject, NSApplicationDelegate {
         case .idle: break
         case .working: status.stringValue = "macOS обрабатывает запрос…"
         case .waitingForApproval: status.stringValue = "Разреши расширение Aheadscale в системных настройках macOS."
-        case .active: status.stringValue = "Расширение активировано. VPN-движок ещё не подключён."
+        case .active: status.stringValue = "Расширение активировано. Можно подключить системный VPN."
         case .inactive: status.stringValue = "Расширение деактивировано."
         case .rebootRequired: status.stringValue = "Для завершения операции macOS требуется перезагрузка."
         case .failed(let message): status.stringValue = "Операция не выполнена: " + message
