@@ -57,3 +57,27 @@ Native подписанные компоненты остаются отдель
 
 Публичные API Apple: [проверка peer signature](https://developer.apple.com/documentation/foundation/nsxpcconnection/setcodesigningrequirement(_:)),
 [NSSecureCoding и NSXPC](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingXPCServices.html).
+
+
+## Bounded framing и socket IO
+
+[Actions 42745629576](https://github.com/pomozoff/aheadscale-client/actions/runs/42745629576)
+— PASS, source `341dd07cc4625c1923f48144304ff6c140296392`; 22 теста в совокупности.
+Дополнительные RED: 42744654791 (PacketFraming отсутствовал), 42745387626
+(PacketSocket отсутствовал). Framing отдельно прошёл 42744921835.
+
+Шесть framing-тестов: Go-совместимый uint32 little-endian prefix, точные bytes
+IPv4/IPv6 synthetic payload, частичное IO memory streams, MTU и максимум 65535,
+пустые/усечённые/слишком большие кадры, отказ до чтения тела или первого write,
+невалидное число переданных bytes и отсутствие прогресса.
+
+Пять socket-тестов на настоящих AF_UNIX socketpair: duplex кадров; idle deadline;
+backpressure при малом SO_SNDBUF и не читающем получателе; shutdown разблокирует
+ожидающий read до deadline; недопустимый FD/datagram отвергаются.
+Адаптер владеет dup FD, O_NONBLOCK/SO_NOSIGPIPE; один monotonic deadline на кадр,
+без неограниченной очереди пакетов. FD закрывается только владельцем после IO,
+а отмена выполняет shutdown, исключая reuse номера FD во время ожидания.
+
+Это по-прежнему изолированный модуль. Отдельные подписанные процессы,
+двухминутный прогон и sandbox/Mach-service граница ещё не проверены;
+реальный VPN-трафик этим результатом не подтверждается.
