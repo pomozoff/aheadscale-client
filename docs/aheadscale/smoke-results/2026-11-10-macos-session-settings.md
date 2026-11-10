@@ -61,3 +61,5 @@ ifconfig/route/DNS действий native-режима и проверка на
 пределы JSON/MTU, маска подсети, split DNS, отсутствие default route,
 сериализация Ready/Cancel и игнорирование устаревших ответов. Независимого
 review не было.
+
+Окончательный Go-прогон после gofmt: [42820627532](https://github.com/pomozoff/aheadscale-client/actions/runs/42820627532) — success на eda3189809de9e41dfe429e9a9d4158781b67c30 с исправленным pipefail.
