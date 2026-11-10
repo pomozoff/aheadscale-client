@@ -84,3 +84,23 @@ secure timestamp и флаг `0x10000(runtime)`.
 не установлены в Applications и не активированы. Владелец получил команды
 сохранения notarytool credentials в своём Keychain и однократной отправки архива
 на нотариализацию. Результат нотариализации ещё ожидается.
+
+
+## Нотариализация и первый запрос активации
+
+Apple: `cc407236-5eff-4dc6-b305-f18b6b13d546`, `Accepted` (сообщил владелец).
+В ВМ подтверждено независимо: `stapler staple` и `stapler validate` PASS;
+`spctl --assess --type execute --verbose=2` → `accepted`,
+`source=Notarized Developer ID`. Прототип установлен отдельно в
+`/Applications/Aheadscale Extension Setup.app`, рабочее Aheadscale.app не заменялось.
+
+Штатная кнопка активации воспроизводимо получила отказ:
+`extensions belonging to the com.apple.system_extension.network_extension category require the presence of the 'NSSystemExtensionUsageDescription' property.`
+Системный список остался пустым (`0 extension(s)`). Поле присутствовало в app,
+но отсутствовало в SYSX. Исправление: добавить описание в provider Info.plist;
+Actions теперь требует непустое поле в обоих bundles.
+
+Изменение метаданных требует новой подписи и нотариализации; Accepted предыдущей
+заявки не распространяется на новый архив. Результат новой проверки ожидается.
+
+Исправленная сборка `6081a89d4de854b0df620d981092c95866a2b2b7`: [Actions 42740437332](https://github.com/pomozoff/aheadscale-client/actions/runs/42740437332) PASS; при скачивании сверены source/SHA256 и непустое описание в обоих plist. Владельцу подготовлен единый блок повторной подписи и нотариализации с существующим Keychain-профилем.
