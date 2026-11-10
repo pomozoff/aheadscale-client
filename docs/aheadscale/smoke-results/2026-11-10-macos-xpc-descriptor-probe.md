@@ -81,3 +81,32 @@ backpressure при малом SO_SNDBUF и не читающем получат
 Это по-прежнему изолированный модуль. Отдельные подписанные процессы,
 двухминутный прогон и sandbox/Mach-service граница ещё не проверены;
 реальный VPN-трафик этим результатом не подтверждается.
+
+
+## Runnable probe отдельных процессов подготовлен
+
+[Actions 42747096176](https://github.com/pomozoff/aheadscale-client/actions/runs/42747096176)
+— PASS; source `342373dbf804a29b1c322fd6534802a3c7929c0e`, 25 тестов,
+release ARM64 CLI и `--self-check` без регистрации сервисов.
+RED 42746370590 подтвердил отсутствие ProbeScenario и неспособность прежнего
+handler передать ошибку подготовки FD. Теперь setup выполняется под lock до dup;
+ошибка возвращает отрицательный ACK. IO запускается отдельным worker.
+
+Runner имеет строгие роли/флаги, ограничение длительности, synthetic IPv4 с
+проверенным checksum и IPv6 с правильной длиной, sequence в payload, echo с
+побайтовым сравнением. Native server/client используют общую протестированную
+реализацию XPC и отдельные test signing IDs `ru.aheadscale.probe.server/client`;
+отрицательный контроль — `ru.aheadscale.probe.wrong`. Production IDs не выдаются
+echo-программе. Предоставлен комплект локальной подписи трёх копий на MacBook;
+приватные ключи и production credentials в ВМ/CI не передаются.
+
+Подготовлен `testing/aheadscale/macos_bridge_native.py`: временные LaunchAgents
+в GUI-domain тестового пользователя; 120 s обмен, отказ без Developer ID,
+неправильному client ID и неправильному server ID до FD. Проверяет server logs
+отсутствия offer, а не только отказ клиента. Уборка только собственных jobs с
+проверкой пути, перед удалением файлов; evidence/result.json сохраняются.
+Синтаксис и --help проверены; функциональный native-прогон ещё не выполнялся.
+
+Последняя проверка SSH к ВМ завершилась connect timeout. Ожидаются подпись владельца
+и доступная macOS-ВМ. Это подготовленный тестовый инструмент, не подтверждение
+прохождения native gate и не допуск реального VPN-трафика.
