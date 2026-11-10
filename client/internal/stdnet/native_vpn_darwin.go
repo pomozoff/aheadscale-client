@@ -4,4 +4,4 @@ package stdnet
 
 import "strings"
 
-func nativeVPNInterface(name string) bool { return strings.HasPrefix(name,"utun") }
+func nativeVPNInterface(name string) bool { return strings.HasPrefix(name, "utun") }

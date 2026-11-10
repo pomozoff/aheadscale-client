@@ -1,4 +1,4 @@
-//go:build (!linux || android) && ((!windows || !windowsvpnprototype) && (!darwin || !macosvpnprototype))
+//go:build (!linux || android) && (!windows || !windowsvpnprototype) && (!darwin || !macosvpnprototype)
 
 package server
 

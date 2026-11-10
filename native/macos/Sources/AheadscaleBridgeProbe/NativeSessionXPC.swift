@@ -77,7 +77,7 @@ private final class NativeSessionExport: NSObject, NativeSessionProtocol {
             self.handlers.ready(generation) { accepted in self.queue.async {reply(accepted && !self.closed)} }
         }
     }
-    func close() { queue.async { self.closeLocked() } }
+    func close(completion:@escaping()->Void = {}) { queue.async { self.closeLocked(); completion() } }
     private func closeLocked() {
         guard !closed else {return};closed=true
         if let packet {shutdown(packet.fileDescriptor,SHUT_RDWR);try? packet.close();self.packet=nil}
@@ -109,9 +109,10 @@ public final class NativeSessionListener: NSObject, NSXPCListenerDelegate {
         connection.exportedInterface=NSXPCInterface(with:NativeSessionProtocol.self)
         connection.exportedObject=session
         connection.invalidationHandler={ [weak self, weak connection] in
-            session.close()
-            guard let self else{return};self.lock.lock()
-            if self.current === connection {self.current=nil};self.lock.unlock()
+            session.close { [weak self, weak connection] in
+                guard let self else{return};self.lock.lock()
+                if self.current === connection {self.current=nil};self.lock.unlock()
+            }
         }
         current=connection;connection.resume();return true
     }
@@ -129,20 +130,54 @@ private final class NativeReply<T> {
 @available(macOS 13.0, *)
 public final class NativeSessionClient {
     private let connection:NSXPCConnection
+    private let lock=NSLock()
+    private var requested=false,closed=false
+    private var authenticatedGeneration:String?
     public convenience init(endpoint:NSXPCListenerEndpoint,peerRequirement:String){self.init(connection:NSXPCConnection(listenerEndpoint:endpoint),requirement:peerRequirement)}
     public convenience init(){self.init(connection:NSXPCConnection(machServiceName:NativeBridgeIdentity.service,options:.privileged),requirement:NativeBridgeIdentity.brokerRequirement)}
-    private init(connection:NSXPCConnection,requirement:String){self.connection=connection;connection.remoteObjectInterface=NSXPCInterface(with:NativeSessionProtocol.self);connection.setCodeSigningRequirement(requirement);connection.resume()}
+    private init(connection:NSXPCConnection,requirement:String){
+        self.connection=connection
+        connection.remoteObjectInterface=NSXPCInterface(with:NativeSessionProtocol.self)
+        connection.setCodeSigningRequirement(requirement)
+        connection.interruptionHandler={ [weak self] in self?.revoke() }
+        connection.invalidationHandler={ [weak self] in self?.revoke() }
+        connection.resume()
+    }
+    private func revoke(){lock.lock();closed=true;authenticatedGeneration=nil;lock.unlock()}
+    private func authorized(_ generation:String)->Bool{lock.lock();defer{lock.unlock()};return !closed && authenticatedGeneration==generation}
     private func proxy<T>(_ reply:NativeReply<T>,failure:T)->NativeSessionProtocol? {
-        guard let p=connection.remoteObjectProxyWithErrorHandler({_ in reply.finish(failure)}) as? NativeSessionProtocol else {reply.finish(failure);return nil};return p
+        guard let p=connection.remoteObjectProxyWithErrorHandler({[weak self] _ in self?.revoke();reply.finish(failure)}) as? NativeSessionProtocol else {reply.finish(failure);return nil};return p
     }
     public func configuration(_ callback:@escaping(Data)->Void){
-        let r=NativeReply(callback);guard let p=proxy(r,failure:Data()) else{return}
+        let r=NativeReply(callback)
+        lock.lock();guard !requested,!closed else{lock.unlock();r.finish(Data());return};requested=true;lock.unlock()
+        guard let p=proxy(r,failure:Data()) else{return}
         let nonce=UUID().uuidString
-        p.hello(nonce){value in guard value==nonce else{r.finish(Data());return};p.configuration{r.finish($0)}}
+        // No file handle may leave this process before this verified reply.
+        p.hello(nonce){value in
+            guard value==nonce else{r.finish(Data());return}
+            p.configuration{[weak self] data in
+                guard let self,data.count<=4096,
+                      let object=(try? JSONSerialization.jsonObject(with:data)) as? [String:Any],
+                      let generation=object["generation"] as? String,let uuid=UUID(uuidString:generation),
+                      uuid.uuidString.lowercased()==generation,generation != "00000000-0000-0000-0000-000000000000" else{r.finish(Data());return}
+                self.lock.lock();guard !self.closed else{self.lock.unlock();r.finish(Data());return}
+                self.authenticatedGeneration=generation;self.lock.unlock();r.finish(data)
+            }
+        }
     }
-    public func offer(_ handle:FileHandle,generation:String,reply:@escaping(Bool)->Void){let r=NativeReply(reply);proxy(r,failure:false)?.offer(handle,generation:generation){r.finish($0)}}
-    public func settings(generation:String,interface:String,reply:@escaping(Bool)->Void){let r=NativeReply(reply);proxy(r,failure:false)?.settings(generation,interface:interface){r.finish($0)}}
-    public func ready(generation:String,reply:@escaping(Bool)->Void){let r=NativeReply(reply);proxy(r,failure:false)?.ready(generation){r.finish($0)}}
-    public func invalidate(){connection.invalidate()}
-    deinit{invalidate()}
+    public func offer(_ handle:FileHandle,generation:String,reply:@escaping(Bool)->Void){
+        guard authorized(generation) else{reply(false);return}
+        let r=NativeReply(reply);proxy(r,failure:false)?.offer(handle,generation:generation){[weak self] accepted in r.finish(accepted && self?.authorized(generation)==true)}
+    }
+    public func settings(generation:String,interface:String,reply:@escaping(Bool)->Void){
+        guard authorized(generation) else{reply(false);return}
+        let r=NativeReply(reply);proxy(r,failure:false)?.settings(generation,interface:interface){[weak self] accepted in r.finish(accepted && self?.authorized(generation)==true)}
+    }
+    public func ready(generation:String,reply:@escaping(Bool)->Void){
+        guard authorized(generation) else{reply(false);return}
+        let r=NativeReply(reply);proxy(r,failure:false)?.ready(generation){[weak self] accepted in r.finish(accepted && self?.authorized(generation)==true)}
+    }
+    public func invalidate(){revoke();connection.invalidate()}
+    deinit{connection.invalidate()}
 }

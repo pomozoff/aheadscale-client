@@ -12,6 +12,7 @@ public final class NativeEngineControl: @unchecked Sendable {
     private let startEngine:()->Void, stopEngine:()->Void
     private var closed=false, active=false, engineReady=false
     private var generation:String?
+    private var attempt=UUID()
     private var configurationReply:((Data)->Void)?,readyReply:((Bool)->Void)?
     public var onFailure:(()->Void)?
     public init(control:FileHandle,startEngine:@escaping()->Void,stopEngine:@escaping()->Void)throws{
@@ -37,10 +38,11 @@ public final class NativeEngineControl: @unchecked Sendable {
             guard let self else{reply(Data());return}
             self.queue.async{
                 guard !self.closed,!self.active else{reply(Data());return}
+                let attempt=UUID();self.attempt=attempt
                 self.active=true;self.generation=nil;self.engineReady=false;self.configurationReply=reply
                 self.startEngine()
                 self.queue.asyncAfter(deadline:.now()+120){[weak self] in
-                    guard let self,self.active,!self.engineReady else{return};self.fail()
+                    guard let self,self.active,self.attempt==attempt,!self.engineReady else{return};self.fail()
                 }
             }
         },offer:{[weak self] handle,generation in
@@ -61,7 +63,7 @@ public final class NativeEngineControl: @unchecked Sendable {
                 guard !self.closed,self.active,self.generation==generation,self.readyReply==nil else{reply(false);return}
                 if self.engineReady{reply(true)}else{self.readyReply=reply}
             }
-        },stop:{[weak self] in guard let self else{return};self.queue.async{self.endSession()} })
+        },stop:{[weak self] in guard let self else{return};self.queue.sync{self.endSession()} })
     }
     private func receive(){
         guard !closed else{return}

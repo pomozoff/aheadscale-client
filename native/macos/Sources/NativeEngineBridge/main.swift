@@ -26,6 +26,7 @@ func run() throws -> Never {
         let down=Process();down.executableURL=URL(fileURLWithPath:NativeEngineIdentity.path)
         down.arguments=["down","--daemon-addr",socket];try? down.run()
         DispatchQueue.global().asyncAfter(deadline:.now()+10){if down.isRunning{down.terminate()}}
+        if down.isRunning { down.waitUntilExit() }
     }}
     let control=try NativeEngineControl(control:parent,startEngine:{commands.async{
         guard daemon.isRunning else{return}
