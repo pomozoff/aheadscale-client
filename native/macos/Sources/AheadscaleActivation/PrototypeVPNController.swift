@@ -67,6 +67,7 @@ public final class PrototypeVPNController {
     private var observer: NSObjectProtocol?
     private var operation: UUID?
     private var generation = UUID()
+    private var wantsConnection = false
 
     public convenience init() { self.init(operations: .system) }
     init(operations: Operations) { self.operations = operations }
@@ -107,6 +108,7 @@ public final class PrototypeVPNController {
         let token = UUID()
         generation = token
         operation = token
+        wantsConnection = true
         state = .preparing
         Task { @MainActor in
             defer { if self.operation == token { self.operation = nil } }
@@ -126,12 +128,14 @@ public final class PrototypeVPNController {
                 try operations.start(selected)
             } catch {
                 guard generation == token else { return }
+                wantsConnection = false
                 state = .failed(error.localizedDescription)
             }
         }
     }
 
     public func disconnect() {
+        wantsConnection = false
         generation = UUID()
         guard let manager else { state = .disconnected; return }
         operations.stop(manager)
@@ -163,6 +167,7 @@ public final class PrototypeVPNController {
                 state = .disconnected
             } catch {
                 guard generation == token else { return }
+                wantsConnection = false
                 state = .failed(error.localizedDescription)
             }
         }
@@ -182,20 +187,30 @@ public final class PrototypeVPNController {
     }
 
     func consume(_ status: NEVPNStatus) {
+        guard wantsConnection else {
+            // A queued status notification must never undo an explicit OFF/Cancel.
+            if status == .connecting || status == .connected || status == .reasserting {
+                if let manager { operations.stop(manager) }
+            }
+            if state == .stopping && (status == .invalid || status == .disconnected) {
+                state = .disconnected
+            }
+            return
+        }
         switch status {
         case .connected, .reasserting:
             // Until the authenticated engine is attached, Connected is a failure.
+            wantsConnection = false
             if let manager { operations.stop(manager) }
             state = .failed("Тестовый VPN остановлен: VPN-движок ещё не подключён.")
         case .connecting:
             if state != .stopping { state = .starting }
-        case .disconnecting: state = .stopping
+        case .disconnecting: break // Keep the start failure visible until disconnected.
         case .invalid, .disconnected:
-            if state == .starting {
-                state = .failed("Тестовый VPN не запущен: канал к VPN-службе ещё не подключён.")
-            } else if case .failed = state { return }
-            else { state = .disconnected }
+            wantsConnection = false
+            state = .failed("Тестовый VPN не запущен: канал к VPN-службе ещё не подключён.")
         @unknown default:
+            wantsConnection = false
             if let manager { operations.stop(manager) }
             state = .failed("Неизвестный статус системного VPN.")
         }
