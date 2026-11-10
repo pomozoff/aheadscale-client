@@ -49,5 +49,19 @@ final class NativeReadinessGateTests: XCTestCase {
         gate = NativeReadinessGate(generation: generation, onReady: { gate.cancel() }, onStop: { _ in stops += 1 })
         for part in [NativeReadinessGate.Part.channel, .settings, .engine] { gate.mark(part, generation: generation) }
         XCTAssertEqual(stops, 1)
+        gate = nil
+    }
+
+    func testConcurrentReadyAndCancelNeverDeliverReadyAfterStop() {
+        for _ in 0..<100 {
+            let generation = UUID()
+            var events: [String] = []
+            let gate = NativeReadinessGate(generation: generation, onReady: { events.append("ready") }, onStop: { _ in events.append("stop") })
+            DispatchQueue.concurrentPerform(iterations: 4) { index in
+                if index == 3 { gate.cancel() }
+                else { gate.mark([.channel, .settings, .engine][index], generation: generation) }
+            }
+            XCTAssertTrue(events == ["stop"] || events == ["ready", "stop"])
+        }
     }
 }
