@@ -1,4 +1,4 @@
-//go:build !linux && (!windows || !windowsvpnprototype)
+//go:build !linux && (!windows || !windowsvpnprototype) && (!darwin || !macosvpnprototype)
 
 package systemops
 

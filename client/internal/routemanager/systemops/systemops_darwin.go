@@ -41,6 +41,7 @@ const scopedRouteBudget = 5 * time.Second
 // the table. Any subsequent reconnect via nbnet.NewDialer picks up the
 // populated bound-iface cache and gets IP_BOUND_IF set cleanly.
 func (r *SysOps) setupAdvancedRouting() error {
+	if nativeVPNRouting() { return nil }
 	// Drop any previously-cached egress interface before reinstalling. On a
 	// refresh, a family that no longer resolves would otherwise keep the stale
 	// binding, causing new sockets to scope to an interface without a matching
@@ -119,6 +120,7 @@ func (r *SysOps) installScopedDefaultFor(unspec netip.Addr) (bool, error) {
 }
 
 func (r *SysOps) cleanupAdvancedRouting() error {
+	if nativeVPNRouting() { return nil }
 	nbnet.ClearBoundInterfaces()
 	return r.flushScopedDefaults()
 }
@@ -127,6 +129,7 @@ func (r *SysOps) cleanupAdvancedRouting() error {
 // generic FlushMarkedRoutes path, so a crashed daemon's scoped defaults get
 // removed on the next boot regardless of whether a profile is brought up.
 func (r *SysOps) flushPlatformExtras() error {
+	if nativeVPNRouting() { return nil }
 	return r.flushScopedDefaults()
 }
 

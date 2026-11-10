@@ -745,7 +745,7 @@ func (e *Engine) Start(netbirdConfig *mgmProto.NetbirdConfig, mgmtURL *url.URL) 
 		}
 	}()
 
-	return nil
+	return e.wgInterface.NativeReady()
 }
 
 func (e *Engine) createFirewall() error {
@@ -2301,7 +2301,7 @@ func (e *Engine) newDnsServer() (dns.Server, error) {
 			CustomAddress:  e.config.CustomDNSAddress,
 			StatusRecorder: e.statusRecorder,
 			StateManager:   e.stateManager,
-			DisableSys:     e.config.DisableDNS,
+			DisableSys:     e.config.DisableDNS || nativeMacOSVPN(),
 		})
 		if err != nil {
 			return nil, err

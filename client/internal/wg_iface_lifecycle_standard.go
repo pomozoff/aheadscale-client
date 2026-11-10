@@ -1,4 +1,4 @@
-//go:build !windows || !windowsvpnprototype
+//go:build (!windows || !windowsvpnprototype) && (!darwin || !macosvpnprototype)
 
 package internal
 

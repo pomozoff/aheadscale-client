@@ -365,3 +365,12 @@ func (w *WGIface) GetNet() *netstack.Net {
 
 	return w.tun.GetNet()
 }
+
+// NativeReady is called only after the complete connection engine initialized.
+// Legacy devices have no external system-VPN readiness acknowledgement.
+func (w *WGIface) NativeReady() error {
+ if native,ok:=w.tun.(interface{NativeReady() error});ok{return native.NativeReady()};return nil
+}
+func (w *WGIface) NativeDisconnected() <-chan struct{} {
+ if native,ok:=w.tun.(interface{NativeDisconnected() <-chan struct{}});ok{return native.NativeDisconnected()};return nil
+}
