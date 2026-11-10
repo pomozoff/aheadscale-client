@@ -99,6 +99,36 @@ RED → GREEN: duplex настоящей socketpair, idle timeout, ограни�
 - [ ] Прогнать двухминутный двусторонний обмен на подписанных компонентах; только затем разрешить интеграцию с движком.
   Expected: данные без потерь/зависаний, отказ неавторизованным peer.
 
+#### Native probe отдельных процессов
+
+Файлы: ProbeScenario.swift (строгие аргументы и synthetic IP packets),
+Sources/BridgeProbeRunner/main.swift, NativeProbeTests.swift, модификация фабрик
+DescriptorListener/DescriptorClient для именованного NSXPC. Общая реализация
+code-signing/handshake не дублируется. Handler setup становится throws:
+дескриптор заимствуется под lock до dup и запуска отдельного worker, ошибка setup
+возвращает отказ, а не успешный offer. Тест — RED на throwing handler → GREEN.
+
+Runner только для изолированной ВМ, не установленного расширения. Отдельные
+идентификаторы подписи ru.aheadscale.probe.server/client/wrong; production IDs
+не использовать для тестового echo-процесса. Team Y24464MUL3, оба peer requirement
+строго anchor apple generic + exact Team + exact probe identifier.
+GUI-user LaunchAgent с MachServices ru.aheadscale.probe.20261110; bootstrap лишь
+на время опыта, без установки в ~/Library/LaunchAgents; synthetic data, no ports,
+no shared resources/credentials. Собственная очистка через bootout до удаления
+файлов. Программа server самостоятельно завершается по ограничению длительности.
+
+- [ ] RED → GREEN: строгий parser ролей server/client, длительности 1...600,
+  неизвестных/повторных флагов; generator создаёт IPv4/IPv6 packets с правильной
+  длиной, IPv4 checksum, sequence и верхней границей MTU; ошибка handler setup
+  даёт false вместо положительного ACK.
+- [ ] Actions собирает CLI ARM64 отдельно; CI запускает только --self-check,
+  без launchd/service/сети, затем выдаёт binary/source/checksums артефакт.
+- [ ] Локальная подпись owner-ключами, отдельный native fixture: положительный
+  обмен не менее 120 s после handshake, оба IP family; отказ копии без Developer ID
+  и с чужим identifier, отказ чужому серверу до FD. Сверять server log отсутствия
+  offer при отказе; один отказ клиента не доказывает отсутствие получателя.
+- [ ] На любом отказе остановить gate, не включать канал в provider/Go.
+
 ### Task 4: Движок и единое управление
 
 **Interfaces:** tun.Device поверх канала Task 3, provider sole owner маршрутов/DNS; GUI/CLI через единый контроллер.

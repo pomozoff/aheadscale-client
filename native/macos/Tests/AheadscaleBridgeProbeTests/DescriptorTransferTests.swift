@@ -100,6 +100,25 @@ final class DescriptorTransferTests: XCTestCase {
         wait(for: [refused, forbidden], timeout: 5)
     }
 
+    func testFailedDescriptorSetupIsRefused() throws {
+        guard #available(macOS 13.0, *) else { throw XCTSkip("macOS 13 required") }
+        let requirement = try ownRequirement()
+        let listener = DescriptorListener(peerRequirement: requirement) { _, _ in
+            throw NSError(domain: "probe-setup", code: 1)
+        }
+        defer { listener.invalidate() }
+        let client = DescriptorClient(endpoint: listener.endpoint, peerRequirement: requirement)
+        defer { client.invalidate() }
+        let (local, remote) = try sockets()
+        defer { try? local.close(); try? remote.close() }
+        let rejected = expectation(description: "setup failure rejected")
+        client.offer(remote, generation: UUID().uuidString) { accepted in
+            XCTAssertFalse(accepted, "Failed local setup must not return a positive ACK")
+            rejected.fulfill()
+        }
+        wait(for: [rejected], timeout: 5)
+    }
+
     func testInvalidGenerationIsRefused() throws {
         guard #available(macOS 13.0, *) else { throw XCTSkip("macOS 13 required") }
         let requirement = try ownRequirement()
