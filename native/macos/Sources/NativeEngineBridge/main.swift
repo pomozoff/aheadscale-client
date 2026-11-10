@@ -18,19 +18,21 @@ func run() throws -> Never {
     let daemon=Process()
     daemon.executableURL=URL(fileURLWithPath:NativeEngineIdentity.path)
     daemon.arguments=["service","run","--daemon-addr",socket,"--config",config,"--log-file","/var/log/aheadscale/native-prototype.log","--disable-profiles"]
+    let environment=ProcessInfo.processInfo.environment.merging(["AS_STATE_DIR":"/var/root/Library/Application Support/AheadscaleNativePrototype"]){_,value in value}
+    daemon.environment=environment
     daemon.standardInput=child
     let commands=DispatchQueue(label:"ru.aheadscale.native.commands")
     var command:Process?
     func stopEngine(){commands.async{
         command?.terminate();command=nil
-        let down=Process();down.executableURL=URL(fileURLWithPath:NativeEngineIdentity.path)
+        let down=Process();down.environment=environment;down.executableURL=URL(fileURLWithPath:NativeEngineIdentity.path)
         down.arguments=["down","--daemon-addr",socket];try? down.run()
         DispatchQueue.global().asyncAfter(deadline:.now()+10){if down.isRunning{down.terminate()}}
         if down.isRunning { down.waitUntilExit() }
     }}
     let control=try NativeEngineControl(control:parent,startEngine:{commands.async{
         guard daemon.isRunning else{return}
-        let up=Process();up.executableURL=URL(fileURLWithPath:NativeEngineIdentity.path)
+        let up=Process();up.environment=environment;up.executableURL=URL(fileURLWithPath:NativeEngineIdentity.path)
         up.arguments=["up","--daemon-addr",socket,"--config",config]
         do{try up.run();command=up}catch{NSLog("Aheadscale: failed to request engine startup")}
     }},stopEngine:stopEngine)
