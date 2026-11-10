@@ -2,6 +2,9 @@ package macosvpn
 
 import (
  "context"
+ "os/exec"
+ "sync/atomic"
+ "time"
  "os"
  "testing"
 
@@ -37,4 +40,36 @@ func TestDescriptorRejectsTruncatedControlAndMalformedEnvelope(t *testing.T){
   if _,_,err:=sender.WriteMsgUnix(payload,ancillary,nil);err!=nil{t.Fatal(err)}
   if c,err:=ReceivePacketChannel(context.Background(),receiver,handoffGeneration);err==nil{c.Close();t.Fatal("invalid message accepted")}
  })}
+}
+
+// A context hook makes the actual fork boundary deterministic: on the second
+// cancellation check a real child executes while the received FD is raw.
+type execProbeContext struct {
+ context.Context
+ calls atomic.Int32
+ probe func()
+}
+func(c *execProbeContext)Err()error{if c.calls.Add(1)==2{c.probe()};return c.Context.Err()}
+
+func TestReceivedPacketDescriptorCannotEscapeIntoExecChild(t *testing.T){
+ receiver,sender:=inheritedPair(t);a,b:=socketFiles(t,unix.SOCK_STREAM)
+ unix.CloseOnExec(int(a.Fd()));unix.CloseOnExec(int(b.Fd()))
+ sendDescriptor(t,sender,handoffGeneration,a)
+ var childError error;var output []byte
+ ctx:=&execProbeContext{Context:context.Background(),probe:func(){
+  childCtx,cancel:=context.WithTimeout(context.Background(),5*time.Second);defer cancel()
+  cmd:=exec.CommandContext(childCtx,os.Args[0],"-test.run=^TestHandoffExecChild$")
+  cmd.Env=append(os.Environ(),"AHEADSCALE_FD_EXEC_PROBE=1")
+  output,childError=cmd.CombinedOutput()
+ }}
+ channel,err:=ReceivePacketChannel(ctx,receiver,handoffGeneration);if err!=nil{t.Fatal(err)};defer channel.Close()
+ if childError!=nil{t.Fatalf("packet descriptor escaped into exec child: %v: %s",childError,output)}
+ if ctx.calls.Load()<2{t.Fatal("exec probe did not run")}
+}
+func TestHandoffExecChild(t *testing.T){
+ if os.Getenv("AHEADSCALE_FD_EXEC_PROBE")!="1"{return}
+ for fd:=3;fd<1024;fd++{
+  var stat unix.Stat_t
+  if unix.Fstat(fd,&stat)==nil && stat.Mode&unix.S_IFMT==unix.S_IFSOCK{t.Fatalf("inherited private packet socket FD %d",fd)}
+ }
 }
