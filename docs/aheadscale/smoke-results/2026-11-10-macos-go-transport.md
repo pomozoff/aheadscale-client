@@ -49,3 +49,5 @@ Go-адаптер ещё не подключён к рабочему daemon: п�
 ifconfig/route/DNS в native-режиме. Затем — подписанный комплект и настоящий
 peer HTTP/DNS, Cancel/restart/sleep/reboot. AHEAD-18 не завершена; текущий
 provider по-прежнему намеренно не показывает Connected без движка.
+
+Окончательный прогон после gofmt и добавления Summary: [42816083450](https://github.com/pomozoff/aheadscale-client/actions/runs/42816083450) — PASS на 20574af1a2d6bbc10f95b3594f226f84e58d1b8c. Изменение workflow Swift проверено отдельно: [42815654830](https://github.com/pomozoff/aheadscale-client/actions/runs/42815654830) — PASS.
