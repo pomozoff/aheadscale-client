@@ -491,9 +491,7 @@ func (c *ConnectClient) run(mobileDependency MobileDependency, runningChan chan 
 		if err != nil {
 			log.Warnf("watch NetworkManager disconnect: %v", err)
 		}
-		if native, ok := engine.wgInterface.(interface{ NativeDisconnected() <-chan struct{} }); ok {
-			systemDisconnect = native.NativeDisconnected()
-		}
+		systemDisconnect = selectDisconnectSignal(engine.wgInterface, systemDisconnect)
 		systemDisconnected := c.waitForEngine(engineCtx, systemDisconnect)
 
 		c.engineMutex.Lock()
@@ -842,4 +840,13 @@ func closeConnWithLog(conn *net.UDPConn) {
 	if time.Since(startClosing) > time.Second {
 		log.Warnf("closing the testing port %d took %s. Usually it is safe to ignore, but continuous warnings may indicate a problem.", conn.LocalAddr().(*net.UDPAddr).Port, time.Since(startClosing))
 	}
+}
+
+// selectDisconnectSignal keeps the platform's existing controller unless the
+// device supplies a real native-disconnect event channel.
+func selectDisconnectSignal(candidate any, fallback <-chan struct{}) <-chan struct{} {
+ if native, ok := candidate.(interface{ NativeDisconnected() <-chan struct{} }); ok {
+  return native.NativeDisconnected()
+ }
+ return fallback
 }

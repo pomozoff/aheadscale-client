@@ -34,6 +34,8 @@ jobs:
         run: |
           set -euo pipefail
           go test -race -count=1 -v ./client/internal/macosvpn 2>&1 | tee "$RUNNER_TEMP/go-transport.log"
+      - name: Сохранить прежний канал системного отключения
+        run: go test -tags macosvpnprototype -run '^TestDisconnectSignalPreservesSystemIntegration$' ./client/internal
       - name: Форматировать интеграцию движка
         run: |
           gofmt -w client/iface/iface.go client/iface/iface_new_darwin.go client/iface/iface_new_native_darwin.go client/iface/device/device_native_darwin.go client/internal/engine.go client/internal/connect.go client/internal/native_macos_*.go client/internal/wg_iface_lifecycle_standard.go client/internal/wg_iface_lifecycle_native_darwin.go client/internal/routemanager/systemops/native_vpn_other.go client/internal/routemanager/systemops/native_vpn_darwin.go client/internal/routemanager/systemops/systemops_darwin.go client/internal/stdnet/native_vpn_other.go client/internal/stdnet/native_vpn_darwin.go client/server/startup_standard.go client/server/startup_native_darwin.go
