@@ -79,6 +79,8 @@ jobs:
         if: failure()
         run: |
           mkdir -p crash-reports
+          test_bundle="$(swift build --package-path native/macos --show-bin-path)/AheadscaleNetworkExtensionPackageTests.xctest"
+          xcrun lldb --batch -o run -o 'thread backtrace all' -- "$(xcrun -f xctest)" -XCTest 'AheadscaleTunnelTests.PacketTunnelProviderTests/testStopWithoutSessionCompletes' "$test_bundle" > crash-reports/lldb.txt 2>&1 || true
           find "$HOME/Library/Logs/DiagnosticReports" -maxdepth 1 -type f \( -name '*xctest*' -o -name '*AheadscaleNetworkExtension*' \) -exec cp {} crash-reports/ \;
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: failure()
