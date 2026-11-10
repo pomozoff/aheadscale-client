@@ -10,6 +10,11 @@ func run() throws -> Never {
     try NativeEngineIdentity.verify()
     let socket="unix:///var/run/aheadscale-native-prototype.sock"
     let config="/var/root/Library/Application Support/AheadscaleNativePrototype/default.json"
+    var configInfo=stat()
+    guard lstat(config,&configInfo)==0,configInfo.st_mode & mode_t(S_IFMT)==mode_t(S_IFREG),
+          configInfo.st_uid==0,configInfo.st_mode & 0o077==0 else{
+        throw NSError(domain:"ru.aheadscale.client.bridge",code:4)
+    }
     var fds:[Int32]=[-1,-1]
     guard socketpair(AF_UNIX,SOCK_DGRAM,0,&fds)==0 else{throw NSError(domain:NSPOSIXErrorDomain,code:Int(errno))}
     for fd in fds{guard fcntl(fd,F_SETFD,FD_CLOEXEC)==0 else{Darwin.close(fds[0]);Darwin.close(fds[1]);throw NSError(domain:NSPOSIXErrorDomain,code:Int(errno))}}

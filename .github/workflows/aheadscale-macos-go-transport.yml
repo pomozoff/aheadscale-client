@@ -62,7 +62,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p native-engine-artifact
-          go build -tags macosvpnprototype -o native-engine-artifact/aheadscale-native ./client
+          bash packaging/aheadscale/macos-network-extension/build-native-engine.sh "$PWD/native-engine-artifact/aheadscale-native"
           go build -o "$RUNNER_TEMP/aheadscale-legacy" ./client
           git rev-parse HEAD > native-engine-artifact/source.txt
           shasum -a 256 native-engine-artifact/aheadscale-native > native-engine-artifact/SHA256SUMS

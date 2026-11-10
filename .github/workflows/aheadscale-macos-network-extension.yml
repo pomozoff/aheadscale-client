@@ -44,7 +44,7 @@ jobs:
           app="$RUNNER_TEMP/ne-prototype/Aheadscale Extension Setup.app"
           mkdir -p "$app/Contents/MacOS" "$app/Contents/Library/SystemExtensions" "$app/Contents/Library/LaunchServices"
           cp "$executable_dir/AheadscaleNativeEngineBridge" "$app/Contents/Library/LaunchServices/"
-          go build -tags macosvpnprototype -o "$app/Contents/Library/LaunchServices/aheadscale-native" ./client
+          bash packaging/aheadscale/macos-network-extension/build-native-engine.sh "$app/Contents/Library/LaunchServices/aheadscale-native"
           lipo "$app/Contents/Library/LaunchServices/aheadscale-native" -verify_arch arm64
           codesign --force --sign - "$app/Contents/Library/LaunchServices/AheadscaleNativeEngineBridge"
           codesign --force --sign - "$app/Contents/Library/LaunchServices/aheadscale-native"
