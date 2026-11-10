@@ -170,12 +170,13 @@ public final class PrototypeVPNController {
 
     private func observe(_ selected: NETunnelProviderManager) {
         if let observer { NotificationCenter.default.removeObserver(observer) }
+        let identity = ObjectIdentifier(selected)
         observer = NotificationCenter.default.addObserver(
             forName: .NEVPNStatusDidChange, object: selected.connection, queue: .main
-        ) { [weak self, weak selected] _ in
+        ) { [weak self] _ in
             Task { @MainActor in
-                guard let self, let selected, self.manager === selected else { return }
-                self.consume(selected.connection.status)
+                guard let self, let current = self.manager, ObjectIdentifier(current) == identity else { return }
+                self.consume(current.connection.status)
             }
         }
     }

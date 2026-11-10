@@ -80,8 +80,14 @@ final class SetupApp: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 }
 
-let app = NSApplication.shared
-let delegate = SetupApp()
-app.delegate = delegate
-app.setActivationPolicy(.regular)
-app.run()
+@main
+struct SetupEntryPoint {
+    @MainActor static func main() {
+        let app = NSApplication.shared
+        let delegate = SetupApp()
+        app.delegate = delegate
+        app.setActivationPolicy(.regular)
+        app.run()
+        withExtendedLifetime(delegate) {}
+    }
+}

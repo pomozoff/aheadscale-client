@@ -77,6 +77,8 @@ final class PrototypeVPNTests: XCTestCase {
         XCTAssertEqual(starts, 0)
         XCTAssertEqual(stops, 1)
         XCTAssertEqual(controller.state, .disconnected)
+        controller.consume(.connecting)
+        XCTAssertEqual(controller.state, .disconnected, "Late status must not undo Cancel")
     }
 
     func testPreferencesFailureNeverStartsOrReportsConnected() async {
