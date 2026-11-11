@@ -28,14 +28,16 @@ final class PacketFlowPump: @unchecked Sendable {
     private let flow: PacketFlowIO
     private let socket: PacketSocket
     private let mtu: Int
+    private let localIPv4: Data?
     private let onStop: (Error?) -> Void
     private let outbound = DispatchQueue(label: "ru.aheadscale.packetflow.outbound")
     private let inbound = DispatchQueue(label: "ru.aheadscale.packetflow.inbound")
 
-    init(flow: PacketFlowIO, socket: PacketSocket, mtu: Int, onStop: @escaping (Error?) -> Void) {
+    init(flow: PacketFlowIO, socket: PacketSocket, mtu: Int, localIPv4: Data? = nil, onStop: @escaping (Error?) -> Void) {
         self.flow = flow
         self.socket = socket
         self.mtu = mtu
+        self.localIPv4 = localIPv4
         self.onStop = onStop
     }
 
@@ -72,7 +74,16 @@ final class PacketFlowPump: @unchecked Sendable {
                         guard try Self.family(packet, mtu: self.mtu) == family.intValue else {
                             throw PacketFlowPumpError.invalidFamily
                         }
-                        try self.socket.writeFrame(packet, mtu: self.mtu, timeoutMilliseconds: 2000)
+                        if family.intValue == Int(AF_INET), let address = self.localIPv4,
+                           address.count == 4,
+                           packet.subdata(in: 12..<16) == address,
+                           packet.subdata(in: 16..<20) == address {
+                            // Outbound packets to this session's own address belong
+                            // to the local OS, never to a remote WireGuard peer.
+                            try self.deliver(packet, family: Int(AF_INET))
+                        } else {
+                            try self.socket.writeFrame(packet, mtu: self.mtu, timeoutMilliseconds: 2000)
+                        }
                     }
                     self.requestPackets()
                 } catch { self.finish(error) }
@@ -88,12 +99,18 @@ final class PacketFlowPump: @unchecked Sendable {
                 guard running else { return }
                 let packet = try socket.readFrame(mtu: mtu, timeoutMilliseconds: 2000)
                 let family = try Self.family(packet, mtu: mtu)
-                deliveryLock.lock()
-                let accepted = !running || flow.writePackets([packet], withProtocols: [NSNumber(value: family)])
-                deliveryLock.unlock()
-                if !accepted { throw PacketFlowPumpError.flowRefused }
+                try deliver(packet, family: family)
             }
         } catch { finish(error) }
+    }
+
+    private func deliver(_ packet: Data, family: Int) throws {
+        deliveryLock.lock()
+        defer { deliveryLock.unlock() }
+        guard running else { return }
+        guard flow.writePackets([packet], withProtocols: [NSNumber(value: family)]) else {
+            throw PacketFlowPumpError.flowRefused
+        }
     }
 
     private func finish(_ error: Error?) {
