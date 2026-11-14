@@ -13,6 +13,23 @@ final class PrototypeVPNTests: XCTestCase {
         return manager
     }
 
+    func testFreshControllerDisconnectLoadsOnlyExistingOwnedProfile() async {
+        let stopped = expectation(description: "existing profile stopped")
+        let owned = profile()
+        var mutations = 0
+        let controller = PrototypeVPNController(operations: .init(
+            load: { [self.profile(identifier: "com.example.vpn"), owned] },
+            save: { _ in mutations += 1 }, reload: { _ in mutations += 1 },
+            start: { _ in mutations += 1 },
+            stop: { selected in XCTAssertTrue(selected === owned); stopped.fulfill() },
+            remove: { _ in mutations += 1 }
+        ), nativeEngine: true)
+        controller.disconnect()
+        await fulfillment(of: [stopped], timeout: 2)
+        XCTAssertEqual(mutations, 0)
+        XCTAssertEqual(controller.state, .disconnected)
+    }
+
     func testSelectOnlyOwnedPrototypeAndRejectAmbiguousDuplicates() throws {
         let foreign = profile(identifier: "com.example.vpn")
         let unmarked = profile(marker: false)
