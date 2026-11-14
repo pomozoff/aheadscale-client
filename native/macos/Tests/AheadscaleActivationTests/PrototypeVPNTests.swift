@@ -13,6 +13,75 @@ final class PrototypeVPNTests: XCTestCase {
         return manager
     }
 
+    func testFreshControllerDisconnectLoadsOnlyExistingOwnedProfile() async {
+        let stopped = expectation(description: "existing profile stopped")
+        let owned = profile()
+        var mutations = 0
+        let controller = PrototypeVPNController(operations: .init(
+            load: { [self.profile(identifier: "com.example.vpn"), owned] },
+            save: { _ in mutations += 1 }, reload: { _ in mutations += 1 },
+            start: { _ in mutations += 1 },
+            stop: { selected in XCTAssertTrue(selected === owned); stopped.fulfill() },
+            remove: { _ in mutations += 1 }
+        ), nativeEngine: true)
+        controller.disconnect()
+        await fulfillment(of: [stopped], timeout: 2)
+        XCTAssertEqual(mutations, 0)
+        XCTAssertEqual(controller.state, .disconnected)
+    }
+
+    func testFreshProcessCancelInvalidatesSuspendedConnect() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false,
+            attributes: [.posixPermissions: 0o700])
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let path = directory.appendingPathComponent("generation")
+        let loaded = expectation(description: "connect waiting for preferences")
+        let released = expectation(description: "old load released")
+        let stopped = expectation(description: "other process stops own profile")
+        var release: CheckedContinuation<Void, Never>?
+        var starts = 0
+        let owned = profile()
+        let old = PrototypeVPNController(operations: .init(
+            load: {
+                await withCheckedContinuation { release = $0; loaded.fulfill() }
+                released.fulfill(); return [owned]
+            }, save: { _ in }, reload: { _ in }, start: { _ in starts += 1 },
+            stop: { _ in }, remove: { _ in }
+        ), nativeEngine: true, lease: try VPNControlLease(url: path))
+        let newer = PrototypeVPNController(operations: .init(
+            load: { [owned] }, save: { _ in }, reload: { _ in }, start: { _ in starts += 1 },
+            stop: { _ in stopped.fulfill() }, remove: { _ in }
+        ), nativeEngine: true, lease: try VPNControlLease(url: path))
+        old.connect(); await fulfillment(of: [loaded], timeout: 2)
+        newer.disconnect(); await fulfillment(of: [stopped], timeout: 2)
+        release?.resume(); await fulfillment(of: [released], timeout: 2)
+        await Task.yield()
+        XCTAssertFalse(old.requestIsCurrent)
+        old.cancelCurrentRequest()
+        XCTAssertTrue(newer.requestIsCurrent)
+        XCTAssertEqual(starts, 0)
+    }
+
+    func testStatusIsReadOnlyAndForeignProfileIsNeverStopped() async throws {
+        var mutations = 0
+        let foreign = profile(identifier: "com.example.vpn")
+        let loaded = expectation(description: "disconnect queried preferences")
+        loaded.expectedFulfillmentCount = 2
+        let controller = PrototypeVPNController(operations: .init(
+            load: { loaded.fulfill(); return [foreign] },
+            save: { _ in mutations += 1 }, reload: { _ in mutations += 1 },
+            start: { _ in mutations += 1 }, stop: { _ in mutations += 1 }, remove: { _ in mutations += 1 }
+        ), nativeEngine: true)
+        let status = try await controller.snapshot()
+        XCTAssertFalse(status.profileExists)
+        XCTAssertEqual(status.systemState, "disconnected")
+        XCTAssertEqual(mutations, 0)
+        controller.disconnect()
+        await fulfillment(of: [loaded], timeout: 2)
+        XCTAssertEqual(mutations, 0)
+    }
+
     func testSelectOnlyOwnedPrototypeAndRejectAmbiguousDuplicates() throws {
         let foreign = profile(identifier: "com.example.vpn")
         let unmarked = profile(marker: false)

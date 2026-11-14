@@ -64,14 +64,15 @@ public final class PrototypeVPNController {
     public var onChange: ((PrototypeVPNState) -> Void)?
     private let operations: Operations
     private let nativeEngine: Bool
+    private let lease: VPNControlLease?
     private var manager: NETunnelProviderManager?
     private var observer: NSObjectProtocol?
     private var operation: UUID?
     private var generation = UUID()
     private var wantsConnection = false
 
-    public convenience init(nativeEngine: Bool = false) { self.init(operations: .system, nativeEngine: nativeEngine) }
-    init(operations: Operations, nativeEngine: Bool = false) { self.operations = operations; self.nativeEngine = nativeEngine }
+    public convenience init(nativeEngine: Bool = false, lease: VPNControlLease? = nil) { self.init(operations: .system, nativeEngine: nativeEngine, lease: lease) }
+    init(operations: Operations, nativeEngine: Bool = false, lease: VPNControlLease? = nil) { self.operations = operations; self.nativeEngine = nativeEngine; self.lease = lease }
 
     deinit {
         if let observer { NotificationCenter.default.removeObserver(observer) }
@@ -108,8 +109,8 @@ public final class PrototypeVPNController {
 
     public func connect() {
         guard operation == nil, state != .starting, state != .stopping, state != .connected else { return }
-        let token = UUID()
-        generation = token
+        let token: UUID
+        do { token = try beginRequest() } catch { state = .failed("Не удалось согласовать запрос VPN."); return }
         operation = token
         wantsConnection = true
         state = .preparing
@@ -117,7 +118,7 @@ public final class PrototypeVPNController {
             defer { if self.operation == token { self.operation = nil } }
             do {
                 let profiles = try await operations.load()
-                guard generation == token else { return }
+                guard current(token) else { return }
                 let selected = try Self.select(profiles) ?? Self.makeProfile(nativeEngine: nativeEngine)
                 if let configuration = selected.protocolConfiguration as? NETunnelProviderProtocol {
                     configuration.providerConfiguration = nativeEngine
@@ -125,56 +126,119 @@ public final class PrototypeVPNController {
                         : ["aheadscale.prototype": "session-v1", "aheadscale.bridge-proof": true]
                 }
                 manager = selected
+                if nativeEngine && [.connected, .connecting, .reasserting].contains(selected.connection.status) {
+                    observe(selected); state = .starting; consume(selected.connection.status); return
+                }
                 selected.isEnabled = true
                 selected.isOnDemandEnabled = false
                 try await operations.save(selected)
-                guard generation == token else { return }
+                guard current(token) else { return }
                 try await operations.reload(selected)
-                guard generation == token else { return }
+                guard current(token) else { return }
                 observe(selected)
                 state = .starting
-                try operations.start(selected)
+                _ = try mutate(token) { try operations.start(selected) }
             } catch {
-                guard generation == token else { return }
+                guard current(token) else { return }
                 wantsConnection = false
                 state = .failed(error.localizedDescription)
             }
         }
     }
 
+    public var requestIsCurrent: Bool { current(generation) }
+
+    private func beginRequest() throws -> UUID {
+        let token = UUID()
+        try lease?.claim(token)
+        generation = token
+        return token
+    }
+    private func current(_ token: UUID) -> Bool {
+        guard generation == token else { return false }
+        guard let lease else { return true }
+        return (try? lease.isCurrent(token)) == true
+    }
+    private func mutate(_ token: UUID, _ body: () throws -> Void) throws -> Bool {
+        guard generation == token else { return false }
+        if let lease { return try lease.withCurrent(token, body) }
+        try body(); return true
+    }
+
+    public func snapshot() async throws -> VPNControlSnapshot {
+        let profiles = try await operations.load()
+        let selected = try Self.select(profiles)
+        let state: String
+        switch selected?.connection.status {
+        case .connected?: state = "connected"
+        case .connecting?, .reasserting?: state = "connecting"
+        case .disconnecting?: state = "disconnecting"
+        default: state = "disconnected"
+        }
+        return VPNControlSnapshot(systemState: state, profileExists: selected != nil)
+    }
+
     public func disconnect() {
         wantsConnection = false
-        generation = UUID()
-        guard let manager else { state = .disconnected; return }
-        operations.stop(manager)
-        switch manager.connection.status {
-        case .invalid, .disconnected: state = .disconnected
-        default: state = .stopping
+        let token: UUID
+        do { token = try beginRequest() } catch { state = .failed("Не удалось согласовать отключение VPN."); return }
+        if let manager { stop(manager, token: token); return }
+        state = .stopping
+        Task { @MainActor in
+            do {
+                let profiles = try await operations.load()
+                guard current(token) else { return }
+                guard let selected = try Self.select(profiles) else { state = .disconnected; return }
+                manager = selected
+                observe(selected)
+                stop(selected, token: token)
+            } catch {
+                guard current(token) else { return }
+                state = .failed("Не удалось отключить системный VPN.")
+            }
         }
+    }
+    private func stop(_ selected: NETunnelProviderManager, token: UUID) {
+        do {
+            guard try mutate(token, { operations.stop(selected) }) else { return }
+            switch selected.connection.status {
+            case .invalid, .disconnected: state = .disconnected
+            default: state = .stopping
+            }
+        } catch { state = .failed("Не удалось отключить системный VPN.") }
+    }
+
+    // A timed-out helper may stop only its own request, never claim a newer
+    // generation over another process's Disconnect/Connect.
+    public func cancelCurrentRequest() {
+        let token = generation
+        if let manager { _ = try? mutate(token) { operations.stop(manager) } }
+        wantsConnection = false
+        generation = UUID()
     }
 
     public func removeProfile() {
         guard operation == nil else { return }
-        let token = UUID()
-        generation = token
+        let token: UUID
+        do { token = try beginRequest() } catch { state = .failed("Не удалось согласовать запрос VPN."); return }
         operation = token
         Task { @MainActor in
             defer { if self.operation == token { self.operation = nil } }
             do {
                 let profiles = try await operations.load()
-                guard generation == token else { return }
+                guard current(token) else { return }
                 guard let selected = try Self.select(profiles) else { state = .disconnected; return }
                 guard selected.connection.status == .disconnected || selected.connection.status == .invalid else {
                     throw NSError(domain: "ru.aheadscale.prototype", code: 2,
                                   userInfo: [NSLocalizedDescriptionKey: "Сначала отключите тестовый VPN."])
                 }
                 try await operations.remove(selected)
-                guard generation == token else { return }
+                guard current(token) else { return }
                 if let observer { NotificationCenter.default.removeObserver(observer); self.observer = nil }
                 manager = nil
                 state = .disconnected
             } catch {
-                guard generation == token else { return }
+                guard current(token) else { return }
                 wantsConnection = false
                 state = .failed(error.localizedDescription)
             }
@@ -195,10 +259,11 @@ public final class PrototypeVPNController {
     }
 
     func consume(_ status: NEVPNStatus) {
+        guard requestIsCurrent else { return }
         guard wantsConnection else {
             // A queued status notification must never undo an explicit OFF/Cancel.
             if status == .connecting || status == .connected || status == .reasserting {
-                if let manager { operations.stop(manager) }
+                if let manager { _ = try? mutate(generation) { operations.stop(manager) } }
             }
             if state == .stopping && (status == .invalid || status == .disconnected) {
                 state = .disconnected
@@ -213,7 +278,7 @@ public final class PrototypeVPNController {
         case .connected, .reasserting:
             // Until the authenticated engine is attached, Connected is a failure.
             wantsConnection = false
-            if let manager { operations.stop(manager) }
+            if let manager { _ = try? mutate(generation) { operations.stop(manager) } }
             state = .failed("Тестовый VPN остановлен: VPN-движок ещё не подключён.")
         case .connecting:
             if state != .stopping { state = .starting }
@@ -223,7 +288,7 @@ public final class PrototypeVPNController {
             state = .failed("Тестовый VPN не запущен: канал к VPN-службе ещё не подключён.")
         @unknown default:
             wantsConnection = false
-            if let manager { operations.stop(manager) }
+            if let manager { _ = try? mutate(generation) { operations.stop(manager) } }
             state = .failed("Неизвестный статус системного VPN.")
         }
     }

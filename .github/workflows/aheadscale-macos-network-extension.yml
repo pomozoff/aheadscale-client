@@ -49,6 +49,9 @@ jobs:
           codesign --force --sign - "$app/Contents/Library/LaunchServices/AheadscaleNativeEngineBridge"
           codesign --force --sign - "$app/Contents/Library/LaunchServices/aheadscale-native"
           cp "$executable_dir/AheadscaleExtensionSetup" "$app/Contents/MacOS/"
+          cp "$executable_dir/AheadscaleVPNControl" "$app/Contents/MacOS/"
+          lipo "$app/Contents/MacOS/AheadscaleVPNControl" -verify_arch arm64
+          codesign --force --sign - "$app/Contents/MacOS/AheadscaleVPNControl"
           cp packaging/aheadscale/macos-network-extension/app-Info.plist "$app/Contents/Info.plist"
           ditto "$bundle" "$app/Contents/Library/SystemExtensions/ru.aheadscale.client.tunnel.systemextension"
           plutil -lint "$app/Contents/Info.plist"

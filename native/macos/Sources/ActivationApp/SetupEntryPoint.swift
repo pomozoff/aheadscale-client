@@ -5,7 +5,13 @@ import AheadscaleActivation
 @MainActor
 final class SetupApp: NSObject, NSApplicationDelegate {
     private let controller = ActivationController()
-    private let vpn = PrototypeVPNController(nativeEngine: true)
+    private let vpn: PrototypeVPNController?
+    override init() {
+        if let lease = try? VPNControlLease.userLease() {
+            vpn = PrototypeVPNController(nativeEngine: true, lease: lease)
+        } else { vpn = nil }
+        super.init()
+    }
     private let vpnStatus = NSTextField(wrappingLabelWithString: "Системный VPN выключен.")
     private let status = NSTextField(wrappingLabelWithString:
         "Проверка системного VPN с рабочим движком Aheadscale.")
@@ -40,7 +46,7 @@ final class SetupApp: NSObject, NSApplicationDelegate {
             stack.topAnchor.constraint(equalTo: content.topAnchor, constant: 24)
         ])
         controller.onChange = { [weak self] state in self?.show(state) }
-        vpn.onChange = { [weak self] state in
+        vpn?.onChange = { [weak self] state in
             switch state {
             case .disconnected: self?.vpnStatus.stringValue = "Тестовый VPN выключен."
             case .preparing: self?.vpnStatus.stringValue = "Подготовка тестового профиля; macOS может запросить разрешение."
@@ -55,9 +61,12 @@ final class SetupApp: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    @objc private func connectVPN() { vpn.connect() }
-    @objc private func disconnectVPN() { vpn.disconnect() }
-    @objc private func removeVPN() { vpn.removeProfile() }
+    @objc private func connectVPN() {
+        guard let vpn else { vpnStatus.stringValue = "Не удалось согласовать системное управление VPN."; return }
+        vpn.connect()
+    }
+    @objc private func disconnectVPN() { vpn?.disconnect() }
+    @objc private func removeVPN() { vpn?.removeProfile() }
 
     @objc private func activate() { submit(activate: true) }
     @objc private func deactivate() { submit(activate: false) }
