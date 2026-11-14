@@ -17,9 +17,9 @@ struct VPNControlMain {
                 guard controller.requestIsCurrent else { failure("superseded", code: 3) }
                 switch controller.state {
                 case .connected where action == .connect:
-                    try output(try await controller.snapshot()); return
+                    try await complete(controller, expected: "connected"); return
                 case .disconnected where action != .connect:
-                    try output(try await controller.snapshot()); return
+                    try await complete(controller, expected: "disconnected"); return
                 case .failed:
                     failure("control_failed", code: 1)
                 default: break
@@ -29,6 +29,12 @@ struct VPNControlMain {
             controller.cancelCurrentRequest()
             failure("timeout", code: 1)
         } catch { failure("control_unavailable", code: 1) }
+    }
+    @MainActor private static func complete(_ controller: PrototypeVPNController, expected: String) async throws {
+        let snapshot = try await controller.snapshot()
+        guard controller.requestIsCurrent else { failure("superseded", code: 3) }
+        guard snapshot.systemState == expected else { failure("state_changed", code: 1) }
+        try output(snapshot)
     }
     private static func output(_ snapshot: VPNControlSnapshot) throws {
         let data = try JSONEncoder().encode(snapshot)
