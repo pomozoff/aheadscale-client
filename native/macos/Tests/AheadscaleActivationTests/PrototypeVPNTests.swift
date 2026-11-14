@@ -67,6 +67,7 @@ final class PrototypeVPNTests: XCTestCase {
         var mutations = 0
         let foreign = profile(identifier: "com.example.vpn")
         let loaded = expectation(description: "disconnect queried preferences")
+        loaded.expectedFulfillmentCount = 2
         let controller = PrototypeVPNController(operations: .init(
             load: { loaded.fulfill(); return [foreign] },
             save: { _ in mutations += 1 }, reload: { _ in mutations += 1 },
@@ -76,10 +77,8 @@ final class PrototypeVPNTests: XCTestCase {
         XCTAssertFalse(status.profileExists)
         XCTAssertEqual(status.systemState, "disconnected")
         XCTAssertEqual(mutations, 0)
-        // Replace the expectation: each independent query loads preferences once.
-        loaded.assertForOverFulfill = false
         controller.disconnect()
-        for _ in 0..<5 { await Task.yield() }
+        await fulfillment(of: [loaded], timeout: 2)
         XCTAssertEqual(mutations, 0)
     }
 
