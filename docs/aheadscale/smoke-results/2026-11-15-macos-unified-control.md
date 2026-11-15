@@ -43,3 +43,23 @@ Gate остановлен: GUI/CLI не переключались, root-мос�
 RED [43690551683](https://github.com/pomozoff/aheadscale-client/actions/runs/43690551683), sourceb29122f: старый parser отвергал явный формат и принимал bare action. GREEN [43690838634](https://github.com/pomozoff/aheadscale-client/actions/runs/43690838634), sourcef7d51ffaed2820e1dfea7c7105b726cec1855e89: 66 тестов/1 прежний skip/0 ошибок; реальный release principal executable на неверную команду вернул ожидаемый bounded JSON и exit1 в пределах5s, без запуска окна; полный ARM64 bundle собран. Проверены SHA256/source/app6/provider4 и отсутствие AheadscaleVPNControl.
 
 Комплект `/tmp/aheadscale-macos-principal-control-signing/principal-control-signing-input.tar.gz` подготовлен для локальной подписи и нового native gate. Пока подтверждён только Actions/headless dispatch; запуск provisioned principal `status` и операции с существующим профилем на ВМ ещё ожидают подписи. Не объявлять предыдущий AMFI gate исправленным только по этому CI.
+
+
+## Principal-app native gate: provisioning PASS, command completion FAIL
+
+App6 Developer ID/stapler/Gatekeeper PASS; запуск `--vpn-control status` из главного executable вернул exit0, JSON версии1, profileExists=true и исходное disconnected. Прежний AMFI отказ этому executable не воспроизвёлся.
+
+`--vpn-control connect` реально поднял системный VPN и engine (Management/Signal Connected, 100.88.213.250), отдельный новый status вернул connected. Но исходный процесс Connect не завершился даже после125s. Системный sample PID45100 показал NetworkExtension→NSNotificationCenter→NSOperation waitUntilFinished на main-dispatch worker, когда observer направлен в NSOperationQueue.main после dispatchMain. См. сокращённый исходный `2026-11-15-macos-headless-deadlock-sample.txt`.
+
+Этот gate не принят. Тайм-аут не увеличивается и cached state не подменяется Connected. Минимальное исправление: observer queue=nil, синхронный callback только enqueue Task@MainActor; изменение состояния остаётся на MainActor, блокирующей пересылки в NSOperationQueue.main нет. Отдельная XCTest child-process регрессия воспроизводит dispatchMain/NotificationCenter без реальной VPN-конфигурации, завершая известный deadlock alarm через3s. После проверки нужны Actions и повторный signed native gate.
+
+Зависший собственный Connect-процесс остановлен, тестовый профиль выключен через scutil, временный root-мост остановлен, прежняя служба восстановлена. Основной GUI/CLI не переключался.
+
+
+## Исправление headless notification deadlock
+
+RED [43692608304](https://github.com/pomozoff/aheadscale-client/actions/runs/43692608304), source3eb0200: child XCTest воспроизвёл блокировку и завершён SIGALRM14 вместо маркера доставки. Исправление sourcef352cda583ea15395935071375f3d8299516b895 меняет только очередь observer на nil: callback не блокирует posting thread, а постановка Task@MainActor сохраняет изоляцию состояния.
+
+GREEN [43692950890](https://github.com/pomozoff/aheadscale-client/actions/runs/43692950890): 68 тестов/1 прежний skip/0 ошибок; headless child возвращает exit0 и маркер доставки. Настоящий principal executable также прошёл проверку boundedJSON/exit1 на неверной команде. Полный app7/provider4 ARM64 bundle собран; source/SHA256/build versions проверены. Код и evidence интегрированы в локальный main.
+
+Архив для локальной подписи: `/tmp/aheadscale-macos-principal-control7-signing/principal-control7-signing-input.tar.gz`. Подписи/профили/entitlements/тайм-ауты не расширялись. Повторный signed native gate command completion пока ожидает подписанного app7; CI не заменяет этот допуск. Основной Go GUI/CLI остаётся прежним.
