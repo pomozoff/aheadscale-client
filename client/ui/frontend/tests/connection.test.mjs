@@ -33,7 +33,7 @@ async function fixture(overrides = {}, windows = {}) {
         }, { context });
     });
     await module.evaluate();
-    return { waits: module.namespace.waitsForSystemConnection, start: module.namespace.startConnection, login, dialogs, handlers,
+    return { canCancel: module.namespace.canCancelSystemConnection, waits: module.namespace.waitsForSystemConnection, start: module.namespace.startConnection, login, dialogs, handlers,
         cancel: () => { for (const handler of handlers) handler(); },
         calls: () => ({ up, wait }), closed: () => closed };
 }
@@ -123,4 +123,13 @@ test("GUI keeps Connecting until the native operation completes", async () => {
     assert.equal(f.waits("logging-in"), true);
     assert.equal(f.waits(null), false);
     assert.equal(f.waits("disconnect"), false);
+});
+
+
+test("native macOS Cancel is available immediately; ordinary builds retain the force guard", async () => {
+    const f = await fixture();
+    assert.equal(f.canCancel("macos", false), true, "Cancel must work before seven seconds");
+    assert.equal(f.canCancel(undefined, false), false);
+    assert.equal(f.canCancel(undefined, true), true);
+    assert.equal(f.canCancel("other", false), false);
 });

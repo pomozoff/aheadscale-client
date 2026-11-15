@@ -1,0 +1,60 @@
+name: Aheadscale macOS native GUI control
+on:
+  push:
+    branches: ["codex/macos-developer-id"]
+    paths:
+      - "client/ui/frontend/src/lib/connection.ts"
+      - "client/ui/frontend/src/modules/main/MainConnectionStatusSwitch.tsx"
+      - "client/ui/frontend/tests/connection.test.mjs"
+      - ".github/workflows/aheadscale-macos-gui-control.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: aheadscale-macos-native-gui-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  gui:
+    runs-on: macos-26
+    timeout-minutes: 20
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      TMPDIR: /tmp
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24.19.0'
+      - name: Установить существующие frontend-зависимости
+        run: |
+          npm install --global pnpm@11.4.0
+          pnpm --dir client/ui/frontend install --frozen-lockfile
+      - name: Проверить реальные Login и Cancel функции
+        run: node --experimental-vm-modules --test client/ui/frontend/tests/connection.test.mjs
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.26.7'
+          cache: true
+      - name: Собрать только изменённый GUI
+        run: |
+          set -euo pipefail
+          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.3
+          (cd client/ui && wails3 generate bindings -clean=true -ts)
+          (cd client/ui/frontend && pnpm exec eslint src/lib/connection.ts src/modules/main/MainConnectionStatusSwitch.tsx)
+          origin=https://aheadscale.ru:443
+          VITE_AHEADSCALE_MANAGEMENT_URL=$origin VITE_AHEADSCALE_NATIVE_VPN=macos pnpm --dir client/ui/frontend build
+          mkdir -p gui-artifact
+          flags="-s -w -X github.com/netbirdio/netbird/version.version=0.80.0-aheadscale.native-control.2 -X github.com/netbirdio/netbird/client/internal/profilemanager.DefaultManagementURL=$origin -X github.com/netbirdio/netbird/client/internal/profilemanager.DefaultAdminURL=$origin -X github.com/netbirdio/netbird/client/internal/profilemanager.LockedServerOrigin=$origin"
+          go build -trimpath -tags 'production,macosvpnprototype' -ldflags "$flags" -o gui-artifact/aheadscale-native-ui ./client/ui
+          git rev-parse HEAD > gui-artifact/source.txt
+          (cd gui-artifact && shasum -a 256 aheadscale-native-ui source.txt > SHA256SUMS)
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: aheadscale-macos-native-gui-UNSIGNED
+          path: gui-artifact/
+          retention-days: 3
+          if-no-files-found: error
+      - name: Сводка
+        if: always()
+        run: |
+          printf 'Native GUI control: %s. Source: %s. CLI/principal/provider не пересобираются. Native-проверка после подписи обязательна.\n' '${{ job.status }}' "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
