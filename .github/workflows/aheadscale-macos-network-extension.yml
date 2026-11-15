@@ -98,7 +98,7 @@ jobs:
           go build -trimpath -tags macosvpnprototype -ldflags "$flags" -o ne-artifact/aheadscale-native-cli ./client
           (cd client/ui && wails3 generate bindings -clean=true -ts)
           pnpm --dir client/ui/frontend install --frozen-lockfile
-          VITE_AHEADSCALE_MANAGEMENT_URL=$origin pnpm --dir client/ui/frontend build
+          VITE_AHEADSCALE_MANAGEMENT_URL=$origin VITE_AHEADSCALE_NATIVE_VPN=macos pnpm --dir client/ui/frontend build
           go build -trimpath -tags 'production,macosvpnprototype' -ldflags "$flags" -o ne-artifact/aheadscale-native-ui ./client/ui
           (cd ne-artifact && shasum -a 256 aheadscale-native-cli aheadscale-native-ui > CONTROL_SHA256SUMS)
       - name: Подготовить отдельный bridge probe без запуска сервиса
