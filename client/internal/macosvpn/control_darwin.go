@@ -31,7 +31,7 @@ func verifyPrincipal(ctx context.Context) error {
   if !ok || stat.Uid!=0 {return errors.New("system VPN application is not root-owned")}
  }
  check,cancel:=context.WithTimeout(ctx,5*time.Second);defer cancel()
- cmd:=exec.CommandContext(check,"/usr/bin/codesign","--verify","--strict","-R= "+principalRequirement,PrincipalPath)
+ cmd:=exec.CommandContext(check,"/usr/bin/codesign","--verify","--strict","-R="+principalRequirement,PrincipalPath)
  cmd.WaitDelay=time.Second
  if err:=cmd.Run();err!=nil{return errors.New("system VPN application signature rejected")}
  return nil
