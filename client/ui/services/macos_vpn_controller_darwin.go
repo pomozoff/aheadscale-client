@@ -11,14 +11,14 @@ import (
  "github.com/netbirdio/netbird/client/proto"
 )
 
-type macosVPNController struct { conn DaemonConn }
+type macosVPNController struct { conn DaemonConn; control func(context.Context,string)(macosvpn.ControlSnapshot,error) }
 func newPlatformVPNController(conn DaemonConn) nativeVPNController {
- return &macosVPNController{conn:conn}
+ return &macosVPNController{conn:conn,control:macosvpn.RunControl}
 }
 func (c *macosVPNController) SetConnected(ctx context.Context,on bool) error {
  action:="disconnect"
  if on {action="connect"}
- if _,err:=macosvpn.RunControl(ctx,action);err!=nil{return err}
+ if _,err:=c.control(ctx,action);err!=nil{return err}
  if !on{return nil}
  // System Connected alone cannot prove the Go engine has completed startup.
  ready,cancel:=context.WithTimeout(ctx,10*time.Second);defer cancel()
