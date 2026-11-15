@@ -27,9 +27,11 @@ jobs:
       - name: Форматировать изменённый Go-код для проверки
         run: |
           mkdir -p ne-artifact
-          git diff --name-only HEAD~5 HEAD -- '*.go' | while IFS= read -r path; do
-            test ! -f "$path" || gofmt -w "$path"
-          done
+          gofmt -w client/internal/macosvpn/control*.go client/internal/daemonaddr/native_macos_*.go \
+            client/ui/services/macos_vpn_*.go client/ui/services/native_vpn_status_other.go \
+            client/ui/services/windows_vpn_controller_other.go client/ui/services/daemon_feed.go client/ui/grpc.go \
+            client/cmd/native_*macos*.go client/cmd/native_status_other.go client/cmd/native_vpn_other.go \
+            client/cmd/root.go client/cmd/status.go
           git diff -- '*.go' > ne-artifact/gofmt.patch
       - name: Проверить Go-контроллер системного профиля
         run: go test -race -tags macosvpnprototype ./client/internal/macosvpn
