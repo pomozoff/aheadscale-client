@@ -248,8 +248,11 @@ public final class PrototypeVPNController {
     private func observe(_ selected: NETunnelProviderManager) {
         if let observer { NotificationCenter.default.removeObserver(observer) }
         let identity = ObjectIdentifier(selected)
+        // NSOperationQueue.main can synchronously wait on the same dispatch
+        // queue in a headless dispatchMain process. Receive on the posting thread;
+        // the callback only enqueues actor-isolated work and must not block it.
         observer = NotificationCenter.default.addObserver(
-            forName: .NEVPNStatusDidChange, object: selected.connection, queue: .main
+            forName: .NEVPNStatusDidChange, object: selected.connection, queue: nil
         ) { [weak self] _ in
             Task { @MainActor in
                 guard let self, let current = self.manager, ObjectIdentifier(current) == identity else { return }

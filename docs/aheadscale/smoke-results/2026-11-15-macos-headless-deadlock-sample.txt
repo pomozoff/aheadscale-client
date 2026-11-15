@@ -1,0 +1,50 @@
+Analysis of sampling AheadscaleExtensionSetup (pid 45100) every 1 millisecond
+Process:         AheadscaleExtensionSetup [45100]
+Path:            /Applications/Aheadscale Extension Setup.app/Contents/MacOS/AheadscaleExtensionSetup
+Load Address:    0x102b40000
+Identifier:      ru.aheadscale.client
+Version:         0.1.0 (6)
+Code Type:       ARM64
+Platform:        macOS
+Parent Process:  zsh [45090]
+Target Type:     live task
+
+Date/Time:       2026-11-15 10:58:48.583 +0300
+Launch Time:     2026-11-15 10:54:03.725 +0300
+OS Version:      macOS 27.0.1 (26A434)
+Report Version:  7
+Analysis Tool:   /usr/bin/sample
+
+Physical footprint:         3361K
+Physical footprint (peak):  3393K
+Idle exit:                  untracked
+----
+
+Call graph:
+    752 Thread_1283701: Main Thread   DispatchQueue_<multiple>
+    + 752 start_wqthread  (in libsystem_pthread.dylib) + 8  [0x19fc44ce0]
+    +   752 _pthread_wqthread  (in libsystem_pthread.dylib) + 368  [0x19fc45fe8]
+    +     752 __workq_kernreturn  (in libsystem_kernel.dylib) + 8  [0x19fc069ec]
+    752 Thread_1283703   DispatchQueue_1: com.apple.main-thread  (serial)
+    + 752 start_wqthread  (in libsystem_pthread.dylib) + 8  [0x19fc44ce0]
+    +   752 _pthread_wqthread  (in libsystem_pthread.dylib) + 232  [0x19fc45f60]
+    +     752 _dispatch_worker_thread2  (in libdispatch.dylib) + 184  [0x19fa9b248]
+    +       752 _dispatch_root_queue_drain  (in libdispatch.dylib) + 360  [0x19fa9aaac]
+    +         752 _dispatch_lane_invoke  (in libdispatch.dylib) + 448  [0x19fa91af4]
+    +           752 _dispatch_lane_serial_drain  (in libdispatch.dylib) + 744  [0x19fa90fc0]
+    +             752 _dispatch_client_callout  (in libdispatch.dylib) + 16  [0x19faa25a0]
+    +               752 _dispatch_call_block_and_release  (in libdispatch.dylib) + 32  [0x19fa88a34]
+    +                 752 __ne_session_get_info_with_parameters_block_invoke.238  (in libsystem_networkextension.dylib) + 40  [0x1a637465c]
+    +                   752 __71-[NEVPNConnection updateSessionInfoForce:notify:withCompletionHandler:]_block_invoke  (in NetworkExtension) + 1216  [0x1b5a9e670]
+    +                     752 -[NEVPNConnection notifyStatusChanged]  (in NetworkExtension) + 60  [0x1b5a9e020]
+    +                       752 -[NSNotificationCenter postNotificationName:object:userInfo:]  (in Foundation) + 88  [0x1a13bc38c]
+    +                         752 _CFXNotificationPost  (in CoreFoundation) + 748  [0x19fccb40c]
+    +                           752 -[NSOperation waitUntilFinished]  (in Foundation) + 488  [0x1a13ff288]
+    +                             752 _pthread_cond_wait  (in libsystem_pthread.dylib) + 980  [0x19fc4a1d0]
+    +                               752 __psynch_cvwait  (in libsystem_kernel.dylib) + 8  [0x19fc0850c]
+    752 Thread_1283702
+      752 _dispatch_sig_thread  (in libdispatch.dylib) + 52  [0x19fa9c1b8]
+        752 _dispatch_sigsuspend  (in libdispatch.dylib) + 48  [0x19fa9c1e8]
+          752 __sigsuspend_nocancel  (in libsystem_kernel.dylib) + 8  [0x19fc0c5b0]
+
+Total number in stack (recursive counted multiple, when >=5):
