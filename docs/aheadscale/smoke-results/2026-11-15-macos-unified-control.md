@@ -63,3 +63,14 @@ RED [43692608304](https://github.com/pomozoff/aheadscale-client/actions/runs/436
 GREEN [43692950890](https://github.com/pomozoff/aheadscale-client/actions/runs/43692950890): 68 тестов/1 прежний skip/0 ошибок; headless child возвращает exit0 и маркер доставки. Настоящий principal executable также прошёл проверку boundedJSON/exit1 на неверной команде. Полный app7/provider4 ARM64 bundle собран; source/SHA256/build versions проверены. Код и evidence интегрированы в локальный main.
 
 Архив для локальной подписи: `/tmp/aheadscale-macos-principal-control7-signing/principal-control7-signing-input.tar.gz`. Подписи/профили/entitlements/тайм-ауты не расширялись. Повторный signed native gate command completion пока ожидает подписанного app7; CI не заменяет этот допуск. Основной Go GUI/CLI остаётся прежним.
+
+
+## Подписанный app7: управление PASS, peer-трафик проверен по режимам
+
+App7 Developer ID/stapler/Gatekeeper принят в macOS27.0.1 ARM64. Principal `status` exit0/profileExists=true; `connect` теперь завершается exit0/connected одновременно с NE profile и native engine Connected. Повторный Connect успешен. Новый процесс Disconnect завершился exit0/disconnected и удалил собственный VPN-IP. В опыте Cancel предварительный status был connecting; cancel завершился exit0/disconnected, старая команда Connect — exit3/superseded; повторный status подтвердил OFF. Новый Connect успешен. Профиль сохранил UUID9F0EE03B-157E-4D6B-8977-5829161FD300, повторного входа не было. Команды выполнялись без Accessibility/System Events.
+
+HTTPServer на временном порту: loopback,100.88.213.250 и adnakoslmachine.aheadscale.internal вернули HTTP200 и точное тело. Сервис закрыт после проверки.
+
+Обычный P2P peer-путь к Ubuntu100.88.19.208 оказался непостоянным: после свежего старта отдельные ICMP прошли, затем ping/TCP перестали отвечать при peer Connected/P2P. Синхронный захват на Ubuntu не увидел этих ICMP. В диагностическом native-fixture (отдельный plist, не рабочая конфигурация) установлен штатный NB_FORCE_RELAY=true. Relayed подтверждён статусом; ICMP прошёл4/5 после начального установления, затем HTTP точными постоянными телами прошёл в обе стороны по IPv4 и приватным именам — четыре запроса. Временные HTTP-серверы привязаны только к VPN-адресам и автоматически остановлены45s; их завершение подтверждено. Force-relay job остановлен, legacy-служба восстановлена, постоянного force-relay нет.
+
+Контроль на прежнем .25 в той же сети: P2P srflx/prflx, оба endpoint192.168.1.10 с разными портами; ICMP1/5, затем0/5. Отказ не изолирован как новый native-регресс. Нужен опыт вне общего Shared NAT MacBook. Direct-приёмка не закрыта; этот результат не подтверждает весь релиз, основной Go GUI/CLI ещё не переключён. Отдельно отмечено: Ubuntu NTP включён, но NTPSynchronized=no; её часы отстают от macOS примерно на6мин, настройки времени не менялись.
