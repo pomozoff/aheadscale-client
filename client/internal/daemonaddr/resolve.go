@@ -22,6 +22,7 @@ func setScanDir(dir string) {
 // mismatch between the netbird@.service template (which places the socket under
 // /var/run/netbird/<instance>.sock) and the CLI default (/var/run/netbird.sock).
 func ResolveUnixDaemonAddr(addr string) string {
+	if NativeMacOS && addr == NativeMacOSAddress("unix:///var/run/aheadscale.sock") { return addr }
 	if !strings.HasPrefix(addr, "unix://") {
 		return addr
 	}

@@ -26,9 +26,9 @@ func (c *macosVPNController) SetConnected(ctx context.Context,on bool) error {
  for {
   cli,err:=c.conn.Client()
   if err==nil {
-   response,e:=cli.Status(ready,&proto.StatusRequest{})
-   if e==nil && response.GetStatus()==StatusConnected && response.GetFullStatus().GetManagementState().GetConnected() && response.GetFullStatus().GetSignalState().GetConnected() && response.GetFullStatus().GetLocalPeerState().GetIP()!="" {return nil}
+   response,e:=cli.Status(ready,&proto.StatusRequest{GetFullPeerStatus:true})
+   if e==nil && platformVPNStatus(ready,statusFromProto(response)).Status==StatusConnected {return nil}
   }
-  select {case <-ready.Done():return errors.New("системный VPN включён, но движок Aheadscale ещё не готов");case <-ticker.C:}
+  select {case <-ready.Done():if ctx.Err()!=nil{return ctx.Err()};return errors.New("системный VPN включён, но движок Aheadscale ещё не готов");case <-ticker.C:}
  }
 }

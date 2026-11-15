@@ -20,6 +20,7 @@ func (p controlProcess) run(ctx context.Context, action string) (ControlSnapshot
  if err:=p.verify(ctx);err!=nil{return empty,err}
  if err:=ctx.Err();err!=nil{return empty,err}
  data,err:=p.execute(ctx,action)
+ if ctx.Err()!=nil{return empty,ctx.Err()}
  if err!=nil{return empty,err}
  result,err:=ParseControlSnapshot(data)
  if err!=nil{return empty,err}

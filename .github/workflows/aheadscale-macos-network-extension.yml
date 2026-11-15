@@ -18,6 +18,7 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 30
     env:
+      TMPDIR: /tmp
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
@@ -28,7 +29,7 @@ jobs:
       - name: Форматировать изменённый Go-код для проверки
         run: |
           mkdir -p ne-artifact
-          gofmt -w client/internal/macosvpn/control*.go client/internal/daemonaddr/native_macos_*.go \
+          gofmt -w client/internal/macosvpn/control*.go client/internal/daemonaddr/native_macos_*.go client/internal/daemonaddr/resolve.go \
             client/ui/services/macos_vpn_*.go client/ui/services/native_vpn_status_other.go \
             client/ui/services/windows_vpn_controller_other.go client/ui/services/daemon_feed.go client/ui/grpc.go \
             client/cmd/native_*macos*.go client/cmd/native_status_other.go client/cmd/native_vpn_other.go \
