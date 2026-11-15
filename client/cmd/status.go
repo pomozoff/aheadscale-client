@@ -175,6 +175,7 @@ func getStatus(ctx context.Context, fullPeerStatus bool, shouldRunProbes bool) (
 		return nil, fmt.Errorf("status failed: %v", status.Convert(err).Message())
 	}
 
+	if err := platformVPNStatus(ctx, resp); err != nil { return nil, err }
 	return resp, nil
 }
 

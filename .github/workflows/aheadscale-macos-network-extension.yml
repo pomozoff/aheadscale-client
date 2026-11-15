@@ -15,7 +15,7 @@ permissions:
 jobs:
   provider:
     runs-on: macos-26
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     steps:
@@ -24,11 +24,21 @@ jobs:
         with:
           go-version: '1.26.7'
           cache: false
+      - name: Форматировать изменённый Go-код для проверки
+        run: |
+          mkdir -p ne-artifact
+          git diff --name-only HEAD~5 HEAD -- '*.go' | while IFS= read -r path; do
+            test ! -f "$path" || gofmt -w "$path"
+          done
+          git diff -- '*.go' > ne-artifact/gofmt.patch
       - name: Проверить Go-контроллер системного профиля
         run: go test -race -tags macosvpnprototype ./client/internal/macosvpn
       - name: Проверить native GUI routing и статус
-        run: go test -tags macosvpnprototype ./client/ui/services ./client/cmd -run TestMacOS -count=1
+        run: go test -tags macosvpnprototype ./client/ui/services ./client/cmd -run 'TestMacOS|TestNativeConnection' -count=1
+      - name: Проверить обычный GUI без native переключения
+        run: go test ./client/ui/services -count=1
       - name: Проверить provider без сетевых изменений
+        id: swift_tests
         run: swift test --package-path native/macos
       - name: Собрать отдельный ARM64 SYSX-прототип
         run: |
@@ -71,6 +81,22 @@ jobs:
           cp packaging/aheadscale/macos-network-extension/README.md ne-artifact/
           git rev-parse HEAD > ne-artifact/source.txt
           (cd ne-artifact && shasum -a 256 *-UNSIGNED-PROTOTYPE.zip source.txt > SHA256SUMS)
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24.19.0'
+      - name: Собрать отдельные native GUI и CLI
+        run: |
+          set -euo pipefail
+          npm install --global pnpm@11.4.0
+          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.3
+          origin=https://aheadscale.ru:443
+          flags="-s -w -X github.com/netbirdio/netbird/version.version=0.80.0-aheadscale.native-control.1 -X github.com/netbirdio/netbird/client/internal/profilemanager.DefaultManagementURL=$origin -X github.com/netbirdio/netbird/client/internal/profilemanager.DefaultAdminURL=$origin -X github.com/netbirdio/netbird/client/internal/profilemanager.LockedServerOrigin=$origin"
+          go build -trimpath -tags macosvpnprototype -ldflags "$flags" -o ne-artifact/aheadscale-native-cli ./client
+          (cd client/ui && wails3 generate bindings -clean=true -ts)
+          pnpm --dir client/ui/frontend install --frozen-lockfile
+          VITE_AHEADSCALE_MANAGEMENT_URL=$origin pnpm --dir client/ui/frontend build
+          go build -trimpath -tags 'production,macosvpnprototype' -ldflags "$flags" -o ne-artifact/aheadscale-native-ui ./client/ui
+          (cd ne-artifact && shasum -a 256 aheadscale-native-cli aheadscale-native-ui > CONTROL_SHA256SUMS)
       - name: Подготовить отдельный bridge probe без запуска сервиса
         run: |
           set -euo pipefail
@@ -93,7 +119,7 @@ jobs:
           retention-days: 3
           if-no-files-found: error
       - name: Сохранить stack trace при падении XCTest
-        if: failure()
+        if: failure() && steps.swift_tests.outcome == 'failure'
         run: |
           mkdir -p crash-reports
           test_bundle="$(swift build --package-path native/macos --show-bin-path)/AheadscaleNetworkExtensionPackageTests.xctest"

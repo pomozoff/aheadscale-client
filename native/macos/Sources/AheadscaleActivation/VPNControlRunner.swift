@@ -1,5 +1,6 @@
 import Foundation
 import Darwin
+import Dispatch
 
 public enum VPNControlRunner {
     @MainActor public static func run(_ arguments: [String]) async {
@@ -9,6 +10,13 @@ public enum VPNControlRunner {
             let lease = try VPNControlLease.userLease()
             let controller = PrototypeVPNController(nativeEngine: true, lease: lease)
             if action == .status { try output(try await controller.snapshot()); return }
+            let termination = VPNControlTermination.install {
+                Task { @MainActor in
+                    controller.cancelCurrentRequest()
+                    failure("cancelled", code: 2)
+                }
+            }
+            defer { termination.cancel() }
             if action == .connect { controller.connect() } else { controller.disconnect() }
             let deadline = ProcessInfo.processInfo.systemUptime + 125
             while ProcessInfo.processInfo.systemUptime < deadline {
