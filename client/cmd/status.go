@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/netbirdio/netbird/client/internal"
+	"github.com/netbirdio/netbird/client/internal/daemonaddr"
 	"github.com/netbirdio/netbird/client/proto"
 	nbstatus "github.com/netbirdio/netbird/client/status"
 	"github.com/netbirdio/netbird/util"
@@ -170,11 +171,14 @@ func getStatus(ctx context.Context, fullPeerStatus bool, shouldRunProbes bool) (
 	}
 	defer conn.Close()
 
-	resp, err := proto.NewDaemonServiceClient(conn).Status(ctx, &proto.StatusRequest{GetFullPeerStatus: fullPeerStatus, ShouldRunProbes: shouldRunProbes})
+	resp, err := proto.NewDaemonServiceClient(conn).Status(ctx, &proto.StatusRequest{GetFullPeerStatus: fullPeerStatus || daemonaddr.NativeMacOS, ShouldRunProbes: shouldRunProbes})
 	if err != nil {
 		return nil, fmt.Errorf("status failed: %v", status.Convert(err).Message())
 	}
 
+	if err := platformVPNStatus(ctx, resp); err != nil {
+		return nil, err
+	}
 	return resp, nil
 }
 

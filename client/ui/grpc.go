@@ -67,5 +67,5 @@ func DaemonAddr() string {
 	if runtime.GOOS == "windows" {
 		return daemonaddr.WindowsPipeAddr
 	}
-	return "unix:///var/run/aheadscale.sock"
+	return daemonaddr.NativeMacOSAddress("unix:///var/run/aheadscale.sock")
 }

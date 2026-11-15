@@ -147,7 +147,7 @@ func init() {
 	oldDefaultConfigPath = oldDefaultConfigPathDir + "config.json"
 	oldDefaultLogFile = oldDefaultLogFileDir + "client.log"
 
-	defaultDaemonAddr := "unix:///var/run/aheadscale.sock"
+	defaultDaemonAddr := daddr.NativeMacOSAddress("unix:///var/run/aheadscale.sock")
 	if runtime.GOOS == "windows" {
 		defaultDaemonAddr = daddr.WindowsPipeAddr
 	}

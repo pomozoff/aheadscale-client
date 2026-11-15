@@ -263,7 +263,7 @@ func (s *DaemonFeed) Get(ctx context.Context) (Status, error) {
 		}
 		return Status{}, err
 	}
-	return statusFromProto(resp), nil
+	return platformVPNStatus(ctx, statusFromProto(resp)), nil
 }
 
 // consumeForSwitch decides, for an incoming push during a profile switch,
@@ -398,7 +398,7 @@ func (s *DaemonFeed) subscribeAndStreamStatus(ctx context.Context, unavailable *
 			onAvailable()
 		}
 		*unavailable = false
-		s.emitStatus(statusFromProto(resp))
+		s.emitStatus(platformVPNStatus(ctx, statusFromProto(resp)))
 	}
 }
 
