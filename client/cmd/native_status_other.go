@@ -3,7 +3,8 @@
 package cmd
 
 import (
- "context"
- "github.com/netbirdio/netbird/client/proto"
+	"context"
+	"github.com/netbirdio/netbird/client/proto"
 )
-func platformVPNStatus(_ context.Context,_ *proto.StatusResponse) error {return nil}
+
+func platformVPNStatus(_ context.Context, _ *proto.StatusResponse) error { return nil }

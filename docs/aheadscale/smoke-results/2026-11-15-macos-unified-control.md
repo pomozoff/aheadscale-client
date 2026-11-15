@@ -83,3 +83,18 @@ HTTPServer на временном порту: loopback,100.88.213.250 и adnako
 macOS→Ubuntu и Ubuntu→macOS дали по5/5 ICMP без потерь. Короткоживущие HTTPServer, привязанные только к VPN-IP, вернули200 с точным телом по обоим VPN-IP и обоим приватным именам: четыре успешных curl без прокси. Это native-приёмка прямого обмена в данной топологии, не доказательство устранения отказа двух Shared-гостей и не полная релизная приёмка. Причина Shared-отказа не установлена; постоянный force-relay не добавлялся.
 
 После проверки principal Disconnect вернул exit0/disconnected, временный root-мост остановлен, прежняя служба aheadscale восстановлена. Go GUI/CLI пока не адаптированы; следующий шаг согласованного плана — проверяемый Go-адаптер principal executable и согласование статуса системы с готовностью движка.
+
+
+## Go GUI/CLI подключены к principal-профилю — код и Actions
+
+Native-кандидат включается только тегом macosvpnprototype. GUI Connect/Disconnect вызывает главный executable фиксированного root-owned containing app после проверки Developer ID TeamY24464MUL3 и identifier ru.aheadscale.client. Команды, время и JSON ограничены; неизвестные поля/версии/состояния отклоняются. Обычные сборки сохраняют прежний контроллер. CLI up/down/status используют тот же профиль; пользовательские подмены конфигурации отклоняются. Внутренний root-вызов Up из существующего подписанного моста сохраняет прямой RPC, иначе новый CLI перехватывал бы запуск собственного движка.
+
+Native daemon address фиксирован отдельно от legacy; RED43712166295 подтвердил нежелательное обнаружение другого socket при отсутствии native-службы, исправление запрещает такой fallback. Статус GUI и CLI объединяет OS state и полное состояние engine (Management, Signal, local IP). Запрос GetFullPeerStatus обязателен: без него server.Status не возвращает эти поля. Системный OFF не может отображаться Connected.
+
+Отмена Go-процесса отправляет TERM principal app8. Он вызывает cancelCurrentRequest с прежним generation lease, не захватывая более новую попытку. RED43711706325 и GREEN43711954130 проверили настоящий сигнал. Principal/provider entitlements, профили и XPC-проверки не расширены. App8 требуется из-за изменённого обработчика отмены; provider остаётся build4.
+
+Отдельный RED43713361763 подтвердил, что GUI Disconnect не отменял старое ожидание Connect. Исправление1a564ae добавляет локальное владение операцией: повторный Connect присоединяется к текущему, OFF отменяет его context; поздний ответ отвергается до чтения RPC, без дополнительного общего Disconnect, который мог бы выключить более новую попытку CLI.
+
+Финальный [Actions43713797653](https://github.com/pomozoff/aheadscale-client/actions/runs/43713797653), source1a564ae848fff3cc9a4074731a9caccb28bdd296: PASS. Пройдены race-тесты macosvpn/daemonaddr, native GUI/CLI и существующие native Connection-регрессии, весь обычный GUI service suite,69 Swift tests (1 прежний skip,0fail), реальный principal headless smoke. Собраны отдельные ARM64 app8/provider4, native GUI и CLI. SHA256, source и Mach-O ARM64 проверены после загрузки; форматирование Go из этого же CI применено в Git без изменения поведения.
+
+Самостоятельная проверка выполнена одним агентом согласно требованию владельца; независимого ревью не было. Подпись остаётся локальной на MacBook. Комплект для неё: /tmp/aheadscale-macos-unified-control8-signing/unified-control-signing-input.tar.gz. Он не устанавливает приложения. Согласованный следующий gate — подписанные GUI/CLI, системный OFF/Cancel и двусторонний HTTP на ВМ. Этот gate ещё NOT_RUN; fresh browser Login, постоянный launchd/автозапуск и финальный PKG данным CI не приняты. AHEAD-18 остаётся открытой.

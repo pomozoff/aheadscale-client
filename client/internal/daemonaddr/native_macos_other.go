@@ -4,4 +4,4 @@ package daemonaddr
 
 const NativeMacOS = false
 
-func NativeMacOSAddress(addr string) string {return addr}
+func NativeMacOSAddress(addr string) string { return addr }
