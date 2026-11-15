@@ -26,6 +26,8 @@ jobs:
           cache: false
       - name: Проверить Go-контроллер системного профиля
         run: go test -race -tags macosvpnprototype ./client/internal/macosvpn
+      - name: Проверить native GUI routing и статус
+        run: go test -tags macosvpnprototype ./client/ui/services -run TestMacOS -count=1
       - name: Проверить provider без сетевых изменений
         run: swift test --package-path native/macos
       - name: Собрать отдельный ARM64 SYSX-прототип
