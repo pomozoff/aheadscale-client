@@ -16,3 +16,14 @@ Connect/Disconnect/Cancel в GUI и CLI меняют тот же собстве�
 6. Регрессии в Actions: собственный/чужой профиль, повтор Connect, Cancel/поздний ответ, bounded JSON/процесс, неготовый движок. Затем подписанная GUI/CLI native-проверка и двусторонний HTTP. Постоянный launchd/автозапуск/обновление/PKG вводятся отдельным следующим инкрементом; текущая временная root-служба не объявляется установщиком.
 
 Ключи подписи остаются на MacBook. Новые права и persistent/shared сервисы автоматически не добавлять. Сначала сохранить текущую рабочую установку и проверенный комплект отката.
+
+
+## Согласованная корректировка: principal executable
+
+15 ноября владелец выбрал управление через основное приложение по штатной модели Apple. Auxiliary executable отвергнут AMFI, поскольку не получил provisioning-контекст principal bundle. Основания: [Apple TN3125](https://developer.apple.com/documentation/technotes/tn3125-inside-code-signing-provisioning-profiles), [NETunnelProviderManager](https://developer.apple.com/documentation/networkextension/netunnelprovidermanager), [app-like wrapper](https://developer.apple.com/documentation/xcode/signing-a-daemon-with-a-restricted-entitlement).
+
+1. RED: VPNControlAction принимает ровно --vpn-control и одну допустимую команду, bare action и дополнительные параметры запрещены.
+2. Перенести runner из target VPNControl в AheadscaleActivation/VPNControlRunner.swift. SetupEntryPoint до NSApplication.shared различает normal/headless запуск, запускает runner на main actor и завершает процесс. Generation lease, profile ownership, JSON/deadline не менять.
+3. Удалить auxiliary executable target/product и его копирование/подпись; содержащий app поднять до build6, provider оставить4. Профили/entitlements существующего главного приложения сохранить.
+4. GREEN: Swift suite; настоящий principal executable в Actions отвечает валидным boundedJSON/ненулевым кодом на invalid control, не открывая окно. Затем ARM64 bundle.
+5. Owner-local Developer ID/notary/staple. Native gate из principal executable: status existing profile, Connect/Disconnect/Cancel, общий lease с GUI, self HTTP, OFF/new process, без System Events. Только после PASS — адаптер основного GUI/CLI.

@@ -1,13 +1,11 @@
 import Foundation
 import Darwin
-import AheadscaleActivation
 
-@main
-struct VPNControlMain {
-    @MainActor static func main() async {
+public enum VPNControlRunner {
+    @MainActor public static func run(_ arguments: [String]) async {
         do {
             guard geteuid() != 0 else { throw NSError(domain: "ru.aheadscale.control", code: 3) }
-            let action = try VPNControlAction.parse(Array(CommandLine.arguments.dropFirst()))
+            let action = try VPNControlAction.parse(arguments)
             let lease = try VPNControlLease.userLease()
             let controller = PrototypeVPNController(nativeEngine: true, lease: lease)
             if action == .status { try output(try await controller.snapshot()); return }

@@ -3,7 +3,8 @@ import Foundation
 public enum VPNControlAction: String, Codable {
     case status, connect, disconnect, cancel
     public static func parse(_ arguments: [String]) throws -> Self {
-        guard arguments.count == 1, let action = Self(rawValue: arguments[0]) else {
+        guard arguments.count == 2, arguments[0] == "--vpn-control",
+              let action = Self(rawValue: arguments[1]) else {
             throw NSError(domain: "ru.aheadscale.control", code: 1)
         }
         return action
