@@ -10,6 +10,7 @@ import { errorDialog, formatErrorMessage } from "@/lib/errors.ts";
 import {
     startConnection,
     waitsForSystemConnection,
+    canCancelSystemConnection,
     EVENT_BROWSER_LOGIN_CANCEL,
     EVENT_TRIGGER_LOGIN,
 } from "@/lib/connection.ts";
@@ -175,7 +176,7 @@ export const MainConnectionStatusSwitch = () => {
     const handleSwitch = (next: boolean) => {
         if (unreachable) return;
         if (isTransitioning) {
-            if (canForceCancel) void forceCancel();
+            if (cancelAllowed) void forceCancel();
             return;
         }
         if (action !== null) return;
@@ -196,6 +197,10 @@ export const MainConnectionStatusSwitch = () => {
         connState === ConnectionState.Connected || connState === ConnectionState.Connecting;
 
     const [canForceCancel, setCanForceCancel] = useState(false);
+    const cancelAllowed = canCancelSystemConnection(
+        import.meta.env.VITE_AHEADSCALE_NATIVE_VPN,
+        canForceCancel,
+    );
     useEffect(() => {
         if (!isTransitioning) {
             setCanForceCancel(false);
@@ -258,7 +263,7 @@ export const MainConnectionStatusSwitch = () => {
                 size={"large"}
                 checked={isOn}
                 onCheckedChange={handleSwitch}
-                disabled={(isTransitioning && !canForceCancel) || unreachable}
+                disabled={(isTransitioning && !cancelAllowed) || unreachable}
                 aria-label={t("connect.toggle.label")}
                 aria-describedby={"nb-connection-status"}
                 aria-busy={isTransitioning}

@@ -142,3 +142,11 @@ export async function startConnection(onSettled?: () => void, signal?: AbortSign
         throw new DOMException("aborted", "AbortError");
     }
 }
+
+// Native profile control can honour cancellation before the legacy force timeout.
+export function canCancelSystemConnection(
+    nativeMode: string | undefined,
+    legacyReady: boolean,
+): boolean {
+    return nativeMode === "macos" || legacyReady;
+}

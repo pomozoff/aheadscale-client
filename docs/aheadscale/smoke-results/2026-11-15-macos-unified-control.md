@@ -98,3 +98,26 @@ Native daemon address фиксирован отдельно от legacy; RED4371
 Финальный [Actions43713797653](https://github.com/pomozoff/aheadscale-client/actions/runs/43713797653), source1a564ae848fff3cc9a4074731a9caccb28bdd296: PASS. Пройдены race-тесты macosvpn/daemonaddr, native GUI/CLI и существующие native Connection-регрессии, весь обычный GUI service suite,69 Swift tests (1 прежний skip,0fail), реальный principal headless smoke. Собраны отдельные ARM64 app8/provider4, native GUI и CLI. SHA256, source и Mach-O ARM64 проверены после загрузки; форматирование Go из этого же CI применено в Git без изменения поведения.
 
 Самостоятельная проверка выполнена одним агентом согласно требованию владельца; независимого ревью не было. Подпись остаётся локальной на MacBook. Комплект для неё: /tmp/aheadscale-macos-unified-control8-signing/unified-control-signing-input.tar.gz. Он не устанавливает приложения. Согласованный следующий gate — подписанные GUI/CLI, системный OFF/Cancel и двусторонний HTTP на ВМ. Этот gate ещё NOT_RUN; fresh browser Login, постоянный launchd/автозапуск и финальный PKG данным CI не приняты. AHEAD-18 остаётся открытой.
+
+
+## Подписанный app8 + GUI/CLI: native gate и исправление раннего Cancel
+
+На macOS27.0.1 ARM64 приняты Developer ID, stapler и Gatekeeper обоих приложений. Preview GUI/CLI версии0.80.0-aheadscale.native-control.1, principal app8/provider4. Перед установкой сохранены root-only app7 и прежний native-engine в /var/root/AheadscaleNativeRollback/unified-control8. /Applications/Aheadscale.app не заменялся. Старая GUI закрыта перед preview из-за общего SingleInstance ID.
+
+Проверено на одном UUID9F0EE03B-157E-4D6B-8977-5829161FD300:
+
+- CLI up без sudo, повтор up, down: PASS; системный профиль и engine согласованы.
+- Настоящие GUI Connect/Disconnect через mouse events: PASS; наблюдались Connected/Disconnected и соответствующий OS state. System Events click не дал надёжного результата и не засчитывается отдельно.
+- System OFF/ON через scutil: PASS; OFF снимает Connected в GUI, ON поднимает тот же профиль и движок.
+- CLI Ctrl-C во время реально наблюдавшегося Connecting: команда exit1, система Disconnected; PASS.
+- HTTP200 с точным телом: macOS→Ubuntu и Ubuntu→macOS по IP и приватным именам, а также macOS→собственныйIP/имя:6/6 PASS. Подтверждён P2P host/prflx, Ubuntu Bridged192.168.1.153, macOS Shared. Временные HTTP-серверы остановлены автоматически, завершение подтверждено.
+
+Снимки только Aheadscale: [Connected](assets/2026-11-15-unified-control/gui-connected.png), [системный OFF отражён в GUI](assets/2026-11-15-unified-control/system-off.png).
+
+Контрольный status --check ready возвращает0 также при Idle/Connecting по существующему checkReadiness; это готовность службы, не доказательство VPN Connected. Первоначальное ожидание ненулевого ready при OFF было ошибкой проверки. Использованы OS state и startup check: при OFF startup ненулевой, при ON успешен. RG39 и эта семантика не менялись. При повторном bootstrap fixture один раз получен launchd5 до удаления старого job; после подтверждения отсутствия job bootstrap успешен. Это ограниченный fixture, не приёмка установщика.
+
+GUI Cancel до Connected не принят на первом preview: Connecting пойман, второй клик не отключил туннель; [состояние после попытки](assets/2026-11-15-unified-control/gui-cancel-ignored.png). MainConnectionStatusSwitch намеренно блокировал переключатель FORCE_TOGGLE_DELAY_MS=7000, поэтому native-подключение завершалось до доступности Cancel. Backend отмены при этом уже прошёл native CLI и Go-регрессии.
+
+Исправление ограничено native-macos frontend: доступность Cancel вычисляется сразу при сборочном VITE_AHEADSCALE_NATIVE_VPN=macos; обычные сборки сохраняют прежний force guard. Новых зависимостей, IPC, прав или изменений principal/provider нет. RED [43720039040](https://github.com/pomozoff/aheadscale-client/actions/runs/43720039040) воспроизвёл блокировку; GREEN [43720432265](https://github.com/pomozoff/aheadscale-client/actions/runs/43720432265), sourcefb53c10:8/8 существующих Login/Cancel/frontend-тестов, ESLint затронутых файлов, TypeScript/Vite и сборка отдельного ARM64 GUI успешны. SHA256/source/архитектура проверены. Полный native workflow также получает этот сборочный флаг; общие/public build.sh не меняются.
+
+Principal app8, CLI, root bridge и provider4 повторно не подписываются. Готов GUI-only комплект /tmp/aheadscale-macos-gui-cancel9-signing/gui-cancel-signing-input.tar.gz: сохраняет подпись прежнего CLI, меняет только GUI и CFBundleVersion preview9, нотариализует только preview. Ждёт локальной подписи владельца; повторный native GUI Cancel ещё NOT_RUN. Временный native root-fixture остановлен, прежняя служба/GUI восстановлены. AHEAD-18 остаётся открытой; fresh Login и финальный installer/lifecycle gates не объявляются пройденными.
