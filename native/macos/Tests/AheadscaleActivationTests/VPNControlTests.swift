@@ -5,9 +5,9 @@ import Foundation
 final class VPNControlTests: XCTestCase {
     func testStrictActionsRejectUnknownFlagsAndArguments() throws {
         for action in ["status", "connect", "disconnect", "cancel"] {
-            XCTAssertEqual(try VPNControlAction.parse([action]).rawValue, action)
+            XCTAssertEqual(try VPNControlAction.parse(["--vpn-control", action]).rawValue, action)
         }
-        for args in [[], ["up"], ["status", "connect"], ["connect", "--server", "https://other"], ["--help"]] {
+        for args in [[], ["status"], ["--vpn-control"], ["--vpn-control", "up"], ["--vpn-control", "connect", "--server", "https://other"], ["--help"]] {
             XCTAssertThrowsError(try VPNControlAction.parse(args))
         }
     }
