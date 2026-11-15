@@ -23,3 +23,11 @@ AHEAD-18 / AHEAD-69. Один агент, codex/macos-developer-id. Основн
 Владелец получил запрос проверить существование/активность зоны в LandVPS либо дать доступ безопасным способом. До изменений — экспорт текущих записей; сохранить NS, A, MX Timeweb, SPF, DKIM, DMARC. Не пересоздавать зону вслепую и не менять NS/платную услугу без согласования. Критерии восстановления: оба NS обслуживают зону, Google/CloudflareNOERROR, свежий внешний HTTPS200 с обычной проверкой сертификата.
 
 Следующий GUI gate остаётся открытым. Новые подписи, пересборки или изменения поведения пока не обоснованы диагностикой.
+
+## Продолжение: восстановление и уточнение ошибки
+
+SSH восстановлен. Явно выключен системный профиль, выгружен native fixture, запущена исходная служба aheadscale. Повторное чтение launchctl подтверждает отсутствие Y24464MUL3.ru.aheadscale.client.bridge и state=running для system/aheadscale; scutil показывает прежний профиль Disconnected. Одновременная работа двух движков не оставлена.
+
+Сохранён и просмотрен снимок окна GUI9: Login Failed, сообщение «The Aheadscale daemon is not responding», детали «create connection: dial context: context deadline exceeded». Исходники показывают неоднозначность этого текста: shared/management/client/grpc.go оборачивает отказ подключения к Management префиксом create connection, а client/ui/services/errors.go относит любое context deadline exceeded к daemon_unreachable. client/server/login_outcome_test.go уже содержит именно такую строку для недоступного Management. Следовательно, окно само по себе не доказывает отказ локального IPC. Это уточнение источника сообщения, не установленная причина отказа Cancel; новую правку поведения не выполняли.
+
+Независимые Google и Cloudflare DoH повторно вернули SERVFAIL/Status2 с REFUSED от авторитетных серверов. Свежий сетевой вход и итоговая проверка GUI остаются непринятыми до восстановления публичного DNS. Успешные результаты предыдущего app8 не подменяют приёмку GUI9.
