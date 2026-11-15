@@ -23,3 +23,14 @@ GREEN [43652535419](https://github.com/pomozoff/aheadscale-client/actions/runs/4
 Подписать и нотариализовать комплект локально на MacBook. На macOS-ВМ проверить status существующего профиля, Connect/Disconnect/Cancel через новый executable без System Events/Accessibility, повторный запуск и общий lease с тестовым окном. Совместимость существующего provisioning с этим auxiliary executable ещё не подтверждена и не объявляется готовой.
 
 Только после PASS подключать Go-адаптер GUI/CLI и проверку product Connected = system ready + engine ready. Пока основной GUI управляет legacy-службой, его Connected не означает, что тестовый системный профиль включён. Постоянный launchd/on-demand/PKG/uninstall остаются следующими шагами. Независимого reviewer не было: работа одним агентом и self-review. Публичного выпуска не было.
+
+
+## Подписанный native gate 15 ноября: отказ auxiliary executable
+
+Архив владельца проверен на ВМ: app5, codesign deep strict exact Team/App ID PASS; stapler validate PASS; spctl accepted / Notarized Developer ID. Установлен отдельно от рабочего Aheadscale.app, с сохранением app4.
+
+`AheadscaleVPNControl status` завершился exit137 до JSON. Системный amfid сообщил `AppleMobileFileIntegrityError -413: No matching profile found`; AMFI указал restricted entitlements. Подпись executable на диске корректна, но restricted capabilities не получили действующий provisioning-контекст для этого auxiliary executable. Это подтверждает, почему одной нотариализации недостаточно.
+
+Gate остановлен: GUI/CLI не переключались, root-мост не запускался, системный VPN не менялся. App4 восстановлен, рабочая legacy-служба Management/Signal Connected. Отклонённый app5 сохранён в закрытом rollback-каталоге для сверки. Никакого снятия entitlements/AMFI-проверок или изменения SIP.
+
+Предлагаемая корректировка: перенести тот же runner в модуль и вызывать `--vpn-control status|connect|disconnect|cancel` через главный executable containing app, где уже работают App ID/embedded profile и NETunnelProviderManager. В режиме управления не создавать окно; выдавать прежний ограниченный JSON и сохранять общий lease. Отдельный entitled auxiliary executable исключить из пакета. Сначала RED/GREEN parser/runner и сборка Actions, затем новый signed native gate main-executable status/Connect/OFF/Cancel. Схема ждёт отдельного согласования владельца согласно остановке при смене signing-контекста в плане.
