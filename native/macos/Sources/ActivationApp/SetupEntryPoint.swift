@@ -1,4 +1,6 @@
 import AppKit
+import Darwin
+import Dispatch
 import SystemExtensions
 import AheadscaleActivation
 
@@ -93,6 +95,16 @@ final class SetupApp: NSObject, NSApplicationDelegate {
 @main
 struct SetupEntryPoint {
     @MainActor static func main() {
+        let arguments = Array(CommandLine.arguments.dropFirst())
+        if !arguments.isEmpty {
+            // Execute inside the principal bundle's provisioning context. Do not
+            // create NSApplication or a window for machine-readable commands.
+            Task { @MainActor in
+                await VPNControlRunner.run(arguments)
+                exit(0)
+            }
+            dispatchMain()
+        }
         let app = NSApplication.shared
         let delegate = SetupApp()
         app.delegate = delegate

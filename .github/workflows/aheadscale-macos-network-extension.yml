@@ -30,6 +30,9 @@ jobs:
           xcodebuild -version
           swift build --package-path native/macos -c release --arch arm64
           executable_dir=$(swift build --package-path native/macos -c release --arch arm64 --show-bin-path)
+          # Run the actual principal executable before ad-hoc entitlement sealing.
+          # Unknown control must return bounded JSON promptly, never create a UI.
+          python3 -c 'import json,subprocess,sys; p=subprocess.run([sys.argv[1],"--vpn-control","unknown"],capture_output=True,timeout=5); assert p.returncode == 1; assert len(p.stdout) <= 4096; d=json.loads(p.stdout); assert d == {"version":1,"systemState":"unknown","profileExists":False,"error":"control_unavailable"}; print("Principal headless control: PASS")' "$executable_dir/AheadscaleExtensionSetup"
           bundle="$RUNNER_TEMP/ne-prototype/ru.aheadscale.client.tunnel.systemextension"
           mkdir -p "$bundle/Contents/MacOS"
           cp "$executable_dir/AheadscaleTunnelExtension" "$bundle/Contents/MacOS/"
@@ -49,9 +52,6 @@ jobs:
           codesign --force --sign - "$app/Contents/Library/LaunchServices/AheadscaleNativeEngineBridge"
           codesign --force --sign - "$app/Contents/Library/LaunchServices/aheadscale-native"
           cp "$executable_dir/AheadscaleExtensionSetup" "$app/Contents/MacOS/"
-          cp "$executable_dir/AheadscaleVPNControl" "$app/Contents/MacOS/"
-          lipo "$app/Contents/MacOS/AheadscaleVPNControl" -verify_arch arm64
-          codesign --force --sign - "$app/Contents/MacOS/AheadscaleVPNControl"
           cp packaging/aheadscale/macos-network-extension/app-Info.plist "$app/Contents/Info.plist"
           ditto "$bundle" "$app/Contents/Library/SystemExtensions/ru.aheadscale.client.tunnel.systemextension"
           plutil -lint "$app/Contents/Info.plist"

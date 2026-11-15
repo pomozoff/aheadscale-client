@@ -34,3 +34,12 @@ GREEN [43652535419](https://github.com/pomozoff/aheadscale-client/actions/runs/4
 Gate остановлен: GUI/CLI не переключались, root-мост не запускался, системный VPN не менялся. App4 восстановлен, рабочая legacy-служба Management/Signal Connected. Отклонённый app5 сохранён в закрытом rollback-каталоге для сверки. Никакого снятия entitlements/AMFI-проверок или изменения SIP.
 
 Предлагаемая корректировка: перенести тот же runner в модуль и вызывать `--vpn-control status|connect|disconnect|cancel` через главный executable containing app, где уже работают App ID/embedded profile и NETunnelProviderManager. В режиме управления не создавать окно; выдавать прежний ограниченный JSON и сохранять общий lease. Отдельный entitled auxiliary executable исключить из пакета. Сначала RED/GREEN parser/runner и сборка Actions, затем новый signed native gate main-executable status/Connect/OFF/Cancel. Схема ждёт отдельного согласования владельца согласно остановке при смене signing-контекста в плане.
+
+
+## Согласованная principal-app коррекция и Actions
+
+Владелец подтвердил управление через основное приложение по модели Apple. Runner перенесён в AheadscaleActivation, главный executable содержащего приложения обрабатывает ровно `--vpn-control action` до создания NSApplication/окна. Возвращаемый JSON, generation lease, ownership и deadlines сохранены. Auxiliary target/product и его restricted подпись исключены. App build6, provider build4; existing App ID/profiles/entitlements не изменены. Основной Go GUI/CLI ещё не переключён.
+
+RED [43690551683](https://github.com/pomozoff/aheadscale-client/actions/runs/43690551683), sourceb29122f: старый parser отвергал явный формат и принимал bare action. GREEN [43690838634](https://github.com/pomozoff/aheadscale-client/actions/runs/43690838634), sourcef7d51ffaed2820e1dfea7c7105b726cec1855e89: 66 тестов/1 прежний skip/0 ошибок; реальный release principal executable на неверную команду вернул ожидаемый bounded JSON и exit1 в пределах5s, без запуска окна; полный ARM64 bundle собран. Проверены SHA256/source/app6/provider4 и отсутствие AheadscaleVPNControl.
+
+Комплект `/tmp/aheadscale-macos-principal-control-signing/principal-control-signing-input.tar.gz` подготовлен для локальной подписи и нового native gate. Пока подтверждён только Actions/headless dispatch; запуск provisioned principal `status` и операции с существующим профилем на ВМ ещё ожидают подписи. Не объявлять предыдущий AMFI gate исправленным только по этому CI.
