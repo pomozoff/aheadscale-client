@@ -57,29 +57,33 @@ SIP и проверки подписи не отключать.
 
 ## Кандидат общего управления (AHEAD-18)
 
-`AheadscaleVPNControl` включается только в отдельный тестовый контейнер.
-Он принимает ровно одну команду: `status`, `connect`, `disconnect` или `cancel`.
-Ответ — один JSON версии 1, не более 4096 байт. `systemState` отражает только
-системный профиль; GUI/CLI перед пользовательским Connected должны отдельно
-подтвердить готовность движка. Ключи, адреса серверов и пути через команды
-не передаются. Запуск от root отклоняется.
+Управление выполняет главный executable содержащего приложения:
 
-Существующий профиль выбирается по точному provider и маркеру `session-v1`;
-чужие профили не меняются, дубли собственного приводят к отказу выбора.
-Новый процесс умеет отключать существующий собственный профиль. Запросы
-согласуются через отдельный пользовательский файл generation, проверяемый
-по владельцу, режиму 0600, типу regular file и отсутствию ссылок. Тестовое
-окно использует тот же механизм. Поздний Connect старого процесса не может
-запустить VPN после нового Cancel.
+```bash
+"/Applications/Aheadscale Extension Setup.app/Contents/MacOS/AheadscaleExtensionSetup" --vpn-control status
+```
 
-Вспомогательный executable подписывается существующим App ID содержащего
-приложения и имеет только необходимые Network Extension/application-group
-entitlements; право установки System Extension ему не выдаётся. Допуск к
-профилю из этого signing-контекста **пока не принят на macOS**: сначала нужен
-отдельный подписанный native gate status/Connect/Disconnect/Cancel без
-Accessibility. Только после этого подключается Go-адаптер GUI/CLI.
+Второй аргумент — ровно `status`, `connect`, `disconnect` или `cancel`.
+Режим управления запускается до NSApplication/окна и возвращает один JSON
+версии 1, не более 4096 байт. `systemState` отражает только системный профиль;
+основной GUI/CLI перед пользовательским Connected должны отдельно подтвердить
+готовность движка. Через команды не передаются ключи, адреса серверов или пути.
+Запуск root запрещён. Обычный запуск без аргументов сохраняет тестовое окно.
 
-Постоянная служба, on-demand, reboot, обновление и удаление не считаются
-проверенными по этому компонентному прогону. Удаление профиля не является
-командой helper; согласование удаления с конкурентным подключением требует
-отдельного инкремента перед финальным установщиком.
+Профиль выбирается по provider и маркеру `session-v1`; чужие профили не меняются,
+дубли собственного приводят к отказу. Новый процесс умеет отключать ранее
+созданный профиль. Команды и тестовое окно разделяют private generation lease
+(владелец, regular file, 0600, no-follow, single link, flock), чтобы запоздавший
+Connect не отменял новый Cancel. Удаление профиля не является командой управления;
+конкурентное удаление и постоянный установщик остаются следующим инкрементом.
+
+Auxiliary executable с restricted entitlements исключён: AMFI не нашёл для него
+подходящего provisioning-контекста. Principal app использует существующие
+App ID/embedded profile/entitlements. Штатную bundle-модель описывают
+[Apple TN3125](https://developer.apple.com/documentation/technotes/tn3125-inside-code-signing-provisioning-profiles)
+и [NETunnelProviderManager](https://developer.apple.com/documentation/networkextension/netunnelprovidermanager).
+
+Этот кандидат ещё требует подписанного native gate status/Connect/Disconnect/Cancel
+из главного executable без Accessibility. До его PASS основные Go GUI/CLI не
+переключаются. Полная приёмка reboot/on-demand/upgrade/PKG/uninstall не заменяется
+компонентными тестами. Ключи подписи остаются на физическом MacBook.
