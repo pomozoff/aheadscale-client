@@ -62,7 +62,7 @@ jobs:
           for name in AheadscaleExtensionSetup AheadscaleNativeEngineBridge AheadscaleTunnelExtension; do
             cp "$swift_bin/$name" "$inputs/bin/"
           done
-          for binary in "$inputs/bin/"*; do lipo -verify_arch arm64 "$binary"; done
+          for binary in "$inputs/bin/"*; do test "$(lipo "$binary" -archs)" = arm64; done
           python3 -B packaging/aheadscale/macos-native-pkg/stage.py "$inputs" "$version"
           rm -rf "$inputs/bin"
       - name: Проверить настоящий PKG без установки
