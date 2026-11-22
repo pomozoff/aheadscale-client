@@ -41,7 +41,7 @@ verify "$bridge" ru.aheadscale.client.bridge || die 'Подпись службы
 secure "$native" && [[ "$(plist_value "$native" Label)" = "$label" ]] || die 'Не удалось проверить launchd plist.'
 # Do not allow the legacy job to return on reboot. The backup covers rollback.
 rm -f "$legacy"
-mkdir -p /usr/local/bin
+mkdir -p "$(dirname "$cli")"
 if ! present "$state"; then mkdir -p -m 700 "$state"; fi
 if ! present "$logdir"; then mkdir -p -m 750 "$logdir"; fi
 secure "$state" && secure "$logdir" || die 'Небезопасный каталог службы.'
