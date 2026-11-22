@@ -37,6 +37,7 @@ jobs:
           go test -race -tags macosvpnprototype ./client/internal/macosvpn ./client/internal/daemonaddr
           go test -tags macosvpnprototype ./client/ui/services ./client/cmd -run 'TestMacOS|TestNativeConnection' -count=1
           python3 -B packaging/aheadscale/test_macos_package.py
+          python3 -B packaging/aheadscale/macos-native-pkg/test_transaction.py
           for f in preinstall postinstall installer-common.sh uninstall.command package.sh sign-on-macbook.sh; do
             bash -n "packaging/aheadscale/macos-native-pkg/$f"
           done

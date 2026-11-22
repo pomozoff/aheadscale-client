@@ -48,4 +48,4 @@ plutil -extract id raw -o - "$receipt"
 test "$(plutil -extract status raw -o - "$receipt")" = Accepted
 rm -rf "$work"
 trap - EXIT
-exec bash "$0"
+exec bash ./sign-on-macbook.sh
