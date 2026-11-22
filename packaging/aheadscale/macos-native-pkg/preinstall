@@ -1,0 +1,81 @@
+#!/bin/bash
+set -euo pipefail
+scripts=$(cd "$(dirname "$0")" && pwd)
+source "$scripts/installer-common.sh"
+[[ ${3:-/} = / ]] || die 'Поддерживается установка только на загрузочный том.'
+[[ "$(uname -m)" = arm64 ]] || die 'Пакет предназначен для Apple Silicon.'
+[[ "$(sw_vers -productVersion | cut -d. -f1)" -ge 13 ]] || die 'Требуется macOS 13 или новее.'
+
+if present "$backup"; then die "Существует незавершённая установка: $backup."; fi
+for d in /Applications /Library/LaunchDaemons /Library/PrivilegedHelperTools /usr/local/bin; do
+    if present "$d"; then [[ -d "$d" && ! -L "$d" ]] || die "Неожиданный каталог: $d"; fi
+done
+for d in "$state" "$logdir"; do
+    if present "$d"; then
+        [[ -d "$d" ]] && secure "$d" || die "Небезопасный каталог: $d"
+        [[ -z "$(find "$d" -type l -print -quit)" ]] || die "Найдена неожиданная ссылка в $d."
+    fi
+done
+if present "$state/default.json"; then
+    [[ -f "$state/default.json" ]] && secure "$state/default.json" &&
+        [[ "$(stat -f '%Lp %l' "$state/default.json")" = '600 1' ]] || die 'Небезопасная конфигурация Aheadscale.'
+fi
+if present "$cli"; then
+    [[ -L "$cli" && "$(readlink "$cli")" = "$agent" ]] || die "Чужой файл: $cli"
+fi
+kind=clean
+if present "$app"; then
+    [[ -d "$app" ]] && secure "$app" || die 'Небезопасное приложение.'
+    [[ "$(plist_value "$app/Contents/Info.plist" CFBundleIdentifier)" = ru.aheadscale.client ]] || die 'По пути установки находится чужое приложение.'
+    case "$(plist_value "$app/Contents/Info.plist" CFBundleExecutable)" in
+        aheadscale-ui)
+            [[ -x "$agent" ]] && secure "$agent" &&
+                codesign --verify --deep --strict "$app" || die 'Не удалось проверить исходное приложение.'
+            kind=legacy ;;
+        AheadscaleExtensionSetup)
+            verify "$app" ru.aheadscale.client && verify "$bridge" ru.aheadscale.client.bridge &&
+                verify "$engine" ru.aheadscale.client.engine || die 'Не удалось проверить установленный native клиент.'
+            kind=native ;;
+        *) die 'Неизвестный тип установленного Aheadscale.' ;;
+    esac
+fi
+if present "$legacy"; then
+    [[ "$kind" = legacy ]] && secure "$legacy" &&
+        [[ "$(plist_value "$legacy" Label)" = aheadscale &&
+           "$(plist_value "$legacy" ProgramArguments:0)" = "$agent" ]] || die 'Неизвестная legacy служба.'
+elif loaded aheadscale; then die 'Обнаружена незнакомая запущенная служба Aheadscale.'; fi
+if present "$native"; then
+    [[ "$kind" = native ]] && secure "$native" &&
+        [[ "$(plist_value "$native" Label)" = "$label" &&
+           "$(plist_value "$native" ProgramArguments:0)" = "$bridge" &&
+           "$(plist_value "$native" ProgramArguments:1)" = --installed ]] || die 'Неизвестная native служба.'
+elif loaded "$label"; then die 'Остановите тестовую службу Aheadscale перед установкой.'; fi
+if present "$engine" && [[ "$kind" != native ]]; then die 'Найден отдельный native engine. Для установки нужен чистый стенд.'; fi
+assert_no_gui "$app/Contents/MacOS/aheadscale-ui"
+assert_no_gui "$gui"
+assert_no_gui "$principal"
+
+mkdir -m 700 "$backup"
+# No services have been touched until the file copies have succeeded.
+trap 'rm -rf "$backup"' EXIT
+printf '%s\n' "$kind" > "$backup/kind"
+if present "$app"; then ditto "$app" "$backup/app"; fi
+if present "$engine"; then ditto "$engine" "$backup/engine"; fi
+if present "$legacy"; then ditto "$legacy" "$backup/legacy.plist"; fi
+if present "$native"; then ditto "$native" "$backup/native.plist"; fi
+if present "$cli"; then touch "$backup/cli"; fi
+if loaded aheadscale; then touch "$backup/legacy-running"; fi
+if loaded "$label"; then touch "$backup/native-running"; fi
+trap - EXIT
+recover_service() {
+    if [[ -f "$backup/legacy-running" ]] && ! loaded aheadscale; then launchctl bootstrap system "$legacy" || return; fi
+    if [[ -f "$backup/native-running" ]] && ! loaded "$label"; then launchctl bootstrap system "$native" || return; fi
+    rm -rf "$backup"
+}
+trap 'rc=$?; recover_service || true; exit "$rc"' ERR
+stop_service aheadscale
+stop_service "$label"
+# Snapshot state after the old daemon exits so its last write is included.
+if present "$state"; then ditto "$state" "$backup/state"; fi
+touch "$backup/prepared"
+trap - ERR

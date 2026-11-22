@@ -1,0 +1,61 @@
+#!/bin/bash
+set -euo pipefail
+scripts=$(cd "$(dirname "$0")" && pwd)
+source "$scripts/installer-common.sh"
+[[ ${3:-/} = / && -d "$backup" && -f "$backup/prepared" ]] && secure "$backup" || die 'Отсутствует проверенная копия для отката.'
+
+rollback() {
+    local result=$?
+    trap - EXIT
+    if ((result == 0)); then return; fi
+    echo "Aheadscale: установка не завершена, восстанавливается прежняя версия." >&2
+    if ! stop_service "$label"; then
+        echo "Aheadscale: служба не остановилась; копия сохранена в $backup." >&2
+        exit "$result"
+    fi
+    set -e
+    rm -f "$native" "$engine"
+    rm -rf "$app"
+    if [[ -d "$backup/app" ]]; then ditto "$backup/app" "$app"; fi
+    if [[ -f "$backup/engine" ]]; then ditto "$backup/engine" "$engine"; fi
+    if [[ -f "$backup/native.plist" ]]; then ditto "$backup/native.plist" "$native"; fi
+    if [[ -f "$backup/legacy.plist" ]]; then ditto "$backup/legacy.plist" "$legacy"; fi
+    if [[ -d "$backup/state" ]]; then
+        if present "$state"; then mv "$state" "$backup/failed-state"; fi
+        ditto "$backup/state" "$state"
+    elif present "$state"; then
+        mv "$state" "$backup/failed-state"
+    fi
+    if [[ -f "$backup/cli" ]]; then ln -sfn "$agent" "$cli"
+    elif [[ -L "$cli" && "$(readlink "$cli")" = "$agent" ]]; then rm -f "$cli"; fi
+    if [[ -f "$backup/legacy-running" ]]; then launchctl bootstrap system "$legacy"; fi
+    if [[ -f "$backup/native-running" ]]; then launchctl bootstrap system "$native"; fi
+    rm -rf "$backup"
+    exit "$result"
+}
+trap rollback EXIT
+verify "$app" ru.aheadscale.client || die 'Подпись приложения не прошла проверку.'
+codesign --verify --deep --strict "$app"
+verify "$engine" ru.aheadscale.client.engine || die 'Подпись движка не прошла проверку.'
+verify "$bridge" ru.aheadscale.client.bridge || die 'Подпись службы не прошла проверку.'
+secure "$native" && [[ "$(plist_value "$native" Label)" = "$label" ]] || die 'Не удалось проверить launchd plist.'
+# Do not allow the legacy job to return on reboot. The backup covers rollback.
+rm -f "$legacy"
+mkdir -p /usr/local/bin
+if ! present "$state"; then mkdir -p -m 700 "$state"; fi
+if ! present "$logdir"; then mkdir -p -m 750 "$logdir"; fi
+secure "$state" && secure "$logdir" || die 'Небезопасный каталог службы.'
+if present "$cli"; then
+    [[ -L "$cli" && "$(readlink "$cli")" = "$agent" ]] || die 'Путь команды aheadscale занят.'
+else ln -s "$agent" "$cli"
+fi
+launchctl bootstrap system "$native"
+for ((attempt=0; attempt<24; attempt++)); do
+    if live; then
+        rm -rf "$backup"
+        trap - EXIT
+        exit 0
+    fi
+    sleep .5
+done
+die 'Новая служба не отвечает на локальном IPC.'

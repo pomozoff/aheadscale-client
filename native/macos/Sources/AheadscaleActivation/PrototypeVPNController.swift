@@ -101,7 +101,8 @@ public final class PrototypeVPNController {
         configuration.serverAddress = "aheadscale.ru"
         configuration.includeAllNetworks = false
         manager.protocolConfiguration = configuration
-        manager.localizedDescription = "Aheadscale — тест системного VPN"
+        manager.localizedDescription = Bundle.main.object(forInfoDictionaryKey: "AheadscaleInstalled") as? Bool == true
+            ? "Aheadscale" : "Aheadscale — тест системного VPN"
         manager.isEnabled = true
         manager.isOnDemandEnabled = false
         return manager
@@ -222,6 +223,7 @@ public final class PrototypeVPNController {
         let token: UUID
         do { token = try beginRequest() } catch { state = .failed("Не удалось согласовать запрос VPN."); return }
         operation = token
+        state = .stopping
         Task { @MainActor in
             defer { if self.operation == token { self.operation = nil } }
             do {

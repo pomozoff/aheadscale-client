@@ -1,0 +1,94 @@
+name: Aheadscale macOS native PKG
+on:
+  push:
+    branches: ["codex/macos-native-pkg"]
+    paths:
+      - ".github/workflows/aheadscale-macos-native-pkg.yml"
+      - "native/macos/**"
+      - "packaging/aheadscale/**"
+      - "client/**"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: macos-native-pkg-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  macos-pkg:
+    runs-on: macos-26
+    timeout-minutes: 35
+    env:
+      TMPDIR: /tmp
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb572e22ba16
+        with:
+          go-version: '1.26.7'
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '24.19.0'
+      - name: Проверить системное управление и упаковку
+        run: |
+          set -euo pipefail
+          swift test --package-path native/macos
+          go test -race -tags macosvpnprototype ./client/internal/macosvpn ./client/internal/daemonaddr
+          go test -tags macosvpnprototype ./client/ui/services ./client/cmd -run 'TestMacOS|TestNativeConnection' -count=1
+          python3 -B packaging/aheadscale/test_macos_package.py
+          for f in preinstall postinstall installer-common.sh uninstall.command package.sh sign-on-macbook.sh; do
+            bash -n "packaging/aheadscale/macos-native-pkg/$f"
+          done
+      - name: Собрать ARM64 приложения, движок и расширение
+        run: |
+          set -euo pipefail
+          npm install --global pnpm@11.4.0
+          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.3
+          inputs="$RUNNER_TEMP/aheadscale-macos-pkg"
+          mkdir -p "$inputs/bin"
+          version=$(cat packaging/aheadscale/version.txt)
+          origin=https://aheadscale.ru:443
+          flags="-s -w -X github.com/netbirdio/netbird/version.version=$version -X github.com/netbirdio/netbird/client/internal/profilemanager.DefaultManagementURL=$origin -X github.com/netbirdio/netbird/client/internal/profilemanager.DefaultAdminURL=$origin -X github.com/netbirdio/netbird/client/internal/profilemanager.LockedServerOrigin=$origin -X github.com/netbirdio/netbird/client/internal/macosvpn.PrincipalPath=/Applications/Aheadscale.app/Contents/MacOS/AheadscaleExtensionSetup"
+          go build -trimpath -tags macosvpnprototype -ldflags "$flags" -o "$inputs/bin/aheadscale-native-cli" ./client
+          cp "$inputs/bin/aheadscale-native-cli" "$inputs/bin/aheadscale-native"
+          (cd client/ui && wails3 generate bindings -clean=true -ts)
+          pnpm --dir client/ui/frontend install --frozen-lockfile
+          VITE_AHEADSCALE_MANAGEMENT_URL=$origin VITE_AHEADSCALE_NATIVE_VPN=macos pnpm --dir client/ui/frontend build
+          go build -trimpath -tags 'production,macosvpnprototype' -ldflags "$flags" -o "$inputs/bin/aheadscale-native-ui" ./client/ui
+          swift build --package-path native/macos -c release --arch arm64
+          swift_bin=$(swift build --package-path native/macos -c release --arch arm64 --show-bin-path)
+          for name in AheadscaleExtensionSetup AheadscaleNativeEngineBridge AheadscaleTunnelExtension; do
+            cp "$swift_bin/$name" "$inputs/bin/"
+          done
+          for binary in "$inputs/bin/"*; do lipo -verify_arch arm64 "$binary"; done
+          python3 -B packaging/aheadscale/macos-native-pkg/stage.py "$inputs" "$version"
+          rm -rf "$inputs/bin"
+      - name: Проверить настоящий PKG без установки
+        run: |
+          set -euo pipefail
+          inputs="$RUNNER_TEMP/aheadscale-macos-pkg"
+          bash "$inputs/package.sh" "$RUNNER_TEMP/aheadscale-unsigned.pkg"
+          pkgutil --expand-full "$RUNNER_TEMP/aheadscale-unsigned.pkg" "$RUNNER_TEMP/aheadscale-pkg-audit"
+          audit="$RUNNER_TEMP/aheadscale-pkg-audit/Payload"
+          app="$audit/Applications/Aheadscale.app"
+          test -x "$app/Contents/MacOS/AheadscaleExtensionSetup"
+          test -x "$app/Contents/MacOS/aheadscale"
+          test -x "$app/Contents/Library/LoginItems/Aheadscale UI.app/Contents/MacOS/aheadscale-ui"
+          test -x "$audit/Library/PrivilegedHelperTools/ru.aheadscale.client.native-engine"
+          test -x "$audit/Applications/Uninstall Aheadscale.command"
+          test -x "$app/Contents/Library/SystemExtensions/ru.aheadscale.client.tunnel.systemextension/Contents/MacOS/AheadscaleTunnelExtension"
+          test ! -e "$audit/Library/LaunchDaemons/aheadscale.plist"
+          test "$(find "$app" -type d -name '*.systemextension' | wc -l | tr -d ' ')" = 1
+          plutil -lint "$app/Contents/Info.plist" "$audit/Library/LaunchDaemons/Y24464MUL3.ru.aheadscale.client.bridge.plist"
+          printf 'ARM64 PKG payload verified. Developer ID signing and native acceptance remain.\n' >> "$GITHUB_STEP_SUMMARY"
+          git rev-parse HEAD > "$inputs/source.txt"
+          (cd "$inputs" && find . -type f ! -name SHA256SUMS -exec shasum -a 256 {} + > SHA256SUMS)
+          mkdir -p signing-artifact
+          tar -C "$inputs" -czf signing-artifact/aheadscale-macos-native-pkg-signing.tar.gz .
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: aheadscale-macos-native-pkg-signing
+          path: signing-artifact/
+          if-no-files-found: error
+          retention-days: 7

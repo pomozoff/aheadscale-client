@@ -13,7 +13,8 @@ import (
 	"time"
 )
 
-const PrincipalPath = "/Applications/Aheadscale Extension Setup.app/Contents/MacOS/AheadscaleExtensionSetup"
+// PrincipalPath is set to the canonical application path by the PKG build.
+var PrincipalPath = "/Applications/Aheadscale Extension Setup.app/Contents/MacOS/AheadscaleExtensionSetup"
 const DaemonAddress = "unix:///var/run/aheadscale-native-prototype.sock"
 const principalRequirement = `anchor apple generic and certificate leaf[subject.OU] = "Y24464MUL3" and identifier "ru.aheadscale.client"`
 

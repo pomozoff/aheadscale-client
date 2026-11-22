@@ -1,7 +1,7 @@
 import Foundation
 import SystemExtensions
 
-public enum ActivationState: Equatable {
+public enum ActivationState: Equatable, Sendable {
     case idle, working, waitingForApproval, active, inactive, rebootRequired
     case failed(String)
 }
@@ -34,7 +34,11 @@ public final class ActivationController: NSObject, OSSystemExtensionRequestDeleg
     public func request(_ request: OSSystemExtensionRequest, didFailWithError error: Error) {
         guard request === pending else { return }
         pending = nil
-        state = .failed(error.localizedDescription)
+        if !activating, (error as? OSSystemExtensionError)?.code == .extensionNotFound {
+            state = .inactive
+        } else {
+            state = .failed(error.localizedDescription)
+        }
     }
 
     public func request(

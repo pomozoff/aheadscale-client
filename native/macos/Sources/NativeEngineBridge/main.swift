@@ -2,18 +2,36 @@ import Foundation
 import Darwin
 import AheadscaleBridgeProbe
 
-// Explicit temporary native-engine gate. The final installer will own launchd
-// registration. No arbitrary executable, socket or configuration from a client.
-guard geteuid()==0,CommandLine.arguments.count==1 else{exit(1)}
+// Only signed local binaries and fixed paths are accepted. No input path can
+// be supplied by launchd clients or by the provider.
+let arguments = Array(CommandLine.arguments.dropFirst())
+guard geteuid() == 0, arguments.isEmpty || arguments == ["--installed"] else { exit(1) }
+let installed = arguments == ["--installed"]
 @available(macOS 13.0, *)
 func run() throws -> Never {
     try NativeEngineIdentity.verify()
     let socket="unix:///var/run/aheadscale-native-prototype.sock"
-    let config="/var/root/Library/Application Support/AheadscaleNativePrototype/default.json"
-    var configInfo=stat()
-    guard lstat(config,&configInfo)==0,configInfo.st_mode & mode_t(S_IFMT)==mode_t(S_IFREG),
-          configInfo.st_uid==0,configInfo.st_mode & 0o077==0 else{
-        throw NSError(domain:"ru.aheadscale.client.bridge",code:4)
+    let directory = installed
+        ? "/var/lib/aheadscale"
+        : "/var/root/Library/Application Support/AheadscaleNativePrototype"
+    let config = directory + "/default.json"
+    var directoryInfo = stat()
+    if installed {
+        guard lstat(directory, &directoryInfo) == 0,
+              directoryInfo.st_mode & mode_t(S_IFMT) == mode_t(S_IFDIR),
+              directoryInfo.st_uid == 0, directoryInfo.st_mode & 0o022 == 0 else {
+            throw NSError(domain: "ru.aheadscale.client.bridge", code: 4)
+        }
+    }
+    var configInfo = stat()
+    if lstat(config, &configInfo) == 0 {
+        guard configInfo.st_mode & mode_t(S_IFMT) == mode_t(S_IFREG),
+              configInfo.st_uid == 0, configInfo.st_mode & 0o077 == 0,
+              configInfo.st_nlink == 1 else {
+            throw NSError(domain: "ru.aheadscale.client.bridge", code: 4)
+        }
+    } else if !installed || errno != ENOENT {
+        throw NSError(domain: "ru.aheadscale.client.bridge", code: 4)
     }
     var fds:[Int32]=[-1,-1]
     guard socketpair(AF_UNIX,SOCK_DGRAM,0,&fds)==0 else{throw NSError(domain:NSPOSIXErrorDomain,code:Int(errno))}
@@ -22,8 +40,8 @@ func run() throws -> Never {
     let child=FileHandle(fileDescriptor:fds[1],closeOnDealloc:true)
     let daemon=Process()
     daemon.executableURL=URL(fileURLWithPath:NativeEngineIdentity.path)
-    daemon.arguments=["service","run","--daemon-addr",socket,"--config",config,"--log-file","/var/log/aheadscale/native-prototype.log","--disable-profiles"]
-    let environment=ProcessInfo.processInfo.environment.merging(["AS_STATE_DIR":"/var/root/Library/Application Support/AheadscaleNativePrototype"]){_,value in value}
+    daemon.arguments=["service","run","--daemon-addr",socket,"--config",config,"--log-file",installed ? "/var/log/aheadscale/native.log" : "/var/log/aheadscale/native-prototype.log","--disable-profiles"]
+    let environment=ProcessInfo.processInfo.environment.merging(["AS_STATE_DIR":directory]){_,value in value}
     daemon.environment=environment
     daemon.standardInput=child
     let commands=DispatchQueue(label:"ru.aheadscale.native.commands")
@@ -52,7 +70,7 @@ func run() throws -> Never {
     term.setEventHandler(handler:shutdown);interrupt.setEventHandler(handler:shutdown)
     term.resume();interrupt.resume()
     // Temporary gate cannot leave a new permanent service behind.
-    DispatchQueue.main.asyncAfter(deadline:.now()+900){shutdown()}
+    if !installed { DispatchQueue.main.asyncAfter(deadline:.now()+900){shutdown()} }
     withExtendedLifetime((listener,control,term,interrupt)){dispatchMain()}
 }
 if #available(macOS 13.0, *) {
