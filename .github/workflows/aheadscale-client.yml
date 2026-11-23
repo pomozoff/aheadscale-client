@@ -218,6 +218,27 @@ jobs:
           pnpm install --frozen-lockfile
       - name: Поколения, Cancel, restart и контроллер
         run: python3 -B testing/aheadscale/run.py --suite networkmanager --output ci-results/networkmanager
+      - name: Собрать VPN-адаптер для проверки AHEAD-67 на Kubuntu
+        run: |
+          work=$(mktemp -d)
+          trap 'rm -rf "$work"' EXIT
+          python3 packaging/aheadscale/networkmanager/prepare-source.py "$PWD" "$work"
+          git -C "$work/source" apply --unidiff-zero "$PWD/packaging/aheadscale/networkmanager/aheadscale.patch"
+          mkdir -p "$RUNNER_TEMP/ahead67-adapter"
+          (
+            cd "$work/source"
+            CGO_ENABLED=0 go build -buildvcs=false -trimpath -p 2 -ldflags '-s -w' \
+              -o "$RUNNER_TEMP/ahead67-adapter/nm-aheadscale-service" ./cmd/nm-aheadscale-service
+          )
+          cd "$RUNNER_TEMP/ahead67-adapter"
+          printf '%s\n' "$GITHUB_SHA" > source.txt
+          sha256sum nm-aheadscale-service source.txt > SHA256SUMS
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: ahead67-kubuntu-amd64-adapter
+          path: ${{ runner.temp }}/ahead67-adapter/
+          if-no-files-found: error
+          retention-days: 7
       - name: Краткий результат
         if: always()
         run: cat ci-results/networkmanager/summary.md >> "$GITHUB_STEP_SUMMARY"
