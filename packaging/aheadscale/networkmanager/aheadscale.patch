@@ -781,10 +781,67 @@ index 0000000..ff975cf
 +	}
 +}
 diff --git a/internal/nmplugin/config.go b/internal/nmplugin/config.go
-index 4501be7..9ca6b40 100644
+index 4501be7..5e20625 100644
 --- a/internal/nmplugin/config.go
 +++ b/internal/nmplugin/config.go
-@@ -134 +134 @@ func gatewayVariantForAddr(addr netip.Addr) (dbus.Variant, bool) {
+@@ -10,0 +11 @@ import (
++	"time"
+@@ -22,0 +24,54 @@ const (
++const (
++	networkManagerName = "org.freedesktop.NetworkManager"
++	vpnConnectionIface = networkManagerName + ".VPN.Connection"
++	vpnConnectState    = uint32(3) // NM_VPN_CONNECTION_STATE_CONNECT
++)
++
++func (s *Service) waitForVPNConnect(ctx context.Context, uuid string) error {
++	if uuid == "" {
++		return fmt.Errorf("NetworkManager VPN activation has no connection UUID")
++	}
++	var owner string
++	if err := s.conn.BusObject().CallWithContext(ctx, "org.freedesktop.DBus.GetNameOwner", 0, networkManagerName).Store(&owner); err != nil {
++		return fmt.Errorf("find NetworkManager owner: %w", err)
++	}
++	var paths []dbus.ObjectPath
++	manager := s.conn.Object(owner, "/org/freedesktop/NetworkManager")
++	if err := readNetworkManagerProperty(ctx, manager, networkManagerName, "ActiveConnections", &paths); err != nil {
++		return fmt.Errorf("read NetworkManager active VPN: %w", err)
++	}
++	for _, path := range paths {
++		connection := s.conn.Object(owner, path)
++		var activeUUID string
++		err := readNetworkManagerProperty(ctx, connection, networkManagerName+".Connection.Active", "Uuid", &activeUUID)
++		if err != nil || activeUUID != uuid {
++			continue
++		}
++		ticker := time.NewTicker(100 * time.Millisecond)
++		defer ticker.Stop()
++		for {
++			var state uint32
++			if err := readNetworkManagerProperty(ctx, connection, vpnConnectionIface, "VpnState", &state); err != nil {
++				return fmt.Errorf("read NetworkManager VPN state: %w", err)
++			}
++			if state == vpnConnectState {
++				return ctx.Err()
++			}
++			select {
++			case <-ctx.Done():
++				return fmt.Errorf("wait for NetworkManager to accept SSO: %w", ctx.Err())
++			case <-ticker.C:
++			}
++		}
++	}
++	return fmt.Errorf("NetworkManager VPN activation disappeared before configuration")
++}
++
++func readNetworkManagerProperty(ctx context.Context, object dbus.BusObject, iface, property string, target any) error {
++	var value dbus.Variant
++	if err := object.CallWithContext(ctx, "org.freedesktop.DBus.Properties.Get", 0, iface, property).Store(&value); err != nil {
++		return err
++	}
++	return dbus.Store([]any{value.Value()}, target)
++}
++
+@@ -134 +189 @@ func gatewayVariantForAddr(addr netip.Addr) (dbus.Variant, bool) {
 -		return dbus.MakeVariant(binary.BigEndian.Uint32(bytes[:])), true
 +		return dbus.MakeVariant(binary.NativeEndian.Uint32(bytes[:])), true
 diff --git a/internal/nmplugin/config_abi_test.go b/internal/nmplugin/config_abi_test.go
@@ -827,7 +884,7 @@ index ace84f8..5dc2046 100644
 +      <arg name="complete" type="b" direction="out"/>
 +    </method>
 diff --git a/internal/nmplugin/prompts.go b/internal/nmplugin/prompts.go
-index c8905d0..5a07836 100644
+index c8905d0..c9170e2 100644
 --- a/internal/nmplugin/prompts.go
 +++ b/internal/nmplugin/prompts.go
 @@ -13,2 +13,2 @@ const (
@@ -835,11 +892,40 @@ index c8905d0..5a07836 100644
 -	ssoRequiredMessage      = "NetBird SSO login required."
 +	setupKeyRequiredMessage = "Aheadscale setup key required."
 +	ssoRequiredMessage      = "Aheadscale SSO login required."
-@@ -147 +147 @@ func formatSSOLoginBanner(response daemonclient.LoginResponse) string {
+@@ -27,0 +28 @@ type activationPrompt struct {
++	ssoReady     bool
+@@ -39,4 +39,0 @@ func (s *Service) handleNewSecretsLocked(prompt *activationPrompt, settings acti
+-		if !settings.SSOContinue && !settings.SSOCancel {
+-			return
+-		}
+-		s.prompt = nil
+@@ -44,0 +42,8 @@ func (s *Service) handleNewSecretsLocked(prompt *activationPrompt, settings acti
++			s.prompt = nil
++			return
++		}
++		if settings.SSOContinue && settings.PromptActivationID == formatActivationID(prompt.activationID) {
++			select {
++			case prompt.result <- settings:
++			default:
++			}
+@@ -74 +79 @@ func (s *Service) waitForSetupKeySecret(ctx context.Context, activationID uint64
+-func (s *Service) startSSOPrompt(activationID uint64, response daemonclient.LoginResponse) {
++func (s *Service) startSSOPrompt(activationID uint64, response daemonclient.LoginResponse) (*activationPrompt, error) {
+@@ -77,0 +83 @@ func (s *Service) startSSOPrompt(activationID uint64, response daemonclient.Logi
++		result:       make(chan activationSettings, 1),
+@@ -80 +86 @@ func (s *Service) startSSOPrompt(activationID uint64, response daemonclient.Logi
+-		return
++		return nil, errPromptUnavailable
+@@ -83 +89 @@ func (s *Service) startSSOPrompt(activationID uint64, response daemonclient.Logi
+-		s.logger.Printf("emit SSO SecretsRequired failed: %v", err)
++		return nil, fmt.Errorf("emit SSO SecretsRequired: %w", err)
+@@ -84,0 +91 @@ func (s *Service) startSSOPrompt(activationID uint64, response daemonclient.Logi
++	return prompt, nil
+@@ -147 +154 @@ func formatSSOLoginBanner(response daemonclient.LoginResponse) string {
 -	parts := []string{"NetBird SSO login required."}
 +	parts := []string{"Aheadscale SSO login required."}
 diff --git a/internal/nmplugin/service.go b/internal/nmplugin/service.go
-index fce6c37..8616f99 100644
+index fce6c37..8cca0db 100644
 --- a/internal/nmplugin/service.go
 +++ b/internal/nmplugin/service.go
 @@ -7,0 +8,3 @@ import (
@@ -868,31 +954,36 @@ index fce6c37..8616f99 100644
 +	activationDone   chan struct{}
 @@ -87,0 +105 @@ func NewService(conn *dbus.Conn, logger *log.Logger, debug bool, options Service
 +		activationController:   options.ActivationController,
-@@ -127,0 +146,9 @@ func (s *Service) State() ServiceState {
-+// SSOComplete is read-only and belongs to the current completed activation.
+@@ -127,0 +146,14 @@ func (s *Service) State() ServiceState {
++// SSOComplete is read-only and belongs to the current successful browser login.
 +// A cancelled dialog or a previous service owner cannot complete a new attempt.
 +func (s *Service) SSOComplete(activationID uint64) (bool, *dbus.Error) {
 +	s.lifecycleMu.Lock()
 +	defer s.lifecycleMu.Unlock()
-+	return activationID != 0 && activationID == s.activationID &&
-+		!s.activating && s.client != nil && s.State() == ServiceStateStarted, nil
++	if activationID == 0 || activationID != s.activationID {
++		return false, nil
++	}
++	if s.prompt != nil && s.prompt.activationID == activationID && s.prompt.ssoReady {
++		return true, nil
++	}
++	return !s.activating && s.client != nil && s.State() == ServiceStateStarted, nil
 +}
 +
-@@ -185,0 +213,2 @@ func (s *Service) Disconnect() *dbus.Error {
+@@ -185,0 +218,2 @@ func (s *Service) Disconnect() *dbus.Error {
 +	controlledCleanup := false
 +	var controllerErr error
-@@ -186,0 +216 @@ func (s *Service) Disconnect() *dbus.Error {
+@@ -186,0 +221 @@ func (s *Service) Disconnect() *dbus.Error {
 +	done := s.activationDone
-@@ -193,0 +224,2 @@ func (s *Service) Disconnect() *dbus.Error {
+@@ -193,0 +229,2 @@ func (s *Service) Disconnect() *dbus.Error {
 +	generation := s.brokerGeneration
 +	s.brokerGeneration = 0
-@@ -200,2 +232,3 @@ func (s *Service) Disconnect() *dbus.Error {
+@@ -200,2 +237,3 @@ func (s *Service) Disconnect() *dbus.Error {
 -	s.lifecycleMu.Unlock()
 -
 +	disconnectID := s.activationID
 +	// Publish Stopping before a replacement can reserve its activation. The
 +	// old RPC must never overwrite the newer activation's Starting/Started.
-@@ -202,0 +236,11 @@ func (s *Service) Disconnect() *dbus.Error {
+@@ -202,0 +241,11 @@ func (s *Service) Disconnect() *dbus.Error {
 +	s.lifecycleMu.Unlock()
 +	if s.activationController != nil && generation != 0 {
 +		ctx, cancel := context.WithTimeout(context.Background(), s.operationTimeout)
@@ -904,13 +995,13 @@ index fce6c37..8616f99 100644
 +			s.logger.Printf("persist Aheadscale disconnect: %v", err)
 +		}
 +	}
-@@ -206 +250,4 @@ func (s *Service) Disconnect() *dbus.Error {
+@@ -206 +255,4 @@ func (s *Service) Disconnect() *dbus.Error {
 -		err := client.Down(ctx)
 +		var err error
 +		if !controlledCleanup {
 +			err = client.Down(ctx)
 +		}
-@@ -211 +258,6 @@ func (s *Service) Disconnect() *dbus.Error {
+@@ -211 +263,6 @@ func (s *Service) Disconnect() *dbus.Error {
 -		if err != nil {
 +		if err != nil && !obsoleteNativeLease(err) {
 +			s.lifecycleMu.Lock()
@@ -918,7 +1009,7 @@ index fce6c37..8616f99 100644
 +			if s.activationID != disconnectID {
 +				return nil
 +			}
-@@ -218,0 +271,16 @@ func (s *Service) Disconnect() *dbus.Error {
+@@ -218,0 +276,16 @@ func (s *Service) Disconnect() *dbus.Error {
 +	if done != nil {
 +		timer := time.NewTimer(s.operationTimeout)
 +		defer timer.Stop()
@@ -935,19 +1026,19 @@ index fce6c37..8616f99 100644
 +		// A late Stopped signal would otherwise abort that new active path.
 +		return nil
 +	}
-@@ -219,0 +288,3 @@ func (s *Service) Disconnect() *dbus.Error {
+@@ -219,0 +293,3 @@ func (s *Service) Disconnect() *dbus.Error {
 +	if errors.Is(controllerErr, aheadscale.ErrUnavailable) {
 +		return newDBusError(dbusErrorVPNFailed, "туннель отключён, но намерение OFF не сохранено: %v", controllerErr)
 +	}
-@@ -258 +329,2 @@ func (s *Service) SetFailure(reason string) *dbus.Error {
+@@ -258 +334,2 @@ func (s *Service) SetFailure(reason string) *dbus.Error {
 -	return nil
 +	_ = s.EmitFailure(PluginFailureConnectFailed)
 +	return s.Disconnect()
-@@ -303,0 +376,3 @@ func (s *Service) startActivation(connection ConnectionSettings, details Variant
+@@ -303,0 +381,3 @@ func (s *Service) startActivation(connection ConnectionSettings, details Variant
 +	s.lifecycleMu.Lock()
 +	done := s.activationDone
 +	s.lifecycleMu.Unlock()
-@@ -305,8 +380,11 @@ func (s *Service) startActivation(connection ConnectionSettings, details Variant
+@@ -305,8 +385,11 @@ func (s *Service) startActivation(connection ConnectionSettings, details Variant
 -	go s.runActivation(activationAttempt{
 -		ctx:         activationCtx,
 -		cancel:      activationCancel,
@@ -967,9 +1058,9 @@ index fce6c37..8616f99 100644
 +			interactive: interactive,
 +		})
 +	}()
-@@ -322,0 +401 @@ type activationAttempt struct {
+@@ -322,0 +406 @@ type activationAttempt struct {
 +	generation  uint64
-@@ -342,0 +422,15 @@ func (s *Service) runActivation(
+@@ -342,0 +427,15 @@ func (s *Service) runActivation(
 +	if s.activationController != nil {
 +		lease, err := s.activationController.Begin(ctx)
 +		if err != nil {
@@ -985,7 +1076,7 @@ index fce6c37..8616f99 100644
 +		s.brokerGeneration = generation
 +		s.lifecycleMu.Unlock()
 +	}
-@@ -346,6 +440 @@ func (s *Service) runActivation(
+@@ -346,6 +445 @@ func (s *Service) runActivation(
 -		s.failActivation(PluginFailureLoginFailed, fmt.Errorf("unsupported auth mode %q (must be setup-key or sso)", settings.AuthMode))
 -		return
 -	}
@@ -993,53 +1084,74 @@ index fce6c37..8616f99 100644
 -	if settings.AuthMode == "sso" && !activationAttempt.interactive {
 -		s.failActivation(PluginFailureLoginFailed, errInteractiveSSONeeded)
 +		s.failAttempt(activationAttempt, PluginFailureLoginFailed, fmt.Errorf("unsupported auth mode %q (must be setup-key or sso)", settings.AuthMode))
-@@ -358 +447 @@ func (s *Service) runActivation(
+@@ -358 +452 @@ func (s *Service) runActivation(
 -		s.failActivation(PluginFailureConnectFailed, fmt.Errorf("connect to netbird daemon: %w", err))
 +		s.failAttempt(activationAttempt, PluginFailureConnectFailed, fmt.Errorf("connect to netbird daemon: %w", err))
-@@ -364 +453 @@ func (s *Service) runActivation(
+@@ -364 +458 @@ func (s *Service) runActivation(
 -		s.failActivation(PluginFailureConnectFailed, err)
 +		s.failAttempt(activationAttempt, PluginFailureConnectFailed, err)
-@@ -370 +459 @@ func (s *Service) runActivation(
+@@ -368 +462 @@ func (s *Service) runActivation(
+-	waitedForSSO, err := s.authenticate(ctx, activationAttempt, client, settings)
++	ssoPrompt, err := s.authenticate(ctx, activationAttempt, client, settings)
+@@ -370 +464 @@ func (s *Service) runActivation(
 -		s.failActivation(PluginFailureLoginFailed, err)
 +		s.failAttempt(activationAttempt, PluginFailureLoginFailed, err)
-@@ -381 +470 @@ func (s *Service) runActivation(
+@@ -375 +469 @@ func (s *Service) runActivation(
+-	if waitedForSSO {
++	if ssoPrompt != nil {
+@@ -377,0 +472,14 @@ func (s *Service) runActivation(
++		// NetworkManager processes Config only after it handles its own
++		// NewSecrets reply and returns to connect. A browser result alone
++		// does not move the system VPN out of need-auth.
++		select {
++		case <-ssoPrompt.result:
++		case <-ctx.Done():
++			s.failAttempt(activationAttempt, PluginFailureConnectFailed, fmt.Errorf("wait for SSO dialog: %w", ctx.Err()))
++			return
++		}
++		uuid, _ := activationAttempt.connection["connection"]["uuid"].Value().(string)
++		if err := s.waitForVPNConnect(ctx, uuid); err != nil {
++			s.failAttempt(activationAttempt, PluginFailureConnectFailed, err)
++			return
++		}
+@@ -381 +489 @@ func (s *Service) runActivation(
 -		s.failActivation(PluginFailureConnectFailed, err)
 +		s.failAttempt(activationAttempt, PluginFailureConnectFailed, err)
-@@ -387 +476 @@ func (s *Service) runActivation(
+@@ -387 +495 @@ func (s *Service) runActivation(
 -		s.failActivation(PluginFailureConnectFailed, err)
 +		s.failAttempt(activationAttempt, PluginFailureConnectFailed, err)
-@@ -390,0 +480,6 @@ func (s *Service) runActivation(
+@@ -390,0 +499,6 @@ func (s *Service) runActivation(
 +	if s.activationController != nil {
 +		if err := s.activationController.Complete(ctx, activationAttempt.generation, "Connecting"); err != nil {
 +			s.failAttempt(activationAttempt, PluginFailureConnectFailed, err)
 +			return
 +		}
 +	}
-@@ -392 +487 @@ func (s *Service) runActivation(
+@@ -392 +506 @@ func (s *Service) runActivation(
 -		s.failActivation(classifyUpFailure(err), err)
 +		s.failAttempt(activationAttempt, classifyUpFailure(err), err)
-@@ -398 +493 @@ func (s *Service) runActivation(
+@@ -398 +512 @@ func (s *Service) runActivation(
 -		s.failActivation(PluginFailureConnectFailed, err)
 +		s.failAttempt(activationAttempt, PluginFailureConnectFailed, err)
-@@ -401,0 +497,6 @@ func (s *Service) runActivation(
+@@ -401,0 +516,6 @@ func (s *Service) runActivation(
 +	if s.activationController != nil {
 +		if err := s.activationController.Complete(ctx, activationAttempt.generation, "Connected"); err != nil {
 +			s.failAttempt(activationAttempt, PluginFailureConnectFailed, err)
 +			return
 +		}
 +	}
-@@ -403 +504 @@ func (s *Service) runActivation(
+@@ -403 +523 @@ func (s *Service) runActivation(
 -		s.failActivation(PluginFailureBadIPConfig, err)
 +		s.failAttempt(activationAttempt, PluginFailureBadIPConfig, err)
-@@ -422,0 +524,5 @@ func (s *Service) finishActivationAttempt(
+@@ -422,0 +543,5 @@ func (s *Service) finishActivationAttempt(
 +	if activationAttempt.ctx.Err() != nil && activationAttempt.generation != 0 && s.activationController != nil {
 +		cancelCtx, stop := context.WithTimeout(context.Background(), s.operationTimeout)
 +		_ = s.activationController.Cancel(cancelCtx, activationAttempt.generation)
 +		stop()
 +	}
-@@ -435 +540,0 @@ func (s *Service) finishActivationAttempt(
+@@ -435 +559,0 @@ func (s *Service) finishActivationAttempt(
 -	s.finishFailedActivation()
-@@ -438,0 +544,8 @@ func (s *Service) finishActivationAttempt(
+@@ -438,0 +563,8 @@ func (s *Service) finishActivationAttempt(
 +	// NewSecrets cancellation has no separate Disconnect RPC. Publish Stopped
 +	// after cleanup, while the old activation still owns the reservation.
 +	s.lifecycleMu.Lock()
@@ -1048,19 +1160,63 @@ index fce6c37..8616f99 100644
 +	}
 +	s.lifecycleMu.Unlock()
 +	s.finishFailedActivation()
-@@ -518,0 +632,3 @@ func (s *Service) authenticate(
+@@ -495 +627 @@ func (s *Service) authenticate(
+-) (bool, error) {
++) (*activationPrompt, error) {
+@@ -497 +629 @@ func (s *Service) authenticate(
+-		return false, nil
++		return nil, nil
+@@ -502 +634 @@ func (s *Service) authenticate(
+-			return false, errMissingSetupKey
++			return nil, errMissingSetupKey
+@@ -507 +639 @@ func (s *Service) authenticate(
+-			return false, err
++			return nil, err
+@@ -513 +645 @@ func (s *Service) authenticate(
+-		return false, err
++		return nil, err
+@@ -516 +648 @@ func (s *Service) authenticate(
+-		return false, nil
++		return nil, nil
+@@ -519 +651,4 @@ func (s *Service) authenticate(
+-		return false, errInteractiveSSONeeded
 +		if s.activationController != nil {
 +			_ = s.activationController.Complete(ctx, activationAttempt.generation, "NeedsLogin")
 +		}
-@@ -602 +718 @@ func (s *Service) reserveActivation() (context.Context, context.CancelFunc, uint
++		return nil, errInteractiveSSONeeded
+@@ -525 +660,4 @@ func (s *Service) authenticate(
+-	s.startSSOPrompt(activationAttempt.id, response)
++	prompt, err := s.startSSOPrompt(activationAttempt.id, response)
++	if err != nil {
++		return nil, err
++	}
+@@ -537 +675 @@ func (s *Service) authenticate(
+-			return true, fmt.Errorf("timeout waiting for SSO login: %w", err)
++			return nil, fmt.Errorf("timeout waiting for SSO login: %w", err)
+@@ -539 +677 @@ func (s *Service) authenticate(
+-		return true, err
++		return nil, err
+@@ -541 +679,10 @@ func (s *Service) authenticate(
+-	return true, nil
++	s.lifecycleMu.Lock()
++	defer s.lifecycleMu.Unlock()
++	if err := activationAttempt.ctx.Err(); err != nil {
++		return nil, err
++	}
++	if s.prompt != prompt {
++		return nil, errPromptUnavailable
++	}
++	prompt.ssoReady = true
++	return prompt, nil
+@@ -602 +749 @@ func (s *Service) reserveActivation() (context.Context, context.CancelFunc, uint
 -		return nil, nil, 0, newDBusError(dbusErrorVPNAlreadyActive, "a NetBird activation is already in progress or active")
 +		return nil, nil, 0, newDBusError(dbusErrorVPNAlreadyActive, "a Aheadscale activation is already in progress or active")
-@@ -609,0 +726 @@ func (s *Service) reserveActivation() (context.Context, context.CancelFunc, uint
+@@ -609,0 +757 @@ func (s *Service) reserveActivation() (context.Context, context.CancelFunc, uint
 +	s.activationDone = make(chan struct{})
-@@ -816,0 +934,2 @@ func (s *Service) failActiveSessionAfterStatusThreshold(sessionID uint64, consec
+@@ -816,0 +965,2 @@ func (s *Service) failActiveSessionAfterStatusThreshold(sessionID uint64, consec
 +	generation := s.brokerGeneration
 +	s.brokerGeneration = 0
-@@ -826 +945,6 @@ func (s *Service) failActiveSessionAfterStatusThreshold(sessionID uint64, consec
+@@ -826 +976,6 @@ func (s *Service) failActiveSessionAfterStatusThreshold(sessionID uint64, consec
 -	s.logger.Printf("netbird status poll failed %d consecutive times; failing active session", consecutiveFailures)
 +	if s.activationController != nil && generation != 0 {
 +		ctx, cancel := context.WithTimeout(context.Background(), s.operationTimeout)
@@ -1068,7 +1224,7 @@ index fce6c37..8616f99 100644
 +		cancel()
 +	}
 +	s.logger.Printf("Aheadscale status poll failed %d consecutive times; failing active session", consecutiveFailures)
-@@ -847,0 +972,18 @@ func (s *Service) failActivation(failure PluginFailure, err error) {
+@@ -847,0 +1003,18 @@ func (s *Service) failActivation(failure PluginFailure, err error) {
 +
 +func obsoleteNativeLease(err error) bool {
 +	for _, detail := range status.Convert(err).Details() {
@@ -1088,7 +1244,7 @@ index fce6c37..8616f99 100644
 +	s.failActivation(failure, err)
 +}
 diff --git a/internal/nmplugin/service_test.go b/internal/nmplugin/service_test.go
-index d7f1bf0..5a382d3 100644
+index d7f1bf0..55b6d8d 100644
 --- a/internal/nmplugin/service_test.go
 +++ b/internal/nmplugin/service_test.go
 @@ -14,0 +15 @@ import (
@@ -1134,37 +1290,64 @@ index d7f1bf0..5a382d3 100644
 @@ -793 +799 @@ func TestConnectWithSSOAuthEmitsActionableMessage(t *testing.T) {
 -			require.Empty(t, fake.loginRequests)
 +			require.Len(t, fake.loginRequests, 1)
-@@ -852,5 +858,5 @@ func TestConnectInteractiveWithSSOAuthEmitsPromptHints(t *testing.T) {
+@@ -805,0 +812 @@ func TestConnectInteractiveWithSSOAuthEmitsPromptHints(t *testing.T) {
++	mockVPNState(t, clientConn, 3)
+@@ -839,0 +847 @@ func TestConnectInteractiveWithSSOAuthEmitsPromptHints(t *testing.T) {
++	var activationID string
+@@ -852,6 +860,7 @@ func TestConnectInteractiveWithSSOAuthEmitsPromptHints(t *testing.T) {
 -			require.Contains(t, hints, "x-netbird-sso=true")
 -			require.Contains(t, hints, "x-netbird-sso-continue")
 -			require.Contains(t, hints, "x-netbird-sso-verification-uri=https://login.netbird.io/device")
 -			require.Contains(t, hints, "x-netbird-sso-verification-uri-complete=https://login.netbird.io/device?user_code=ABCD-EFGH")
 -			require.Contains(t, hints, "x-netbird-sso-user-code=ABCD-EFGH")
+-			require.NotEmpty(t, activationIDFromHints(t, hints))
 +			require.Contains(t, hints, "x-aheadscale-sso=true")
 +			require.Contains(t, hints, "x-aheadscale-sso-continue")
 +			require.Contains(t, hints, "x-aheadscale-sso-verification-uri=https://login.netbird.io/device")
 +			require.Contains(t, hints, "x-aheadscale-sso-verification-uri-complete=https://login.netbird.io/device?user_code=ABCD-EFGH")
 +			require.Contains(t, hints, "x-aheadscale-sso-user-code=ABCD-EFGH")
-@@ -869,2 +875,2 @@ func TestConnectInteractiveWithSSOAuthEmitsPromptHints(t *testing.T) {
++			activationID = activationIDFromHints(t, hints)
++			require.NotEmpty(t, activationID)
+@@ -869,2 +878,3 @@ func TestConnectInteractiveWithSSOAuthEmitsPromptHints(t *testing.T) {
 -	require.Equal(t, "https://api.netbird.io:443", fake.loginRequests[0].ManagementURL)
 -	require.Equal(t, "https://app.netbird.io:443", fake.loginRequests[0].AdminURL)
 +	require.Equal(t, "https://aheadscale.ru:443", fake.loginRequests[0].ManagementURL)
 +	require.Equal(t, "https://aheadscale.ru:443", fake.loginRequests[0].AdminURL)
-@@ -911,2 +917,2 @@ func TestConnectInteractiveSSOCancelStopsActivation(t *testing.T) {
++	replyToSSOPrompt(t, obj, activationID, "continue")
+@@ -911,2 +921,2 @@ func TestConnectInteractiveSSOCancelStopsActivation(t *testing.T) {
 -				"x-netbird-activation-id": activationID,
 -				"x-netbird-sso-cancel":    "true",
 +				"x-aheadscale-activation-id": activationID,
 +				"x-aheadscale-sso-cancel":    "true",
-@@ -1223 +1229 @@ func networkIPv4(t *testing.T, value string) uint32 {
+@@ -970 +980 @@ func TestConnectInteractiveWaitsPastActivationTimeoutForSSO(t *testing.T) {
+-	obj, fake, _ := newTestingBusObjectWithServiceOptions(t, func(options *nmplugin.ServiceOptions) {
++	obj, fake, conn := newTestingBusObjectWithServiceOptions(t, func(options *nmplugin.ServiceOptions) {
+@@ -973,0 +984,2 @@ func TestConnectInteractiveWaitsPastActivationTimeoutForSSO(t *testing.T) {
++	mockVPNState(t, conn, 3)
++	signals := watchSignals(t, conn, "SecretsRequired")
+@@ -989,0 +1002 @@ func TestConnectInteractiveWaitsPastActivationTimeoutForSSO(t *testing.T) {
++		"connection": {"uuid": dbus.MakeVariant(testVPNConnectionUUID)},
+@@ -1005,0 +1019 @@ func TestConnectInteractiveWaitsPastActivationTimeoutForSSO(t *testing.T) {
++	replyToSSOPrompt(t, obj, activationIDFromSecretsRequired(t, waitForSignal(t, signals, "SecretsRequired")), "continue")
+@@ -1011 +1025,3 @@ func TestConnectInteractiveReturnsBeforeSSOWaitCompletes(t *testing.T) {
+-	obj, fake := newTestingBusObject(t)
++	obj, fake, conn := newTestingBusObjectWithConn(t)
++	mockVPNState(t, conn, 3)
++	signals := watchSignals(t, conn, "SecretsRequired")
+@@ -1027,0 +1044 @@ func TestConnectInteractiveReturnsBeforeSSOWaitCompletes(t *testing.T) {
++		"connection": {"uuid": dbus.MakeVariant(testVPNConnectionUUID)},
+@@ -1054,0 +1072 @@ func TestConnectInteractiveReturnsBeforeSSOWaitCompletes(t *testing.T) {
++	replyToSSOPrompt(t, obj, activationIDFromSecretsRequired(t, waitForSignal(t, signals, "SecretsRequired")), "continue")
+@@ -1223 +1241 @@ func networkIPv4(t *testing.T, value string) uint32 {
 -	return binary.BigEndian.Uint32(bytes[:])
 +	return binary.NativeEndian.Uint32(bytes[:])
-@@ -1348 +1354 @@ func activationIDFromHints(t *testing.T, hints []string) string {
+@@ -1348 +1366 @@ func activationIDFromHints(t *testing.T, hints []string) string {
 -		if ok && key == "x-netbird-activation-id" {
 +		if ok && key == "x-aheadscale-activation-id" {
-@@ -1352 +1358 @@ func activationIDFromHints(t *testing.T, hints []string) string {
+@@ -1352 +1370 @@ func activationIDFromHints(t *testing.T, hints []string) string {
 -	t.Fatalf("SecretsRequired hints do not contain x-netbird-activation-id: %#v", hints)
 +	t.Fatalf("SecretsRequired hints do not contain x-aheadscale-activation-id: %#v", hints)
-@@ -1502,4 +1508,6 @@ type fakeDaemonClient struct {
+@@ -1502,4 +1520,6 @@ type fakeDaemonClient struct {
 -	waitSSOStarted   chan struct{}
 -	waitSSORelease   chan struct{}
 -	getConfigStarted chan struct{}
@@ -1175,15 +1358,15 @@ index d7f1bf0..5a382d3 100644
 +	waitSSOCancelRelease chan struct{}
 +	getConfigStarted     chan struct{}
 +	getConfigRelease     chan struct{}
-@@ -1572,0 +1581 @@ func (f *fakeDaemonClient) WaitSSOLogin(ctx context.Context, request daemonclien
+@@ -1572,0 +1593 @@ func (f *fakeDaemonClient) WaitSSOLogin(ctx context.Context, request daemonclien
 +	f.waitSSOCalls++
-@@ -1575,0 +1585 @@ func (f *fakeDaemonClient) WaitSSOLogin(ctx context.Context, request daemonclien
+@@ -1575,0 +1597 @@ func (f *fakeDaemonClient) WaitSSOLogin(ctx context.Context, request daemonclien
 +	cleanup := f.waitSSOCancelRelease
-@@ -1584,0 +1595,3 @@ func (f *fakeDaemonClient) WaitSSOLogin(ctx context.Context, request daemonclien
+@@ -1584,0 +1607,3 @@ func (f *fakeDaemonClient) WaitSSOLogin(ctx context.Context, request daemonclien
 +			if cleanup != nil {
 +				<-cleanup
 +			}
-@@ -1732,0 +1746,296 @@ func connectTestBus(t *testing.T, address string) *dbus.Conn {
+@@ -1732,0 +1758,317 @@ func connectTestBus(t *testing.T, address string) *dbus.Conn {
 +
 +type rejectingActivationController struct {
 +	mu         sync.Mutex
@@ -1424,15 +1607,15 @@ index d7f1bf0..5a382d3 100644
 +	require.NoError(t, obj.Call(nmplugin.Interface+".Disconnect", 0).Store())
 +}
 +
-+func TestSSOVPNConfigWaitsForNetworkManagerToAcceptNewSecrets(t *testing.T) {
-+	obj, fake, conn := newTestingBusObjectWithConn(t)
-+	const (
-+		manager   = "org.freedesktop.NetworkManager"
-+		vpn       = manager + ".VPN.Connection"
-+		active    = manager + ".Connection.Active"
-+		uuid      = "22222222-2222-2222-2222-222222222222"
-+		path      = dbus.ObjectPath("/org/freedesktop/NetworkManager/ActiveConnection/4")
-+	)
++const (
++	testVPNConnectionUUID = "22222222-2222-2222-2222-222222222222"
++	testVPNConnectionIface = "org.freedesktop.NetworkManager.VPN.Connection"
++)
++
++func mockVPNState(t *testing.T, conn *dbus.Conn, state uint32) *prop.Properties {
++	t.Helper()
++	const manager = "org.freedesktop.NetworkManager"
++	const path = dbus.ObjectPath("/org/freedesktop/NetworkManager/ActiveConnection/4")
 +	reply, err := conn.RequestName(manager, dbus.NameFlagDoNotQueue)
 +	require.NoError(t, err)
 +	require.Equal(t, dbus.RequestNameReplyPrimaryOwner, reply)
@@ -1441,17 +1624,32 @@ index d7f1bf0..5a382d3 100644
 +	})
 +	require.NoError(t, err)
 +	properties, err := prop.Export(conn, path, prop.Map{
-+		active: {"Uuid": {Value: uuid}},
-+		vpn:    {"VpnState": {Value: uint32(2)}},
++		manager + ".Connection.Active": {"Uuid": {Value: testVPNConnectionUUID}},
++		testVPNConnectionIface:         {"VpnState": {Value: state}},
 +	})
 +	require.NoError(t, err)
++	return properties
++}
++
++func replyToSSOPrompt(t *testing.T, obj dbus.BusObject, id, action string) {
++	t.Helper()
++	reply := nmplugin.ConnectionSettings{"vpn": {"secrets": dbus.MakeVariant(map[string]string{
++		"x-aheadscale-activation-id": id,
++		"x-aheadscale-sso-" + action: "true",
++	})}}
++	require.NoError(t, obj.Call(nmplugin.Interface+".NewSecrets", 0, reply).Store())
++}
++
++func TestSSOVPNConfigWaitsForNetworkManagerToAcceptNewSecrets(t *testing.T) {
++	obj, fake, conn := newTestingBusObjectWithConn(t)
++	properties := mockVPNState(t, conn, 2)
 +	signals := watchSignals(t, conn, "SecretsRequired", "Config")
 +
 +	fake.mu.Lock()
 +	fake.loginResponse = daemonclient.LoginResponse{NeedsSSOLogin: true, UserCode: "CODE"}
 +	fake.mu.Unlock()
 +	settings := setupKeyConnectionSettings(map[string]string{"auth": "sso"})
-+	settings["connection"] = map[string]dbus.Variant{"uuid": dbus.MakeVariant(uuid)}
++	settings["connection"] = map[string]dbus.Variant{"uuid": dbus.MakeVariant(testVPNConnectionUUID)}
 +	require.NoError(t, obj.Call(nmplugin.Interface+".ConnectInteractive", 0, settings, nmplugin.VariantMap{}).Store())
 +	id := activationIDFromSecretsRequired(t, waitForSignal(t, signals, "SecretsRequired"))
 +	generation, err := strconv.ParseUint(id, 10, 64)
@@ -1470,15 +1668,21 @@ index d7f1bf0..5a382d3 100644
 +		}
 +	}
 +	assertNoConfig()
-+	settings["vpn"]["secrets"] = dbus.MakeVariant(map[string]string{
-+		"x-aheadscale-activation-id": id,
-+		"x-aheadscale-sso-continue":  "true",
-+	})
-+	require.NoError(t, obj.Call(nmplugin.Interface+".NewSecrets", 0, settings).Store())
++	replyToSSOPrompt(t, obj, id, "continue")
 +	assertNoConfig()
-+	properties.SetMust(vpn, "VpnState", uint32(3))
++	properties.SetMust(testVPNConnectionIface, "VpnState", uint32(3))
 +	waitForSignal(t, signals, "Config")
 +	waitForState(t, obj, nmplugin.ServiceStateStarted)
++	require.NoError(t, obj.Call(nmplugin.Interface+".Disconnect", 0).Store())
++
++	require.NoError(t, obj.Call(nmplugin.Interface+".ConnectInteractive", 0, settings, nmplugin.VariantMap{}).Store())
++	nextID := activationIDFromSecretsRequired(t, waitForSignal(t, signals, "SecretsRequired"))
++	require.NotEqual(t, id, nextID)
++	replyToSSOPrompt(t, obj, id, "continue")
++	assertNoConfig()
++	replyToSSOPrompt(t, obj, nextID, "cancel")
++	waitForState(t, obj, nmplugin.ServiceStateStopped)
++	assertNoConfig()
 +}
 diff --git a/internal/nmplugin/settings.go b/internal/nmplugin/settings.go
 index ea0dba9..f315ec0 100644
