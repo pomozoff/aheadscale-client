@@ -274,7 +274,10 @@ jobs:
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
       - name: Нативный Qt/KDE toolchain
-        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends cmake g++ pkg-config qt6-base-dev libkf6coreaddons-dev libkf6networkmanagerqt-dev libkf6widgetsaddons-dev libnm-dev plasma-nm
+        run: |
+          snapshot=20261109T155700Z
+          sudo apt-get --snapshot "$snapshot" update -qq
+          sudo apt-get --snapshot "$snapshot" install -y --no-install-recommends cmake g++ pkg-config qt6-base-dev libkf6coreaddons-dev libkf6networkmanagerqt-dev libkf6widgetsaddons-dev libnm-dev plasma-nm
       - name: KDE factory, настройки, браузерный SSO и уничтожение диалога
         run: python3 -B testing/aheadscale/run.py --suite plasma --output ci-results/plasma
       - name: Краткий результат
