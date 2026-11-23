@@ -1088,49 +1088,53 @@ index fce6c37..8616f99 100644
 +	s.failActivation(failure, err)
 +}
 diff --git a/internal/nmplugin/service_test.go b/internal/nmplugin/service_test.go
-index d7f1bf0..b6e3456 100644
+index d7f1bf0..5a382d3 100644
 --- a/internal/nmplugin/service_test.go
 +++ b/internal/nmplugin/service_test.go
-@@ -23,0 +24 @@ import (
+@@ -14,0 +15 @@ import (
++	"strconv"
+@@ -22,0 +24 @@ import (
++	"github.com/godbus/dbus/v5/prop"
+@@ -23,0 +26 @@ import (
 +	"github.com/netbirdio/network-manager-plugin/internal/aheadscale"
-@@ -256,2 +257,2 @@ func TestConnectInteractiveWaitsForSetupKeyNewSecrets(t *testing.T) {
+@@ -256,2 +259,2 @@ func TestConnectInteractiveWaitsForSetupKeyNewSecrets(t *testing.T) {
 -				"setup-key":               "secret-from-dialog",
 -				"x-netbird-activation-id": activationID,
 +				"setup-key":                  "secret-from-dialog",
 +				"x-aheadscale-activation-id": activationID,
-@@ -286,2 +287,2 @@ func TestStaleSetupKeyNewSecretsDoesNotCompleteActivation(t *testing.T) {
+@@ -286,2 +289,2 @@ func TestStaleSetupKeyNewSecretsDoesNotCompleteActivation(t *testing.T) {
 -				"setup-key":               "stale-secret",
 -				"x-netbird-activation-id": "999999",
 +				"setup-key":                  "stale-secret",
 +				"x-aheadscale-activation-id": "999999",
-@@ -298,2 +299,2 @@ func TestStaleSetupKeyNewSecretsDoesNotCompleteActivation(t *testing.T) {
+@@ -298,2 +301,2 @@ func TestStaleSetupKeyNewSecretsDoesNotCompleteActivation(t *testing.T) {
 -				"setup-key":               "fresh-secret",
 -				"x-netbird-activation-id": activationID,
 +				"setup-key":                  "fresh-secret",
 +				"x-aheadscale-activation-id": activationID,
-@@ -359,2 +360,2 @@ func TestSetFailureCancelsPendingSetupKeyPrompt(t *testing.T) {
+@@ -359,2 +362,2 @@ func TestSetFailureCancelsPendingSetupKeyPrompt(t *testing.T) {
 -				"setup-key":               "too-late",
 -				"x-netbird-activation-id": activationID,
 +				"setup-key":                  "too-late",
 +				"x-aheadscale-activation-id": activationID,
-@@ -390,2 +391,2 @@ func TestSetupKeyPromptTimeoutClearsPendingNewSecrets(t *testing.T) {
+@@ -390,2 +393,2 @@ func TestSetupKeyPromptTimeoutClearsPendingNewSecrets(t *testing.T) {
 -				"setup-key":               "too-late",
 -				"x-netbird-activation-id": activationID,
 +				"setup-key":                  "too-late",
 +				"x-aheadscale-activation-id": activationID,
-@@ -465,2 +466,2 @@ func TestConnectCreatesMissingProfileAndUsesReturnedID(t *testing.T) {
+@@ -465,2 +468,2 @@ func TestConnectCreatesMissingProfileAndUsesReturnedID(t *testing.T) {
 -		ManagementURL: "https://api.netbird.io:443",
 -		AdminURL:      "https://app.netbird.io:443",
 +		ManagementURL: "https://aheadscale.ru:443",
 +		AdminURL:      "https://aheadscale.ru:443",
-@@ -765,0 +767,3 @@ func TestConnectWithSSOAuthEmitsActionableMessage(t *testing.T) {
+@@ -765,0 +769,3 @@ func TestConnectWithSSOAuthEmitsActionableMessage(t *testing.T) {
 +	fake.mu.Lock()
 +	fake.loginResponse = daemonclient.LoginResponse{NeedsSSOLogin: true}
 +	fake.mu.Unlock()
-@@ -793 +797 @@ func TestConnectWithSSOAuthEmitsActionableMessage(t *testing.T) {
+@@ -793 +799 @@ func TestConnectWithSSOAuthEmitsActionableMessage(t *testing.T) {
 -			require.Empty(t, fake.loginRequests)
 +			require.Len(t, fake.loginRequests, 1)
-@@ -852,5 +856,5 @@ func TestConnectInteractiveWithSSOAuthEmitsPromptHints(t *testing.T) {
+@@ -852,5 +858,5 @@ func TestConnectInteractiveWithSSOAuthEmitsPromptHints(t *testing.T) {
 -			require.Contains(t, hints, "x-netbird-sso=true")
 -			require.Contains(t, hints, "x-netbird-sso-continue")
 -			require.Contains(t, hints, "x-netbird-sso-verification-uri=https://login.netbird.io/device")
@@ -1141,26 +1145,26 @@ index d7f1bf0..b6e3456 100644
 +			require.Contains(t, hints, "x-aheadscale-sso-verification-uri=https://login.netbird.io/device")
 +			require.Contains(t, hints, "x-aheadscale-sso-verification-uri-complete=https://login.netbird.io/device?user_code=ABCD-EFGH")
 +			require.Contains(t, hints, "x-aheadscale-sso-user-code=ABCD-EFGH")
-@@ -869,2 +873,2 @@ func TestConnectInteractiveWithSSOAuthEmitsPromptHints(t *testing.T) {
+@@ -869,2 +875,2 @@ func TestConnectInteractiveWithSSOAuthEmitsPromptHints(t *testing.T) {
 -	require.Equal(t, "https://api.netbird.io:443", fake.loginRequests[0].ManagementURL)
 -	require.Equal(t, "https://app.netbird.io:443", fake.loginRequests[0].AdminURL)
 +	require.Equal(t, "https://aheadscale.ru:443", fake.loginRequests[0].ManagementURL)
 +	require.Equal(t, "https://aheadscale.ru:443", fake.loginRequests[0].AdminURL)
-@@ -911,2 +915,2 @@ func TestConnectInteractiveSSOCancelStopsActivation(t *testing.T) {
+@@ -911,2 +917,2 @@ func TestConnectInteractiveSSOCancelStopsActivation(t *testing.T) {
 -				"x-netbird-activation-id": activationID,
 -				"x-netbird-sso-cancel":    "true",
 +				"x-aheadscale-activation-id": activationID,
 +				"x-aheadscale-sso-cancel":    "true",
-@@ -1223 +1227 @@ func networkIPv4(t *testing.T, value string) uint32 {
+@@ -1223 +1229 @@ func networkIPv4(t *testing.T, value string) uint32 {
 -	return binary.BigEndian.Uint32(bytes[:])
 +	return binary.NativeEndian.Uint32(bytes[:])
-@@ -1348 +1352 @@ func activationIDFromHints(t *testing.T, hints []string) string {
+@@ -1348 +1354 @@ func activationIDFromHints(t *testing.T, hints []string) string {
 -		if ok && key == "x-netbird-activation-id" {
 +		if ok && key == "x-aheadscale-activation-id" {
-@@ -1352 +1356 @@ func activationIDFromHints(t *testing.T, hints []string) string {
+@@ -1352 +1358 @@ func activationIDFromHints(t *testing.T, hints []string) string {
 -	t.Fatalf("SecretsRequired hints do not contain x-netbird-activation-id: %#v", hints)
 +	t.Fatalf("SecretsRequired hints do not contain x-aheadscale-activation-id: %#v", hints)
-@@ -1502,4 +1506,6 @@ type fakeDaemonClient struct {
+@@ -1502,4 +1508,6 @@ type fakeDaemonClient struct {
 -	waitSSOStarted   chan struct{}
 -	waitSSORelease   chan struct{}
 -	getConfigStarted chan struct{}
@@ -1171,15 +1175,15 @@ index d7f1bf0..b6e3456 100644
 +	waitSSOCancelRelease chan struct{}
 +	getConfigStarted     chan struct{}
 +	getConfigRelease     chan struct{}
-@@ -1572,0 +1579 @@ func (f *fakeDaemonClient) WaitSSOLogin(ctx context.Context, request daemonclien
+@@ -1572,0 +1581 @@ func (f *fakeDaemonClient) WaitSSOLogin(ctx context.Context, request daemonclien
 +	f.waitSSOCalls++
-@@ -1575,0 +1583 @@ func (f *fakeDaemonClient) WaitSSOLogin(ctx context.Context, request daemonclien
+@@ -1575,0 +1585 @@ func (f *fakeDaemonClient) WaitSSOLogin(ctx context.Context, request daemonclien
 +	cleanup := f.waitSSOCancelRelease
-@@ -1584,0 +1593,3 @@ func (f *fakeDaemonClient) WaitSSOLogin(ctx context.Context, request daemonclien
+@@ -1584,0 +1595,3 @@ func (f *fakeDaemonClient) WaitSSOLogin(ctx context.Context, request daemonclien
 +			if cleanup != nil {
 +				<-cleanup
 +			}
-@@ -1732,0 +1744,239 @@ func connectTestBus(t *testing.T, address string) *dbus.Conn {
+@@ -1732,0 +1746,296 @@ func connectTestBus(t *testing.T, address string) *dbus.Conn {
 +
 +type rejectingActivationController struct {
 +	mu         sync.Mutex
@@ -1418,6 +1422,63 @@ index d7f1bf0..b6e3456 100644
 +	check(2, false)
 +	check(3, true)
 +	require.NoError(t, obj.Call(nmplugin.Interface+".Disconnect", 0).Store())
++}
++
++func TestSSOVPNConfigWaitsForNetworkManagerToAcceptNewSecrets(t *testing.T) {
++	obj, fake, conn := newTestingBusObjectWithConn(t)
++	const (
++		manager   = "org.freedesktop.NetworkManager"
++		vpn       = manager + ".VPN.Connection"
++		active    = manager + ".Connection.Active"
++		uuid      = "22222222-2222-2222-2222-222222222222"
++		path      = dbus.ObjectPath("/org/freedesktop/NetworkManager/ActiveConnection/4")
++	)
++	reply, err := conn.RequestName(manager, dbus.NameFlagDoNotQueue)
++	require.NoError(t, err)
++	require.Equal(t, dbus.RequestNameReplyPrimaryOwner, reply)
++	_, err = prop.Export(conn, "/org/freedesktop/NetworkManager", prop.Map{
++		manager: {"ActiveConnections": {Value: []dbus.ObjectPath{path}}},
++	})
++	require.NoError(t, err)
++	properties, err := prop.Export(conn, path, prop.Map{
++		active: {"Uuid": {Value: uuid}},
++		vpn:    {"VpnState": {Value: uint32(2)}},
++	})
++	require.NoError(t, err)
++	signals := watchSignals(t, conn, "SecretsRequired", "Config")
++
++	fake.mu.Lock()
++	fake.loginResponse = daemonclient.LoginResponse{NeedsSSOLogin: true, UserCode: "CODE"}
++	fake.mu.Unlock()
++	settings := setupKeyConnectionSettings(map[string]string{"auth": "sso"})
++	settings["connection"] = map[string]dbus.Variant{"uuid": dbus.MakeVariant(uuid)}
++	require.NoError(t, obj.Call(nmplugin.Interface+".ConnectInteractive", 0, settings, nmplugin.VariantMap{}).Store())
++	id := activationIDFromSecretsRequired(t, waitForSignal(t, signals, "SecretsRequired"))
++	generation, err := strconv.ParseUint(id, 10, 64)
++	require.NoError(t, err)
++	require.Eventually(t, func() bool {
++		var ready bool
++		return obj.Call(nmplugin.Interface+".SSOComplete", 0, generation).Store(&ready) == nil && ready
++	}, 700*time.Millisecond, 10*time.Millisecond, "KDE must be free to complete the current dialog before Config")
++
++	assertNoConfig := func() {
++		t.Helper()
++		select {
++		case signal := <-signals:
++			t.Fatalf("VPN configuration arrived before NetworkManager reached connect: %s", signal.Name)
++		case <-time.After(60 * time.Millisecond):
++		}
++	}
++	assertNoConfig()
++	settings["vpn"]["secrets"] = dbus.MakeVariant(map[string]string{
++		"x-aheadscale-activation-id": id,
++		"x-aheadscale-sso-continue":  "true",
++	})
++	require.NoError(t, obj.Call(nmplugin.Interface+".NewSecrets", 0, settings).Store())
++	assertNoConfig()
++	properties.SetMust(vpn, "VpnState", uint32(3))
++	waitForSignal(t, signals, "Config")
++	waitForState(t, obj, nmplugin.ServiceStateStarted)
 +}
 diff --git a/internal/nmplugin/settings.go b/internal/nmplugin/settings.go
 index ea0dba9..f315ec0 100644
