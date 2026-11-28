@@ -1244,7 +1244,7 @@ index fce6c37..8cca0db 100644
 +	s.failActivation(failure, err)
 +}
 diff --git a/internal/nmplugin/service_test.go b/internal/nmplugin/service_test.go
-index d7f1bf0..55b6d8d 100644
+index d7f1bf0..bb0f1f8 100644
 --- a/internal/nmplugin/service_test.go
 +++ b/internal/nmplugin/service_test.go
 @@ -14,0 +15 @@ import (
@@ -1366,7 +1366,7 @@ index d7f1bf0..55b6d8d 100644
 +			if cleanup != nil {
 +				<-cleanup
 +			}
-@@ -1732,0 +1758,317 @@ func connectTestBus(t *testing.T, address string) *dbus.Conn {
+@@ -1732,0 +1758,345 @@ func connectTestBus(t *testing.T, address string) *dbus.Conn {
 +
 +type rejectingActivationController struct {
 +	mu         sync.Mutex
@@ -1610,20 +1610,20 @@ index d7f1bf0..55b6d8d 100644
 +const (
 +	testVPNConnectionUUID = "22222222-2222-2222-2222-222222222222"
 +	testVPNConnectionIface = "org.freedesktop.NetworkManager.VPN.Connection"
++	testVPNActivePath      = dbus.ObjectPath("/org/freedesktop/NetworkManager/ActiveConnection/4")
 +)
 +
 +func mockVPNState(t *testing.T, conn *dbus.Conn, state uint32) *prop.Properties {
 +	t.Helper()
 +	const manager = "org.freedesktop.NetworkManager"
-+	const path = dbus.ObjectPath("/org/freedesktop/NetworkManager/ActiveConnection/4")
 +	reply, err := conn.RequestName(manager, dbus.NameFlagDoNotQueue)
 +	require.NoError(t, err)
 +	require.Equal(t, dbus.RequestNameReplyPrimaryOwner, reply)
 +	_, err = prop.Export(conn, "/org/freedesktop/NetworkManager", prop.Map{
-+		manager: {"ActiveConnections": {Value: []dbus.ObjectPath{path}}},
++		manager: {"ActiveConnections": {Value: []dbus.ObjectPath{testVPNActivePath}}},
 +	})
 +	require.NoError(t, err)
-+	properties, err := prop.Export(conn, path, prop.Map{
++	properties, err := prop.Export(conn, testVPNActivePath, prop.Map{
 +		manager + ".Connection.Active": {"Uuid": {Value: testVPNConnectionUUID}},
 +		testVPNConnectionIface:         {"VpnState": {Value: state}},
 +	})
@@ -1683,6 +1683,34 @@ index d7f1bf0..55b6d8d 100644
 +	replyToSSOPrompt(t, obj, nextID, "cancel")
 +	waitForState(t, obj, nmplugin.ServiceStateStopped)
 +	assertNoConfig()
++}
++
++func setTestVPNState(t *testing.T, conn *dbus.Conn, properties *prop.Properties, state uint32) {
++	t.Helper()
++	properties.SetMust(testVPNConnectionIface, "VpnState", state)
++	require.NoError(t, conn.Emit(testVPNActivePath, testVPNConnectionIface+".VpnStateChanged", state, uint32(0)))
++}
++
++func TestSSOVPNConfigAcceptsNetworkManagerWithoutPromptMarker(t *testing.T) {
++	obj, fake, conn := newTestingBusObjectWithConn(t)
++	properties := mockVPNState(t, conn, 3)
++	signals := watchSignals(t, conn, "SecretsRequired", "Config")
++	fake.mu.Lock()
++	fake.loginResponse = daemonclient.LoginResponse{NeedsSSOLogin: true, UserCode: "CODE"}
++	fake.mu.Unlock()
++
++	settings := setupKeyConnectionSettings(map[string]string{"auth": "sso"})
++	settings["connection"] = map[string]dbus.Variant{"uuid": dbus.MakeVariant(testVPNConnectionUUID)}
++	require.NoError(t, obj.Call(nmplugin.Interface+".ConnectInteractive", 0, settings, nmplugin.VariantMap{}).Store())
++	waitForSignal(t, signals, "SecretsRequired")
++	assertNoSignalUntil(t, signals, 60*time.Millisecond, "Config")
++	setTestVPNState(t, conn, properties, 2)
++	// The system agent completed its exchange without a private Aheadscale marker.
++	require.NoError(t, obj.Call(nmplugin.Interface+".NewSecrets", 0, settings).Store())
++	assertNoSignalUntil(t, signals, 60*time.Millisecond, "Config")
++	setTestVPNState(t, conn, properties, 3)
++	waitForSignal(t, signals, "Config")
++	waitForState(t, obj, nmplugin.ServiceStateStarted)
 +}
 diff --git a/internal/nmplugin/settings.go b/internal/nmplugin/settings.go
 index ea0dba9..f315ec0 100644
