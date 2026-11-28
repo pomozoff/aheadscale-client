@@ -1340,7 +1340,7 @@ index fce6c37..99eac5f 100644
 +	s.failActivation(failure, err)
 +}
 diff --git a/internal/nmplugin/service_test.go b/internal/nmplugin/service_test.go
-index d7f1bf0..71e7d1d 100644
+index d7f1bf0..d8fad1b 100644
 --- a/internal/nmplugin/service_test.go
 +++ b/internal/nmplugin/service_test.go
 @@ -14,0 +15 @@ import (
@@ -1472,7 +1472,7 @@ index d7f1bf0..71e7d1d 100644
 +			if cleanup != nil {
 +				<-cleanup
 +			}
-@@ -1732,0 +1766,380 @@ func connectTestBus(t *testing.T, address string) *dbus.Conn {
+@@ -1732,0 +1766,384 @@ func connectTestBus(t *testing.T, address string) *dbus.Conn {
 +
 +type rejectingActivationController struct {
 +	mu         sync.Mutex
@@ -1546,7 +1546,8 @@ index d7f1bf0..71e7d1d 100644
 +}
 +
 +func TestDisconnectWaitsForCancelledActivationCleanup(t *testing.T) {
-+	obj, fake := newTestingBusObject(t)
++	obj, fake, conn := newTestingBusObjectWithConn(t)
++	mockVPNState(t, conn, 3)
 +	started := make(chan struct{})
 +	release := make(chan struct{})
 +	cleanup := make(chan struct{})
@@ -1559,7 +1560,10 @@ index d7f1bf0..71e7d1d 100644
 +	fake.waitSSORelease = release
 +	fake.waitSSOCancelRelease = cleanup
 +	fake.mu.Unlock()
-+	settings := nmplugin.ConnectionSettings{"vpn": {"data": dbus.MakeVariant(map[string]string{"auth": "sso"})}}
++	settings := nmplugin.ConnectionSettings{
++		"connection": {"uuid": dbus.MakeVariant(testVPNConnectionUUID)},
++		"vpn":        {"data": dbus.MakeVariant(map[string]string{"auth": "sso"})},
++	}
 +	require.NoError(t, obj.Call(nmplugin.Interface+".ConnectInteractive", 0, settings, nmplugin.VariantMap{}).Err)
 +	select {
 +	case <-started:
