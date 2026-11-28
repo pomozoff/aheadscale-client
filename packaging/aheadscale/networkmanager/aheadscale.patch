@@ -781,56 +781,152 @@ index 0000000..ff975cf
 +	}
 +}
 diff --git a/internal/nmplugin/config.go b/internal/nmplugin/config.go
-index 4501be7..5e20625 100644
+index 4501be7..c64db90 100644
 --- a/internal/nmplugin/config.go
 +++ b/internal/nmplugin/config.go
 @@ -10,0 +11 @@ import (
 +	"time"
-@@ -22,0 +24,54 @@ const (
+@@ -22,0 +24,150 @@ const (
 +const (
 +	networkManagerName = "org.freedesktop.NetworkManager"
++	networkManagerPath = "/org/freedesktop/NetworkManager"
 +	vpnConnectionIface = networkManagerName + ".VPN.Connection"
-+	vpnConnectState    = uint32(3) // NM_VPN_CONNECTION_STATE_CONNECT
++	vpnStateChanged    = vpnConnectionIface + ".VpnStateChanged"
++	vpnNeedAuthState   = uint32(2)
++	vpnConnectState    = uint32(3)
++	vpnDisconnected    = uint32(6)
 +)
 +
-+func (s *Service) waitForVPNConnect(ctx context.Context, uuid string) error {
++type vpnActivationWatch struct {
++	conn    *dbus.Conn
++	uuid    string
++	owner   string
++	path    dbus.ObjectPath
++	signals chan *dbus.Signal
++	match   []dbus.MatchOption
++}
++
++func (s *Service) watchVPNActivation(ctx context.Context, uuid string) (*vpnActivationWatch, error) {
++	owner, path, err := locateVPNActivation(ctx, s.conn, uuid)
++	if err != nil {
++		return nil, err
++	}
++	watch := &vpnActivationWatch{
++		conn: s.conn, uuid: uuid, owner: owner, path: path,
++		signals: make(chan *dbus.Signal, 16),
++		match: []dbus.MatchOption{
++			dbus.WithMatchSender(owner),
++			dbus.WithMatchObjectPath(path),
++			dbus.WithMatchInterface(vpnConnectionIface),
++			dbus.WithMatchMember("VpnStateChanged"),
++		},
++	}
++	watch.conn.Signal(watch.signals)
++	if err := watch.conn.AddMatchSignalContext(ctx, watch.match...); err != nil {
++		watch.conn.RemoveSignal(watch.signals)
++		return nil, fmt.Errorf("watch NetworkManager VPN state: %w", err)
++	}
++	return watch, nil
++}
++
++func (watch *vpnActivationWatch) close() {
++	watch.conn.RemoveSignal(watch.signals)
++	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
++	defer cancel()
++	_ = watch.conn.RemoveMatchSignalContext(ctx, watch.match...)
++}
++
++func (watch *vpnActivationWatch) waitForConnect(ctx context.Context) error {
++	ticker := time.NewTicker(250 * time.Millisecond)
++	defer ticker.Stop()
++
++	// The initial CONNECT precedes SecretsRequired. Only a return from NEED_AUTH
++	// confirms NetworkManager has processed the response to this prompt.
++	needAuth := false
++	for {
++		select {
++		case <-ctx.Done():
++			return fmt.Errorf("wait for NetworkManager to accept SSO: %w", ctx.Err())
++		case <-ticker.C:
++			if err := watch.checkCurrent(ctx); err != nil {
++				return err
++			}
++		case signal := <-watch.signals:
++			if signal == nil {
++				return fmt.Errorf("NetworkManager VPN state watch closed")
++			}
++			if signal.Sender != watch.owner || signal.Path != watch.path ||
++				signal.Name != vpnStateChanged || len(signal.Body) == 0 {
++				continue
++			}
++			state, _ := signal.Body[0].(uint32)
++			if state == vpnNeedAuthState {
++				needAuth = true
++			}
++			if state >= vpnDisconnected {
++				return fmt.Errorf("NetworkManager stopped the VPN during SSO")
++			}
++			if needAuth && state == vpnConnectState {
++				return watch.checkConnecting(ctx)
++			}
++		}
++	}
++}
++
++func (watch *vpnActivationWatch) checkCurrent(ctx context.Context) error {
++	owner, path, err := locateVPNActivation(ctx, watch.conn, watch.uuid)
++	if err != nil {
++		return err
++	}
++	if owner != watch.owner || path != watch.path {
++		return fmt.Errorf("NetworkManager replaced the VPN activation during SSO")
++	}
++	return nil
++}
++
++func (watch *vpnActivationWatch) checkConnecting(ctx context.Context) error {
++	if err := watch.checkCurrent(ctx); err != nil {
++		return err
++	}
++	var state uint32
++	err := readNetworkManagerProperty(ctx, watch.conn.Object(watch.owner, watch.path), vpnConnectionIface, "VpnState", &state)
++	if err != nil {
++		return fmt.Errorf("read NetworkManager VPN state: %w", err)
++	}
++	if state != vpnConnectState {
++		return fmt.Errorf("NetworkManager VPN left the connect phase")
++	}
++	return ctx.Err()
++}
++
++func locateVPNActivation(ctx context.Context, conn *dbus.Conn, uuid string) (string, dbus.ObjectPath, error) {
 +	if uuid == "" {
-+		return fmt.Errorf("NetworkManager VPN activation has no connection UUID")
++		return "", "", fmt.Errorf("NetworkManager VPN activation has no connection UUID")
 +	}
 +	var owner string
-+	if err := s.conn.BusObject().CallWithContext(ctx, "org.freedesktop.DBus.GetNameOwner", 0, networkManagerName).Store(&owner); err != nil {
-+		return fmt.Errorf("find NetworkManager owner: %w", err)
++	if err := conn.BusObject().CallWithContext(ctx, "org.freedesktop.DBus.GetNameOwner", 0, networkManagerName).Store(&owner); err != nil {
++		return "", "", fmt.Errorf("find NetworkManager owner: %w", err)
 +	}
 +	var paths []dbus.ObjectPath
-+	manager := s.conn.Object(owner, "/org/freedesktop/NetworkManager")
++	manager := conn.Object(owner, networkManagerPath)
 +	if err := readNetworkManagerProperty(ctx, manager, networkManagerName, "ActiveConnections", &paths); err != nil {
-+		return fmt.Errorf("read NetworkManager active VPN: %w", err)
++		return "", "", fmt.Errorf("read NetworkManager active VPN: %w", err)
 +	}
++	var matched dbus.ObjectPath
 +	for _, path := range paths {
-+		connection := s.conn.Object(owner, path)
 +		var activeUUID string
-+		err := readNetworkManagerProperty(ctx, connection, networkManagerName+".Connection.Active", "Uuid", &activeUUID)
-+		if err != nil || activeUUID != uuid {
++		if err := readNetworkManagerProperty(ctx, conn.Object(owner, path), networkManagerName+".Connection.Active", "Uuid", &activeUUID); err != nil || activeUUID != uuid {
 +			continue
 +		}
-+		ticker := time.NewTicker(100 * time.Millisecond)
-+		defer ticker.Stop()
-+		for {
-+			var state uint32
-+			if err := readNetworkManagerProperty(ctx, connection, vpnConnectionIface, "VpnState", &state); err != nil {
-+				return fmt.Errorf("read NetworkManager VPN state: %w", err)
-+			}
-+			if state == vpnConnectState {
-+				return ctx.Err()
-+			}
-+			select {
-+			case <-ctx.Done():
-+				return fmt.Errorf("wait for NetworkManager to accept SSO: %w", ctx.Err())
-+			case <-ticker.C:
-+			}
++		if matched != "" {
++			return "", "", fmt.Errorf("NetworkManager has multiple active objects for the VPN profile")
 +		}
++		matched = path
 +	}
-+	return fmt.Errorf("NetworkManager VPN activation disappeared before configuration")
++	if matched == "" {
++		return "", "", fmt.Errorf("NetworkManager VPN activation disappeared before configuration")
++	}
++	return owner, matched, nil
 +}
 +
 +func readNetworkManagerProperty(ctx context.Context, object dbus.BusObject, iface, property string, target any) error {
@@ -841,7 +937,7 @@ index 4501be7..5e20625 100644
 +	return dbus.Store([]any{value.Value()}, target)
 +}
 +
-@@ -134 +189 @@ func gatewayVariantForAddr(addr netip.Addr) (dbus.Variant, bool) {
+@@ -134 +285 @@ func gatewayVariantForAddr(addr netip.Addr) (dbus.Variant, bool) {
 -		return dbus.MakeVariant(binary.BigEndian.Uint32(bytes[:])), true
 +		return dbus.MakeVariant(binary.NativeEndian.Uint32(bytes[:])), true
 diff --git a/internal/nmplugin/config_abi_test.go b/internal/nmplugin/config_abi_test.go
@@ -884,7 +980,7 @@ index ace84f8..5dc2046 100644
 +      <arg name="complete" type="b" direction="out"/>
 +    </method>
 diff --git a/internal/nmplugin/prompts.go b/internal/nmplugin/prompts.go
-index c8905d0..c9170e2 100644
+index c8905d0..330bf61 100644
 --- a/internal/nmplugin/prompts.go
 +++ b/internal/nmplugin/prompts.go
 @@ -13,2 +13,2 @@ const (
@@ -899,33 +995,24 @@ index c8905d0..c9170e2 100644
 -			return
 -		}
 -		s.prompt = nil
-@@ -44,0 +42,8 @@ func (s *Service) handleNewSecretsLocked(prompt *activationPrompt, settings acti
+@@ -44,0 +42 @@ func (s *Service) handleNewSecretsLocked(prompt *activationPrompt, settings acti
 +			s.prompt = nil
-+			return
-+		}
-+		if settings.SSOContinue && settings.PromptActivationID == formatActivationID(prompt.activationID) {
-+			select {
-+			case prompt.result <- settings:
-+			default:
-+			}
-@@ -74 +79 @@ func (s *Service) waitForSetupKeySecret(ctx context.Context, activationID uint64
+@@ -74 +72 @@ func (s *Service) waitForSetupKeySecret(ctx context.Context, activationID uint64
 -func (s *Service) startSSOPrompt(activationID uint64, response daemonclient.LoginResponse) {
 +func (s *Service) startSSOPrompt(activationID uint64, response daemonclient.LoginResponse) (*activationPrompt, error) {
-@@ -77,0 +83 @@ func (s *Service) startSSOPrompt(activationID uint64, response daemonclient.Logi
-+		result:       make(chan activationSettings, 1),
-@@ -80 +86 @@ func (s *Service) startSSOPrompt(activationID uint64, response daemonclient.Logi
+@@ -80 +78 @@ func (s *Service) startSSOPrompt(activationID uint64, response daemonclient.Logi
 -		return
 +		return nil, errPromptUnavailable
-@@ -83 +89 @@ func (s *Service) startSSOPrompt(activationID uint64, response daemonclient.Logi
+@@ -83 +81 @@ func (s *Service) startSSOPrompt(activationID uint64, response daemonclient.Logi
 -		s.logger.Printf("emit SSO SecretsRequired failed: %v", err)
 +		return nil, fmt.Errorf("emit SSO SecretsRequired: %w", err)
-@@ -84,0 +91 @@ func (s *Service) startSSOPrompt(activationID uint64, response daemonclient.Logi
+@@ -84,0 +83 @@ func (s *Service) startSSOPrompt(activationID uint64, response daemonclient.Logi
 +	return prompt, nil
-@@ -147 +154 @@ func formatSSOLoginBanner(response daemonclient.LoginResponse) string {
+@@ -147 +146 @@ func formatSSOLoginBanner(response daemonclient.LoginResponse) string {
 -	parts := []string{"NetBird SSO login required."}
 +	parts := []string{"Aheadscale SSO login required."}
 diff --git a/internal/nmplugin/service.go b/internal/nmplugin/service.go
-index fce6c37..8cca0db 100644
+index fce6c37..99eac5f 100644
 --- a/internal/nmplugin/service.go
 +++ b/internal/nmplugin/service.go
 @@ -7,0 +8,3 @@ import (
@@ -1092,66 +1179,63 @@ index fce6c37..8cca0db 100644
 +		s.failAttempt(activationAttempt, PluginFailureConnectFailed, err)
 @@ -368 +462 @@ func (s *Service) runActivation(
 -	waitedForSSO, err := s.authenticate(ctx, activationAttempt, client, settings)
-+	ssoPrompt, err := s.authenticate(ctx, activationAttempt, client, settings)
++	ssoVPN, err := s.authenticate(ctx, activationAttempt, client, settings)
 @@ -370 +464 @@ func (s *Service) runActivation(
 -		s.failActivation(PluginFailureLoginFailed, err)
 +		s.failAttempt(activationAttempt, PluginFailureLoginFailed, err)
-@@ -375 +469 @@ func (s *Service) runActivation(
+@@ -375 +469,2 @@ func (s *Service) runActivation(
 -	if waitedForSSO {
-+	if ssoPrompt != nil {
-@@ -377,0 +472,14 @@ func (s *Service) runActivation(
-+		// NetworkManager processes Config only after it handles its own
-+		// NewSecrets reply and returns to connect. A browser result alone
-+		// does not move the system VPN out of need-auth.
-+		select {
-+		case <-ssoPrompt.result:
-+		case <-ctx.Done():
-+			s.failAttempt(activationAttempt, PluginFailureConnectFailed, fmt.Errorf("wait for SSO dialog: %w", ctx.Err()))
-+			return
-+		}
-+		uuid, _ := activationAttempt.connection["connection"]["uuid"].Value().(string)
-+		if err := s.waitForVPNConnect(ctx, uuid); err != nil {
++	if ssoVPN != nil {
++		defer ssoVPN.close()
+@@ -377,0 +473,4 @@ func (s *Service) runActivation(
++		if err := ssoVPN.waitForConnect(ctx); err != nil {
 +			s.failAttempt(activationAttempt, PluginFailureConnectFailed, err)
 +			return
 +		}
-@@ -381 +489 @@ func (s *Service) runActivation(
+@@ -381 +480 @@ func (s *Service) runActivation(
 -		s.failActivation(PluginFailureConnectFailed, err)
 +		s.failAttempt(activationAttempt, PluginFailureConnectFailed, err)
-@@ -387 +495 @@ func (s *Service) runActivation(
+@@ -387 +486 @@ func (s *Service) runActivation(
 -		s.failActivation(PluginFailureConnectFailed, err)
 +		s.failAttempt(activationAttempt, PluginFailureConnectFailed, err)
-@@ -390,0 +499,6 @@ func (s *Service) runActivation(
+@@ -390,0 +490,6 @@ func (s *Service) runActivation(
 +	if s.activationController != nil {
 +		if err := s.activationController.Complete(ctx, activationAttempt.generation, "Connecting"); err != nil {
 +			s.failAttempt(activationAttempt, PluginFailureConnectFailed, err)
 +			return
 +		}
 +	}
-@@ -392 +506 @@ func (s *Service) runActivation(
+@@ -392 +497 @@ func (s *Service) runActivation(
 -		s.failActivation(classifyUpFailure(err), err)
 +		s.failAttempt(activationAttempt, classifyUpFailure(err), err)
-@@ -398 +512 @@ func (s *Service) runActivation(
+@@ -398 +503 @@ func (s *Service) runActivation(
 -		s.failActivation(PluginFailureConnectFailed, err)
 +		s.failAttempt(activationAttempt, PluginFailureConnectFailed, err)
-@@ -401,0 +516,6 @@ func (s *Service) runActivation(
+@@ -401,0 +507,12 @@ func (s *Service) runActivation(
 +	if s.activationController != nil {
 +		if err := s.activationController.Complete(ctx, activationAttempt.generation, "Connected"); err != nil {
 +			s.failAttempt(activationAttempt, PluginFailureConnectFailed, err)
 +			return
 +		}
 +	}
-@@ -403 +523 @@ func (s *Service) runActivation(
++	if ssoVPN != nil {
++		if err := ssoVPN.checkConnecting(ctx); err != nil {
++			s.failAttempt(activationAttempt, PluginFailureConnectFailed, err)
++			return
++		}
++	}
+@@ -403 +520 @@ func (s *Service) runActivation(
 -		s.failActivation(PluginFailureBadIPConfig, err)
 +		s.failAttempt(activationAttempt, PluginFailureBadIPConfig, err)
-@@ -422,0 +543,5 @@ func (s *Service) finishActivationAttempt(
+@@ -422,0 +540,5 @@ func (s *Service) finishActivationAttempt(
 +	if activationAttempt.ctx.Err() != nil && activationAttempt.generation != 0 && s.activationController != nil {
 +		cancelCtx, stop := context.WithTimeout(context.Background(), s.operationTimeout)
 +		_ = s.activationController.Cancel(cancelCtx, activationAttempt.generation)
 +		stop()
 +	}
-@@ -435 +559,0 @@ func (s *Service) finishActivationAttempt(
+@@ -435 +556,0 @@ func (s *Service) finishActivationAttempt(
 -	s.finishFailedActivation()
-@@ -438,0 +563,8 @@ func (s *Service) finishActivationAttempt(
+@@ -438,0 +560,8 @@ func (s *Service) finishActivationAttempt(
 +	// NewSecrets cancellation has no separate Disconnect RPC. Publish Stopped
 +	// after cleanup, while the old activation still owns the reservation.
 +	s.lifecycleMu.Lock()
@@ -1160,43 +1244,55 @@ index fce6c37..8cca0db 100644
 +	}
 +	s.lifecycleMu.Unlock()
 +	s.finishFailedActivation()
-@@ -495 +627 @@ func (s *Service) authenticate(
+@@ -495 +624 @@ func (s *Service) authenticate(
 -) (bool, error) {
-+) (*activationPrompt, error) {
-@@ -497 +629 @@ func (s *Service) authenticate(
++) (watch *vpnActivationWatch, returnErr error) {
+@@ -497 +626 @@ func (s *Service) authenticate(
 -		return false, nil
 +		return nil, nil
-@@ -502 +634 @@ func (s *Service) authenticate(
+@@ -502 +631 @@ func (s *Service) authenticate(
 -			return false, errMissingSetupKey
 +			return nil, errMissingSetupKey
-@@ -507 +639 @@ func (s *Service) authenticate(
+@@ -507 +636 @@ func (s *Service) authenticate(
 -			return false, err
 +			return nil, err
-@@ -513 +645 @@ func (s *Service) authenticate(
+@@ -513 +642 @@ func (s *Service) authenticate(
 -		return false, err
 +		return nil, err
-@@ -516 +648 @@ func (s *Service) authenticate(
+@@ -516 +645 @@ func (s *Service) authenticate(
 -		return false, nil
 +		return nil, nil
-@@ -519 +651,4 @@ func (s *Service) authenticate(
+@@ -519 +648,4 @@ func (s *Service) authenticate(
 -		return false, errInteractiveSSONeeded
 +		if s.activationController != nil {
 +			_ = s.activationController.Complete(ctx, activationAttempt.generation, "NeedsLogin")
 +		}
 +		return nil, errInteractiveSSONeeded
-@@ -525 +660,4 @@ func (s *Service) authenticate(
+@@ -521,0 +654,11 @@ func (s *Service) authenticate(
++	uuid, _ := activationAttempt.connection["connection"]["uuid"].Value().(string)
++	vpn, err := s.watchVPNActivation(ctx, uuid)
++	if err != nil {
++		return nil, err
++	}
++	defer func() {
++		if returnErr != nil {
++			vpn.close()
++		}
++	}()
++
+@@ -525 +668,4 @@ func (s *Service) authenticate(
 -	s.startSSOPrompt(activationAttempt.id, response)
 +	prompt, err := s.startSSOPrompt(activationAttempt.id, response)
 +	if err != nil {
 +		return nil, err
 +	}
-@@ -537 +675 @@ func (s *Service) authenticate(
+@@ -537 +683 @@ func (s *Service) authenticate(
 -			return true, fmt.Errorf("timeout waiting for SSO login: %w", err)
 +			return nil, fmt.Errorf("timeout waiting for SSO login: %w", err)
-@@ -539 +677 @@ func (s *Service) authenticate(
+@@ -539 +685 @@ func (s *Service) authenticate(
 -		return true, err
 +		return nil, err
-@@ -541 +679,10 @@ func (s *Service) authenticate(
+@@ -541 +687,10 @@ func (s *Service) authenticate(
 -	return true, nil
 +	s.lifecycleMu.Lock()
 +	defer s.lifecycleMu.Unlock()
@@ -1207,16 +1303,16 @@ index fce6c37..8cca0db 100644
 +		return nil, errPromptUnavailable
 +	}
 +	prompt.ssoReady = true
-+	return prompt, nil
-@@ -602 +749 @@ func (s *Service) reserveActivation() (context.Context, context.CancelFunc, uint
++	return vpn, nil
+@@ -602 +757 @@ func (s *Service) reserveActivation() (context.Context, context.CancelFunc, uint
 -		return nil, nil, 0, newDBusError(dbusErrorVPNAlreadyActive, "a NetBird activation is already in progress or active")
 +		return nil, nil, 0, newDBusError(dbusErrorVPNAlreadyActive, "a Aheadscale activation is already in progress or active")
-@@ -609,0 +757 @@ func (s *Service) reserveActivation() (context.Context, context.CancelFunc, uint
+@@ -609,0 +765 @@ func (s *Service) reserveActivation() (context.Context, context.CancelFunc, uint
 +	s.activationDone = make(chan struct{})
-@@ -816,0 +965,2 @@ func (s *Service) failActiveSessionAfterStatusThreshold(sessionID uint64, consec
+@@ -816,0 +973,2 @@ func (s *Service) failActiveSessionAfterStatusThreshold(sessionID uint64, consec
 +	generation := s.brokerGeneration
 +	s.brokerGeneration = 0
-@@ -826 +976,6 @@ func (s *Service) failActiveSessionAfterStatusThreshold(sessionID uint64, consec
+@@ -826 +984,6 @@ func (s *Service) failActiveSessionAfterStatusThreshold(sessionID uint64, consec
 -	s.logger.Printf("netbird status poll failed %d consecutive times; failing active session", consecutiveFailures)
 +	if s.activationController != nil && generation != 0 {
 +		ctx, cancel := context.WithTimeout(context.Background(), s.operationTimeout)
@@ -1224,7 +1320,7 @@ index fce6c37..8cca0db 100644
 +		cancel()
 +	}
 +	s.logger.Printf("Aheadscale status poll failed %d consecutive times; failing active session", consecutiveFailures)
-@@ -847,0 +1003,18 @@ func (s *Service) failActivation(failure PluginFailure, err error) {
+@@ -847,0 +1011,18 @@ func (s *Service) failActivation(failure PluginFailure, err error) {
 +
 +func obsoleteNativeLease(err error) bool {
 +	for _, detail := range status.Convert(err).Details() {
@@ -1244,7 +1340,7 @@ index fce6c37..8cca0db 100644
 +	s.failActivation(failure, err)
 +}
 diff --git a/internal/nmplugin/service_test.go b/internal/nmplugin/service_test.go
-index d7f1bf0..bb0f1f8 100644
+index d7f1bf0..71e7d1d 100644
 --- a/internal/nmplugin/service_test.go
 +++ b/internal/nmplugin/service_test.go
 @@ -14,0 +15 @@ import (
@@ -1291,7 +1387,7 @@ index d7f1bf0..bb0f1f8 100644
 -			require.Empty(t, fake.loginRequests)
 +			require.Len(t, fake.loginRequests, 1)
 @@ -805,0 +812 @@ func TestConnectInteractiveWithSSOAuthEmitsPromptHints(t *testing.T) {
-+	mockVPNState(t, clientConn, 3)
++	properties := mockVPNState(t, clientConn, 3)
 @@ -839,0 +847 @@ func TestConnectInteractiveWithSSOAuthEmitsPromptHints(t *testing.T) {
 +	var activationID string
 @@ -852,6 +860,7 @@ func TestConnectInteractiveWithSSOAuthEmitsPromptHints(t *testing.T) {
@@ -1308,46 +1404,56 @@ index d7f1bf0..bb0f1f8 100644
 +			require.Contains(t, hints, "x-aheadscale-sso-user-code=ABCD-EFGH")
 +			activationID = activationIDFromHints(t, hints)
 +			require.NotEmpty(t, activationID)
-@@ -869,2 +878,3 @@ func TestConnectInteractiveWithSSOAuthEmitsPromptHints(t *testing.T) {
+@@ -869,2 +878,5 @@ func TestConnectInteractiveWithSSOAuthEmitsPromptHints(t *testing.T) {
 -	require.Equal(t, "https://api.netbird.io:443", fake.loginRequests[0].ManagementURL)
 -	require.Equal(t, "https://app.netbird.io:443", fake.loginRequests[0].AdminURL)
 +	require.Equal(t, "https://aheadscale.ru:443", fake.loginRequests[0].ManagementURL)
 +	require.Equal(t, "https://aheadscale.ru:443", fake.loginRequests[0].AdminURL)
++	setTestVPNState(t, clientConn, properties, 2)
 +	replyToSSOPrompt(t, obj, activationID, "continue")
-@@ -911,2 +921,2 @@ func TestConnectInteractiveSSOCancelStopsActivation(t *testing.T) {
++	setTestVPNState(t, clientConn, properties, 3)
+@@ -877,0 +890 @@ func TestConnectInteractiveSSOCancelStopsActivation(t *testing.T) {
++	mockVPNState(t, clientConn, 3)
+@@ -893,0 +907 @@ func TestConnectInteractiveSSOCancelStopsActivation(t *testing.T) {
++		"connection": {"uuid": dbus.MakeVariant(testVPNConnectionUUID)},
+@@ -911,2 +925,2 @@ func TestConnectInteractiveSSOCancelStopsActivation(t *testing.T) {
 -				"x-netbird-activation-id": activationID,
 -				"x-netbird-sso-cancel":    "true",
 +				"x-aheadscale-activation-id": activationID,
 +				"x-aheadscale-sso-cancel":    "true",
-@@ -970 +980 @@ func TestConnectInteractiveWaitsPastActivationTimeoutForSSO(t *testing.T) {
+@@ -970 +984 @@ func TestConnectInteractiveWaitsPastActivationTimeoutForSSO(t *testing.T) {
 -	obj, fake, _ := newTestingBusObjectWithServiceOptions(t, func(options *nmplugin.ServiceOptions) {
 +	obj, fake, conn := newTestingBusObjectWithServiceOptions(t, func(options *nmplugin.ServiceOptions) {
-@@ -973,0 +984,2 @@ func TestConnectInteractiveWaitsPastActivationTimeoutForSSO(t *testing.T) {
-+	mockVPNState(t, conn, 3)
+@@ -973,0 +988,2 @@ func TestConnectInteractiveWaitsPastActivationTimeoutForSSO(t *testing.T) {
++	properties := mockVPNState(t, conn, 3)
 +	signals := watchSignals(t, conn, "SecretsRequired")
-@@ -989,0 +1002 @@ func TestConnectInteractiveWaitsPastActivationTimeoutForSSO(t *testing.T) {
+@@ -989,0 +1006 @@ func TestConnectInteractiveWaitsPastActivationTimeoutForSSO(t *testing.T) {
 +		"connection": {"uuid": dbus.MakeVariant(testVPNConnectionUUID)},
-@@ -1005,0 +1019 @@ func TestConnectInteractiveWaitsPastActivationTimeoutForSSO(t *testing.T) {
+@@ -1005,0 +1023,3 @@ func TestConnectInteractiveWaitsPastActivationTimeoutForSSO(t *testing.T) {
++	setTestVPNState(t, conn, properties, 2)
 +	replyToSSOPrompt(t, obj, activationIDFromSecretsRequired(t, waitForSignal(t, signals, "SecretsRequired")), "continue")
-@@ -1011 +1025,3 @@ func TestConnectInteractiveReturnsBeforeSSOWaitCompletes(t *testing.T) {
++	setTestVPNState(t, conn, properties, 3)
+@@ -1011 +1031,3 @@ func TestConnectInteractiveReturnsBeforeSSOWaitCompletes(t *testing.T) {
 -	obj, fake := newTestingBusObject(t)
 +	obj, fake, conn := newTestingBusObjectWithConn(t)
-+	mockVPNState(t, conn, 3)
++	properties := mockVPNState(t, conn, 3)
 +	signals := watchSignals(t, conn, "SecretsRequired")
-@@ -1027,0 +1044 @@ func TestConnectInteractiveReturnsBeforeSSOWaitCompletes(t *testing.T) {
+@@ -1027,0 +1050 @@ func TestConnectInteractiveReturnsBeforeSSOWaitCompletes(t *testing.T) {
 +		"connection": {"uuid": dbus.MakeVariant(testVPNConnectionUUID)},
-@@ -1054,0 +1072 @@ func TestConnectInteractiveReturnsBeforeSSOWaitCompletes(t *testing.T) {
+@@ -1054,0 +1078,3 @@ func TestConnectInteractiveReturnsBeforeSSOWaitCompletes(t *testing.T) {
++	setTestVPNState(t, conn, properties, 2)
 +	replyToSSOPrompt(t, obj, activationIDFromSecretsRequired(t, waitForSignal(t, signals, "SecretsRequired")), "continue")
-@@ -1223 +1241 @@ func networkIPv4(t *testing.T, value string) uint32 {
++	setTestVPNState(t, conn, properties, 3)
+@@ -1223 +1249 @@ func networkIPv4(t *testing.T, value string) uint32 {
 -	return binary.BigEndian.Uint32(bytes[:])
 +	return binary.NativeEndian.Uint32(bytes[:])
-@@ -1348 +1366 @@ func activationIDFromHints(t *testing.T, hints []string) string {
+@@ -1348 +1374 @@ func activationIDFromHints(t *testing.T, hints []string) string {
 -		if ok && key == "x-netbird-activation-id" {
 +		if ok && key == "x-aheadscale-activation-id" {
-@@ -1352 +1370 @@ func activationIDFromHints(t *testing.T, hints []string) string {
+@@ -1352 +1378 @@ func activationIDFromHints(t *testing.T, hints []string) string {
 -	t.Fatalf("SecretsRequired hints do not contain x-netbird-activation-id: %#v", hints)
 +	t.Fatalf("SecretsRequired hints do not contain x-aheadscale-activation-id: %#v", hints)
-@@ -1502,4 +1520,6 @@ type fakeDaemonClient struct {
+@@ -1502,4 +1528,6 @@ type fakeDaemonClient struct {
 -	waitSSOStarted   chan struct{}
 -	waitSSORelease   chan struct{}
 -	getConfigStarted chan struct{}
@@ -1358,15 +1464,15 @@ index d7f1bf0..bb0f1f8 100644
 +	waitSSOCancelRelease chan struct{}
 +	getConfigStarted     chan struct{}
 +	getConfigRelease     chan struct{}
-@@ -1572,0 +1593 @@ func (f *fakeDaemonClient) WaitSSOLogin(ctx context.Context, request daemonclien
+@@ -1572,0 +1601 @@ func (f *fakeDaemonClient) WaitSSOLogin(ctx context.Context, request daemonclien
 +	f.waitSSOCalls++
-@@ -1575,0 +1597 @@ func (f *fakeDaemonClient) WaitSSOLogin(ctx context.Context, request daemonclien
+@@ -1575,0 +1605 @@ func (f *fakeDaemonClient) WaitSSOLogin(ctx context.Context, request daemonclien
 +	cleanup := f.waitSSOCancelRelease
-@@ -1584,0 +1607,3 @@ func (f *fakeDaemonClient) WaitSSOLogin(ctx context.Context, request daemonclien
+@@ -1584,0 +1615,3 @@ func (f *fakeDaemonClient) WaitSSOLogin(ctx context.Context, request daemonclien
 +			if cleanup != nil {
 +				<-cleanup
 +			}
-@@ -1732,0 +1758,345 @@ func connectTestBus(t *testing.T, address string) *dbus.Conn {
+@@ -1732,0 +1766,380 @@ func connectTestBus(t *testing.T, address string) *dbus.Conn {
 +
 +type rejectingActivationController struct {
 +	mu         sync.Mutex
@@ -1642,7 +1748,7 @@ index d7f1bf0..bb0f1f8 100644
 +
 +func TestSSOVPNConfigWaitsForNetworkManagerToAcceptNewSecrets(t *testing.T) {
 +	obj, fake, conn := newTestingBusObjectWithConn(t)
-+	properties := mockVPNState(t, conn, 2)
++	properties := mockVPNState(t, conn, 3)
 +	signals := watchSignals(t, conn, "SecretsRequired", "Config")
 +
 +	fake.mu.Lock()
@@ -1668,9 +1774,10 @@ index d7f1bf0..bb0f1f8 100644
 +		}
 +	}
 +	assertNoConfig()
++	setTestVPNState(t, conn, properties, 2)
 +	replyToSSOPrompt(t, obj, id, "continue")
 +	assertNoConfig()
-+	properties.SetMust(testVPNConnectionIface, "VpnState", uint32(3))
++	setTestVPNState(t, conn, properties, 3)
 +	waitForSignal(t, signals, "Config")
 +	waitForState(t, obj, nmplugin.ServiceStateStarted)
 +	require.NoError(t, obj.Call(nmplugin.Interface+".Disconnect", 0).Store())
@@ -1711,6 +1818,40 @@ index d7f1bf0..bb0f1f8 100644
 +	setTestVPNState(t, conn, properties, 3)
 +	waitForSignal(t, signals, "Config")
 +	waitForState(t, obj, nmplugin.ServiceStateStarted)
++}
++
++func TestSSOVPNConfigRejectsReplacementActivation(t *testing.T) {
++	obj, fake, conn := newTestingBusObjectWithConn(t)
++	properties := mockVPNState(t, conn, 3)
++	signals := watchSignals(t, conn, "SecretsRequired", "Config", "Failure")
++	fake.mu.Lock()
++	fake.loginResponse = daemonclient.LoginResponse{NeedsSSOLogin: true, UserCode: "CODE"}
++	fake.mu.Unlock()
++
++	settings := setupKeyConnectionSettings(map[string]string{"auth": "sso"})
++	settings["connection"] = map[string]dbus.Variant{"uuid": dbus.MakeVariant(testVPNConnectionUUID)}
++	require.NoError(t, obj.Call(nmplugin.Interface+".ConnectInteractive", 0, settings, nmplugin.VariantMap{}).Store())
++	waitForSignal(t, signals, "SecretsRequired")
++	setTestVPNState(t, conn, properties, 2)
++
++	const manager = "org.freedesktop.NetworkManager"
++	replacement := dbus.ObjectPath("/org/freedesktop/NetworkManager/ActiveConnection/5")
++	_, err := prop.Export(conn, replacement, prop.Map{
++		manager + ".Connection.Active": {"Uuid": {Value: testVPNConnectionUUID}},
++		testVPNConnectionIface:         {"VpnState": {Value: uint32(3)}},
++	})
++	require.NoError(t, err)
++	_, err = prop.Export(conn, "/org/freedesktop/NetworkManager", prop.Map{
++		manager: {"ActiveConnections": {Value: []dbus.ObjectPath{replacement}}},
++	})
++	require.NoError(t, err)
++	setTestVPNState(t, conn, properties, 3)
++
++	result := waitForSignal(t, signals, "Failure", "Config")
++	require.Equal(t, nmplugin.Interface+".Failure", result.Name)
++	fake.mu.Lock()
++	defer fake.mu.Unlock()
++	require.Empty(t, fake.upRequests)
 +}
 diff --git a/internal/nmplugin/settings.go b/internal/nmplugin/settings.go
 index ea0dba9..f315ec0 100644
